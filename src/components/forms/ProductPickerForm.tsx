@@ -50,84 +50,176 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const [showPanelResults, setShowPanelResults] = useState(false);
   const [showBatteryResults, setShowBatteryResults] = useState(false);
 
-  // Filter panels for search - Enhanced to handle model numbers and partial matches
+  // Enhanced search function for panels with multiple search strategies
   const filteredPanels = useMemo(() => {
     if (!panelSearch.trim()) return [];
+    
     const searchTerm = panelSearch.toLowerCase().trim();
-    console.log('🔍 Searching panels for:', searchTerm, 'in', panels.length, 'total panels');
+    console.log(`🔍 PANEL SEARCH: "${searchTerm}" in ${panels.length} total panels`);
     
     if (panels.length === 0) {
       console.log('⚠️ No panels loaded yet');
       return [];
     }
     
+    // Advanced multi-strategy search
     const results = panels.filter(panel => {
       if (!panel) return false;
       
-      // Normalize strings and handle null/undefined cases
       const brand = (panel.brand || '').toLowerCase();
       const model = (panel.model || '').toLowerCase();
       const tech = (panel.technology || '').toLowerCase();
+      const desc = (panel.description || '').toLowerCase();
+      const powerRating = (panel.power_rating || '').toString();
       
-      // Enhanced search logic for better matching
-      const brandMatch = brand.includes(searchTerm);
-      const modelMatch = model.includes(searchTerm);
-      const techMatch = tech.includes(searchTerm);
+      // Create comprehensive searchable text
+      const fullText = `${brand} ${model} ${tech} ${desc} ${powerRating}`.toLowerCase();
       
-      // Special handling for common search patterns
-      const combinedText = `${brand} ${model}`.toLowerCase();
-      const combinedMatch = combinedText.includes(searchTerm);
+      // Multiple search strategies - return true if ANY match
+      const strategies = [
+        // 1. Exact brand match
+        brand === searchTerm,
+        
+        // 2. Exact model match
+        model === searchTerm,
+        
+        // 3. Brand contains search term
+        brand.includes(searchTerm),
+        
+        // 4. Model contains search term
+        model.includes(searchTerm),
+        
+        // 5. Full text contains search term
+        fullText.includes(searchTerm),
+        
+        // 6. Multi-word search (e.g., "jinko 440")
+        searchTerm.includes(' ') && (() => {
+          const words = searchTerm.split(' ').filter(w => w.length > 0);
+          return words.every(word => fullText.includes(word));
+        })(),
+        
+        // 7. Power rating match (handle "440", "440w", etc.)
+        (() => {
+          const numericSearch = searchTerm.replace(/[^\d]/g, ''); // Extract numbers only
+          return numericSearch && powerRating.includes(numericSearch);
+        })(),
+        
+        // 8. Technology match
+        tech.includes(searchTerm),
+        
+        // 9. Special brand shortcuts
+        (searchTerm === 'trina' && brand.includes('trina')),
+        (searchTerm === 'jinko' && brand.includes('jinko')),
+        (searchTerm === 'canadian' && brand.includes('canadian')),
+        (searchTerm === 'lg' && brand.includes('lg')),
+        (searchTerm === 'rec' && brand.includes('rec')),
+        (searchTerm === 'sunpower' && brand.includes('sunpower')),
+      ];
       
-      // Handle power rating searches (e.g., "440", "440w")
-      const powerSearch = searchTerm.replace(/[w]/g, ''); // Remove 'w' from search
-      const powerRating = panel.power_rating?.toString() || '';
-      const powerMatch = powerRating.includes(powerSearch);
+      return strategies.some(Boolean);
+    });
+    
+    // Sort results by relevance (exact matches first)
+    const sortedResults = results.sort((a, b) => {
+      const aBrand = (a.brand || '').toLowerCase();
+      const aModel = (a.model || '').toLowerCase();
+      const bBrand = (b.brand || '').toLowerCase();
+      const bModel = (b.model || '').toLowerCase();
       
-      return brandMatch || modelMatch || techMatch || combinedMatch || powerMatch;
+      // Prioritize exact brand matches
+      if (aBrand === searchTerm && bBrand !== searchTerm) return -1;
+      if (bBrand === searchTerm && aBrand !== searchTerm) return 1;
+      
+      // Then exact model matches
+      if (aModel === searchTerm && bModel !== searchTerm) return -1;
+      if (bModel === searchTerm && aModel !== searchTerm) return 1;
+      
+      // Then brand starts with search term
+      if (aBrand.startsWith(searchTerm) && !bBrand.startsWith(searchTerm)) return -1;
+      if (bBrand.startsWith(searchTerm) && !aBrand.startsWith(searchTerm)) return 1;
+      
+      return 0;
     }).slice(0, 100); // Show top 100 matches
     
-    console.log(`✅ Found ${results.length} panels matching "${searchTerm}"`);
+    console.log(`✅ PANEL SEARCH RESULTS: ${sortedResults.length} matches for "${searchTerm}"`);
     
-    // Enhanced debug for Trina
+    // Enhanced debugging for specific searches
     if (searchTerm.includes('trina')) {
-      const allTrinaPanels = panels.filter(p => p?.brand?.toLowerCase().includes('trina'));
-      console.log('🏭 All Trina panels in database:', allTrinaPanels.length);
-      if (allTrinaPanels.length > 0) {
-        console.log('🏭 Sample Trina panels:', allTrinaPanels.slice(0, 3).map(p => ({
-          id: p.id,
-          brand: p.brand,
-          model: p.model,
-          power: p.power_rating
-        })));
-      }
-      const trinaInResults = results.filter(p => p?.brand?.toLowerCase().includes('trina'));
-      console.log('🎯 Trina matches in filtered results:', trinaInResults.length);
+      const trinaCount = sortedResults.filter(p => p.brand?.toLowerCase().includes('trina')).length;
+      console.log(`🏭 Trina Solar results: ${trinaCount}`);
     }
     
-    // Enhanced debug for Jinko searches
     if (searchTerm.includes('jinko')) {
-      const jinkoResults = results.filter(p => p?.brand?.toLowerCase().includes('jinko'));
-      console.log('🏭 Jinko panels in results:', jinkoResults.length);
+      const jinkoCount = sortedResults.filter(p => p.brand?.toLowerCase().includes('jinko')).length;
+      console.log(`🏭 Jinko Solar results: ${jinkoCount}`);
+      
       if (searchTerm.includes('440')) {
-        const jinko440 = results.filter(p => 
-          p?.brand?.toLowerCase().includes('jinko') && 
-          (p?.model?.toLowerCase().includes('440') || p?.power_rating?.toString().includes('440'))
+        const jinko440 = sortedResults.filter(p => 
+          p.brand?.toLowerCase().includes('jinko') && 
+          (p.model?.toLowerCase().includes('440') || p.power_rating?.toString().includes('440'))
         );
-        console.log('🎯 Jinko 440W panels found:', jinko440.length, jinko440.slice(0, 3));
-      }
+        console.log(`🎯 Jinko 440W specific matches: ${jinko440.length}`);
+      }    
     }
     
-    return results;
+    return sortedResults;
   }, [panels, panelSearch]);
 
-  // Filter batteries for search  
+  // Enhanced battery search with better matching
   const filteredBatteries = useMemo(() => {
     if (!batterySearch.trim()) return [];
-    return batteries.filter(battery =>
-      battery.brand.toLowerCase().includes(batterySearch.toLowerCase()) ||
-      battery.model.toLowerCase().includes(batterySearch.toLowerCase()) ||
-      battery.chemistry?.toLowerCase().includes(batterySearch.toLowerCase())
-    ).slice(0, 100); // Show top 100 matches
+    
+    const searchTerm = batterySearch.toLowerCase().trim();
+    console.log(`🔍 BATTERY SEARCH: "${searchTerm}" in ${batteries.length} total batteries`);
+    
+    const results = batteries.filter(battery => {
+      if (!battery) return false;
+      
+      const brand = (battery.brand || '').toLowerCase();
+      const model = (battery.model || '').toLowerCase();
+      const chemistry = (battery.chemistry || '').toLowerCase();
+      const desc = (battery.description || '').toLowerCase();
+      const capacity = (battery.capacity_kwh || '').toString();
+      
+      // Create comprehensive searchable text
+      const fullText = `${brand} ${model} ${chemistry} ${desc} ${capacity}`.toLowerCase();
+      
+      // Multiple search strategies
+      const strategies = [
+        // Exact matches
+        brand === searchTerm,
+        model === searchTerm,
+        
+        // Partial matches
+        brand.includes(searchTerm),
+        model.includes(searchTerm),
+        chemistry.includes(searchTerm),
+        fullText.includes(searchTerm),
+        
+        // Multi-word search
+        searchTerm.includes(' ') && (() => {
+          const words = searchTerm.split(' ').filter(w => w.length > 0);
+          return words.every(word => fullText.includes(word));
+        })(),
+        
+        // Capacity search (handle "13.5", "13.5kwh", etc.)
+        (() => {
+          const numericSearch = searchTerm.replace(/[^\d.]/g, '');
+          return numericSearch && capacity.includes(numericSearch);
+        })(),
+        
+        // Brand shortcuts
+        (searchTerm === 'tesla' && brand.includes('tesla')),
+        (searchTerm === 'lg' && brand.includes('lg')),
+        (searchTerm === 'byd' && brand.includes('byd')),
+        (searchTerm === 'sungrow' && brand.includes('sungrow')),
+      ];
+      
+      return strategies.some(Boolean);
+    }).slice(0, 100); // Show top 100 matches
+    
+    console.log(`✅ BATTERY SEARCH RESULTS: ${results.length} matches for "${searchTerm}"`);
+    return results;
   }, [batteries, batterySearch]);
 
   const selectedPanel = formData.panelId ? panels.find(p => p.id === parseInt(formData.panelId)) : undefined;

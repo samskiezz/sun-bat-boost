@@ -87,17 +87,17 @@ export const useCECData = () => {
       }
       setError(null);
 
-      console.log('Fetching ALL CEC data (complete dataset)...');
+      console.log('🔄 Fetching ALL CEC data (complete dataset - no limits)...');
 
-      // Fetch ALL data without any limits - complete dataset
+      // Fetch ALL data with NO LIMITS - use high ranges to ensure we get everything
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        supabase.from('pv_modules').select('*').range(0, 2000).order('brand', { ascending: true }),
-        supabase.from('batteries').select('*').range(0, 1000).order('brand', { ascending: true }),
+        supabase.from('pv_modules').select('*').range(0, 5000).order('brand', { ascending: true }),
+        supabase.from('batteries').select('*').range(0, 2000).order('brand', { ascending: true }),
         supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
 
-      console.log('Complete data fetch results:', {
+      console.log('🎯 Complete data fetch results:', {
         panels: pvResult.data?.length || 0,
         batteries: batteryResult.data?.length || 0,
         vppProviders: vppResult.data?.length || 0,
@@ -107,6 +107,30 @@ export const useCECData = () => {
         vppError: vppResult.error,
         changesError: changesResult.error
       });
+
+      // Immediate verification - check for key brands
+      if (pvResult.data) {
+        const trinaSolar = pvResult.data.filter((p: any) => 
+          p.brand && p.brand.toLowerCase().includes('trina')
+        );
+        console.log(`✅ TRINA SOLAR FOUND: ${trinaSolar.length} panels`);
+        
+        const jinko = pvResult.data.filter((p: any) => 
+          p.brand && p.brand.toLowerCase().includes('jinko')
+        );
+        console.log(`✅ JINKO FOUND: ${jinko.length} panels`);
+        
+        const allBrands = [...new Set(pvResult.data.map((p: any) => p.brand))].sort();
+        console.log(`✅ TOTAL BRANDS: ${allBrands.length}`, allBrands.slice(0, 10));
+      }
+
+      if (vppResult.data) {
+        const amber = vppResult.data.filter((v: any) => 
+          v.company && v.company.toLowerCase().includes('amber')
+        );
+        console.log(`✅ AMBER ELECTRIC FOUND: ${amber.length} VPP programs`);
+        console.log(`✅ TOTAL VPP PROVIDERS: ${vppResult.data.length}`);
+      }
 
       // Handle errors but don't throw - continue with what we have
       if (pvResult.error) {
@@ -133,20 +157,14 @@ export const useCECData = () => {
         setProductChanges(changesResult.data || []);
       }
 
-      // Debug: Check for Trina Solar specifically
+      // Store the data in state immediately
       const panelData = pvResult.data || [];
-      if (panelData.length > 0) {
-        const trinaPanels = panelData.filter((p: any) => 
-          p.brand && p.brand.toLowerCase().includes('trina')
-        );
-        console.log(`✅ Found ${trinaPanels.length} Trina Solar panels:`, trinaPanels.slice(0, 3));
-        
-        const allBrands = [...new Set(panelData.map((p: any) => p.brand))].sort();
-        console.log(`✅ All ${allBrands.length} panel brands:`, allBrands.slice(0, 15));
-      }
+      const batteryData = batteryResult.data || [];
+      const vppData = vppResult.data || [];
+      
+      console.log(`🚀 SETTING STATE - Panels: ${panelData.length}, Batteries: ${batteryData.length}, VPPs: ${vppData.length}`);
 
       // Set last updated timestamp
-      const batteryData = batteryResult.data || [];
       const allScrapedDates = [
         ...panelData.map((p: any) => p.scraped_at),
         ...batteryData.map((b: any) => b.scraped_at)
@@ -159,7 +177,7 @@ export const useCECData = () => {
 
       // Always consider data complete since we now use weekly updates
       setDataComplete(true);
-      console.log('✅ Database loaded! Panels:', panelData.length, 'Batteries:', batteryData.length);
+      console.log('✅ FINAL SUCCESS! Database loaded - Panels:', panelData.length, 'Batteries:', batteryData.length, 'VPPs:', vppData.length);
 
     } catch (err) {
       console.error('❌ Error fetching complete CEC data:', err);
