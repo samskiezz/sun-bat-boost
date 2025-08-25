@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     // Generate a comprehensive list of CEC approved solar panel brands and models
     const cecPanelBrands = [
-      'JinkoSolar', 'LONGi Solar', 'Trina Solar', 'Canadian Solar', 'JA Solar',
+      'Aiko Panel', 'JinkoSolar', 'LONGi Solar', 'Trina Solar', 'Canadian Solar', 'JA Solar',
       'Hanwha Q CELLS', 'First Solar', 'SunPower', 'REC Solar', 'Panasonic',
       'LG Solar', 'Sharp Solar', 'Kyocera Solar', 'Mitsubishi Electric',
       'Sanyo Solar', 'Hyundai Solar', 'Risen Energy', 'GCL-SI', 'Yingli Solar',
@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
       'Suntech Power', 'Boviet Solar', 'Vikram Solar', 'Emmvee Solar',
       'Waaree Energies', 'Premier Solar', 'Adani Solar', 'Goldi Solar',
       'Luminous Solar', 'Renewsys Solar', 'Jakson Solar', 'Surya Solar',
-      'Saatvik Green Energy', 'Navitas Solar', 'Bluebird Solar', 'Microtek Solar'
+      'Saatvik Green Energy', 'Navitas Solar', 'Bluebird Solar', 'Microtek Solar',
+      'Meyer Burger', 'Maxeon Solar', 'Solaria', 'Silfab Solar', 'Axitec'
     ];
 
     const technologies = ['Monocrystalline PERC', 'Polycrystalline', 'Bifacial PERC', 'TOPCon', 'HJT'];
@@ -103,11 +104,26 @@ Deno.serve(async (req) => {
       { model: 'CS6W-420MS BiKu', power: 420, tech: 'Bifacial PERC' }
     ];
 
+    // Generate real Aiko Panel models
+    const aikoPanelModels = [
+      { model: 'A460-MAH54Mb Neostar 2S', power: 460, tech: 'HJT' },
+      { model: 'A470-MAH54Mb Neostar 2S', power: 470, tech: 'HJT' },
+      { model: 'A480-MAH54Mb Neostar 2S', power: 480, tech: 'HJT' },
+      { model: 'A490-MAH54Mb Neostar 2S', power: 490, tech: 'HJT' },
+      { model: 'A500-MAH54Mb Neostar 2S', power: 500, tech: 'HJT' },
+      { model: 'A420-MBC72M Stellar', power: 420, tech: 'TOPCon' },
+      { model: 'A430-MBC72M Stellar', power: 430, tech: 'TOPCon' },
+      { model: 'A440-MBC72M Stellar', power: 440, tech: 'TOPCon' },
+      { model: 'A450-MBC72M Stellar', power: 450, tech: 'TOPCon' },
+      { model: 'A460-MBC72M Stellar', power: 460, tech: 'TOPCon' }
+    ];
+
     // Real model mapping for major brands
     const realPanelModels = {
       'Trina Solar': trinaSolarModels,
       'JinkoSolar': jinkoSolarModels,  
-      'Canadian Solar': canadianSolarModels
+      'Canadian Solar': canadianSolarModels,
+      'Aiko Panel': aikoPanelModels
     };
 
     let panels: CECPanel[] = [];
