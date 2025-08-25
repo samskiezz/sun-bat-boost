@@ -13,28 +13,6 @@ interface ProductPickerFormProps {
   onSubmit: (data: any) => void;
 }
 
-// Mock CEC-approved products
-const cecPanels = [
-  { id: "1", make: "Canadian Solar", model: "CS3K-300MS", watts: 300, approved: true },
-  { id: "2", make: "JinkoSolar", model: "JKM400M-72H", watts: 400, approved: true },
-  { id: "3", make: "Trina Solar", model: "TSM-DE06M.08", watts: 315, approved: true },
-  { id: "4", make: "LONGi Solar", model: "LR4-60HPH-350M", watts: 350, approved: true }
-];
-
-const cecInverters = [
-  { id: "1", make: "Fronius", model: "Primo 5.0-1", kw: 5.0, approved: true },
-  { id: "2", make: "SolarEdge", model: "SE5000H", kw: 5.0, approved: true },
-  { id: "3", make: "Huawei", model: "SUN2000-5KTL-M1", kw: 5.0, approved: true },
-  { id: "4", make: "Sungrow", model: "SG5.0RS", kw: 5.0, approved: true }
-];
-
-const cecBatteries = [
-  { id: "1", make: "Tesla", model: "Powerwall 2", kwh: 13.5, approved: true },
-  { id: "2", make: "Enphase", model: "IQ Battery 10", kwh: 10.08, approved: true },
-  { id: "3", make: "Alpha ESS", model: "SMILE-B3", kwh: 10.1, approved: true },
-  { id: "4", make: "BYD", model: "Battery-Box Premium HVS", kwh: 12.8, approved: true }
-];
-
 export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const { panels, batteries, inverters, vppProviders, loading, getCompatibleVPPs } = useCECData();
   const { toast } = useToast();
