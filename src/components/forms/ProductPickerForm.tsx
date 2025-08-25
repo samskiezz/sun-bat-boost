@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Zap, Battery, MapPin, Calendar, Check } from "lucide-react";
+import { Search, Zap, Battery, MapPin, Calendar, Check, RefreshCw } from "lucide-react";
 import { useCECData } from "@/hooks/useCECData";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,7 +14,7 @@ interface ProductPickerFormProps {
 }
 
 export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
-  const { panels, batteries, inverters, vppProviders, loading, getCompatibleVPPs } = useCECData();
+  const { panels, batteries, inverters, vppProviders, loading, getCompatibleVPPs, refreshData } = useCECData();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     postcode: "",
@@ -118,15 +118,46 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </div>
           </div>
 
-          {/* Debug info */}
-          <div className="text-xs text-muted-foreground mb-4 p-2 bg-black/10 rounded">
+          {/* Debug info with refresh */}
+          <div className="text-xs text-muted-foreground mb-4 p-2 bg-black/10 rounded flex items-center justify-between">
             {loading ? (
               <span>Loading CEC data...</span>
             ) : (
               <span>
                 Loaded: {panels.length} panels, {batteries.length} batteries, {inverters.length} inverters, {vppProviders.length} VPPs
+                {(panels.length < 50 || batteries.length < 50) && (
+                  <span className="text-yellow-600 ml-2">⚠️ Limited data - click refresh to load full CEC database</span>
+                )}
               </span>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                toast({
+                  title: "Refreshing CEC Data",
+                  description: "Loading hundreds of CEC-approved products..."
+                });
+                try {
+                  await refreshData();
+                  toast({
+                    title: "CEC Data Updated",
+                    description: "Successfully loaded latest CEC products"
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Refresh Failed",
+                    description: "Could not update CEC data",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              className="ml-2"
+            >
+              <RefreshCw className="w-3 h-3 mr-1" />
+              Refresh
+            </Button>
           </div>
 
           {/* Solar Panels */}

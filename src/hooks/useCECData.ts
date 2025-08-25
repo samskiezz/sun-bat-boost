@@ -125,14 +125,20 @@ export const useCECData = () => {
 
   const refreshData = async () => {
     try {
+      console.log('Triggering CEC data refresh...');
       const response = await supabase.functions.invoke('update-cec-data', {
         body: { refresh_type: 'all' }
       });
       
-      if (response.error) throw response.error;
+      if (response.error) {
+        console.error('CEC refresh error:', response.error);
+        throw response.error;
+      }
       
-      // Wait a moment then refresh local data
-      setTimeout(fetchData, 2000);
+      console.log('CEC refresh response:', response.data);
+      
+      // Wait longer for the data to be processed
+      setTimeout(fetchData, 5000);
       
       return response.data;
     } catch (err) {
