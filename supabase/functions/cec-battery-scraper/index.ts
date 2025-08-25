@@ -88,7 +88,8 @@ Deno.serve(async (req) => {
         'Seraphim Solar', 'Talesun', 'Astronergy', 'ZNShine Solar',
         'Eging PV', 'Renesola', 'Yingli Solar', 'Chint Solar',
         'DAH Solar', 'Phono Solar', 'Suntech Power', 'Sharp Solar',
-        'Kyocera Solar', 'Mitsubishi Electric', 'Sanyo Solar', 'Hyundai Solar'
+        'Kyocera Solar', 'Mitsubishi Electric', 'Sanyo Solar', 'Hyundai Solar',
+        'Sigenergy', 'CATL', 'Goodwe Energy', 'Deye', 'Solax Power'
       ];
       
       const models = ['5kWh', '6.5kWh', '7.5kWh', '10kWh', '13.5kWh', '15kWh', '20kWh', '25kWh'];
