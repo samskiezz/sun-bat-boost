@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 
 interface Slider3DProps {
@@ -29,14 +29,7 @@ export const Slider3D: React.FC<Slider3DProps> = ({
   const sliderRef = useRef<HTMLDivElement>(null);
   const percentage = ((value - min) / (max - min)) * 100;
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-    updateValue(e);
-  };
-
-  const updateValue = (e: MouseEvent | React.MouseEvent) => {
+  const updateValue = useCallback((e: MouseEvent | React.MouseEvent) => {
     if (!sliderRef.current) return;
 
     const rect = sliderRef.current.getBoundingClientRect();
@@ -46,35 +39,42 @@ export const Slider3D: React.FC<Slider3DProps> = ({
     const steppedValue = Math.round(newValue / step) * step;
     
     onChange(Math.max(min, Math.min(max, steppedValue)));
+  }, [min, max, step, onChange]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    updateValue(e);
+  };
+
+  const handleTrackClick = (e: React.MouseEvent) => {
+    if (!isDragging) {
+      updateValue(e);
+    }
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         e.preventDefault();
-        e.stopPropagation();
         updateValue(e);
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (isDragging) {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
-      }
+    const handleMouseUp = () => {
+      setIsDragging(false);
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove, { passive: false });
-      document.addEventListener('mouseup', handleMouseUp, { passive: false });
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging]);
+  }, [isDragging, updateValue]);
 
   // Generate preset marks - fewer marks for cleaner look
   const numPresets = Math.min(5, Math.ceil((max - min) / (step * 4)));
@@ -138,7 +138,7 @@ export const Slider3D: React.FC<Slider3DProps> = ({
             <div
               ref={sliderRef}
               className="relative h-12 cursor-pointer select-none"
-              onMouseDown={handleMouseDown}
+              onClick={handleTrackClick}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
@@ -199,6 +199,7 @@ export const Slider3D: React.FC<Slider3DProps> = ({
                   left: `${percentage}%`,
                   filter: isHovered || isDragging ? 'drop-shadow(0 0 25px rgba(255,255,255,0.8))' : 'drop-shadow(0 0 15px rgba(255,255,255,0.4))'
                 }}
+                onMouseDown={handleMouseDown}
               >
                 {/* Main orb */}
                 <div 
