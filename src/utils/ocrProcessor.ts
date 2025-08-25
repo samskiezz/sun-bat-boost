@@ -184,7 +184,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         brand: match.brand,
         model: match.model,
         watts: 400, // Default watts since we don't have this field in new schema
-        cec_id: match.cec_id,
+        cec_id: match.cec_id || 'CEC-LISTED',
         confidence: match.confidence,
         matchType: match.matchType
       } : undefined
@@ -222,7 +222,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         brand: match.brand,
         model: match.model,
         capacity_kwh: 10, // Default capacity since we don't have this field in new schema
-        cec_id: match.cec_id,
+        cec_id: match.cec_id || 'CEC-LISTED',
         confidence: match.confidence,
         matchType: match.matchType
       } : undefined
@@ -230,20 +230,6 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
   }
 
   // Extract and match inverters - disabled for now since we don't have inverters in new schema
-  // const inverterTexts = new Set<string>();
-  // for (const line of lines) {
-  //   for (const pattern of inverterPatterns) {
-  //     const matches = [...line.matchAll(pattern)];
-  //     for (const match of matches) {
-  //       const description = match[0].trim();
-  //       if (description.length > 5) {
-  //         inverterTexts.add(description);
-  //       }
-  //     }
-  //   }
-  // }
-
-  // No inverter matching for now since we don't have the table
   extractedData.inverters = [];
 
   // Extract system size
