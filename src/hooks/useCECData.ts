@@ -178,24 +178,20 @@ export const useCECData = () => {
   };
 
   // Helper functions for VPP compatibility
-  const getCompatibleVPPs = (batteryId: string): VPPProvider[] => {
-    const battery = batteries.find(b => b.id === batteryId);
-    if (!battery) return [];
-
+  const getCompatibleVPPs = (batteryBrand: string): VPPProvider[] => {
     return vppProviders.filter(vpp => {
       // Check battery brand compatibility
       if (vpp.compatible_battery_brands && vpp.compatible_battery_brands.length > 0) {
-        if (!vpp.compatible_battery_brands.includes(battery.brand)) {
-          return false;
-        }
+        return vpp.compatible_battery_brands.some(brand => 
+          brand.toLowerCase() === batteryBrand.toLowerCase()
+        );
       }
-
       return true;
     });
   };
 
-  const getBestVPPForBattery = (batteryId: string): VPPProvider | null => {
-    const compatibleVPPs = getCompatibleVPPs(batteryId);
+  const getBestVPPForBattery = (batteryBrand: string): VPPProvider | null => {
+    const compatibleVPPs = getCompatibleVPPs(batteryBrand);
     if (compatibleVPPs.length === 0) return null;
 
     // Return the VPP with the highest total value (signup bonus + estimated annual reward)

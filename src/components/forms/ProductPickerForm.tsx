@@ -35,16 +35,16 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     : 0;
 
   // Get compatible VPP providers for selected battery
-  const compatibleVPPs = selectedBattery ? getCompatibleVPPs(selectedBattery.id) : [];
+  const compatibleVPPs = selectedBattery ? getCompatibleVPPs(selectedBattery.brand) : [];
 
   useEffect(() => {
     if (selectedBattery && compatibleVPPs.length > 0) {
       toast({
         title: "VPP Compatibility Found!",
-        description: `${compatibleVPPs.length} VPP provider${compatibleVPPs.length > 1 ? 's' : ''} compatible with your ${selectedBattery.brand} ${selectedBattery.model}`
+        description: `${compatibleVPPs.length} VPP provider${compatibleVPPs.length > 1 ? 's' : ''} support ${selectedBattery.brand} batteries: ${compatibleVPPs.map(v => v.name).join(', ')}`
       });
     }
-  }, [selectedBattery, compatibleVPPs.length]);
+  }, [selectedBattery?.brand, compatibleVPPs.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,19 +326,41 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                   .filter(vpp => vpp.id)
                   .map(vpp => (
                   <SelectItem key={vpp.id} value={vpp.id}>
-                    <div className="flex items-center gap-2">
-                      {selectedBattery && compatibleVPPs.includes(vpp) && (
-                        <Check className="w-4 h-4 text-green-500" />
-                      )}
-                      {vpp.name} - ${vpp.signup_bonus} signup + ${vpp.estimated_annual_reward}/year
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        {selectedBattery && compatibleVPPs.includes(vpp) && (
+                          <Check className="w-4 h-4 text-green-500" />
+                        )}
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{vpp.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>${vpp.signup_bonus} signup</span>
+                            <span>• ${vpp.estimated_annual_reward}/year</span>
+                            {selectedBattery && compatibleVPPs.includes(vpp) && (
+                              <span className="text-green-600">• Compatible with {selectedBattery.brand}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedBattery && compatibleVPPs.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                💡 {compatibleVPPs.length} compatible VPP provider{compatibleVPPs.length > 1 ? 's' : ''} found for your {selectedBattery.brand} battery
+            {selectedBattery && (
+              <div className="text-sm">
+                {compatibleVPPs.length > 0 ? (
+                  <div className="text-green-600">
+                    ✅ {compatibleVPPs.length} VPP provider{compatibleVPPs.length > 1 ? 's' : ''} support {selectedBattery.brand} batteries:
+                    <div className="mt-1 text-xs">
+                      {compatibleVPPs.map(vpp => vpp.name).join(', ')}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-amber-600">
+                    ⚠️ No VPP providers currently support {selectedBattery.brand} batteries
+                  </div>
+                )}
               </div>
             )}
           </div>
