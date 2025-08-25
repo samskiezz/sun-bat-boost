@@ -78,9 +78,11 @@ export const useCECData = () => {
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [autoRefreshAttempts, setAutoRefreshAttempts] = useState(0);
 
-  const fetchData = async () => {
+  const fetchData = async (skipLoadingState = false) => {
     try {
-      setLoading(true);
+      if (!skipLoadingState) {
+        setLoading(true);
+      }
       setError(null);
 
       console.log('Fetching CEC data...');
@@ -191,7 +193,7 @@ export const useCECData = () => {
   // Auto-refresh logic to ensure sufficient data
   const checkAndAutoRefresh = async () => {
     const hasInsufficientData = panels.length < 1500 || batteries.length < 800;
-    const shouldAutoRefresh = hasInsufficientData && autoRefreshAttempts < 5 && !autoRefreshing && !loading;
+    const shouldAutoRefresh = hasInsufficientData && autoRefreshAttempts < 10 && !autoRefreshing && !loading;
     
     if (shouldAutoRefresh) {
       console.log(`Auto-refreshing data: panels=${panels.length}, batteries=${batteries.length}, attempt=${autoRefreshAttempts + 1}`);
@@ -199,11 +201,22 @@ export const useCECData = () => {
       setAutoRefreshAttempts(prev => prev + 1);
       
       try {
-        await refreshData();
-        // Wait for the refresh to complete before checking again
-        setTimeout(() => {
+        // Call the new cec-scrape edge function
+        const { data, error } = await supabase.functions.invoke('cec-scrape', {
+          body: JSON.stringify({ mode: 'run' })
+        });
+
+        if (error) {
+          console.error('Auto-refresh CEC scrape error:', error);
+        } else {
+          console.log('Auto-refresh CEC scrape result:', data);
+        }
+        
+        // Wait then refresh data without loading state to prevent flickering
+        setTimeout(async () => {
+          await fetchData(true); // Skip loading state to prevent flickering
           setAutoRefreshing(false);
-        }, 10000); // Wait 10 seconds after refresh before checking again
+        }, 3000);
       } catch (error) {
         console.error('Auto-refresh failed:', error);
         setAutoRefreshing(false);

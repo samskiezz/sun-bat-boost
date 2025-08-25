@@ -52,7 +52,6 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const [batterySearch, setBatterySearch] = useState("");
   const [showPanelResults, setShowPanelResults] = useState(false);
   const [showBatteryResults, setShowBatteryResults] = useState(false);
-  const [refreshSuccess, setRefreshSuccess] = useState(false);
 
   // Filter panels for search
   const filteredPanels = useMemo(() => {
@@ -186,17 +185,15 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             ) : (
               <span>
                 Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
-                {refreshSuccess ? (
-                  <span className="text-green-600 ml-2">✅ Database updated successfully</span>
-                ) : autoRefreshing ? (
+                {autoRefreshing ? (
                   <span className="text-blue-600 ml-2 flex items-center gap-1">
                     <RefreshCw className="w-3 h-3 animate-spin" />
-                    Auto-refreshing database (attempt {autoRefreshAttempts}/5)...
+                    Auto-refreshing database (attempt {autoRefreshAttempts}/10)...
                   </span>
                 ) : (panels.length >= 1500 && batteries.length >= 800) ? (
                   <span className="text-green-600 ml-2">✅ Database complete</span>
                 ) : (
-                  <span className="text-yellow-600 ml-2">⚠️ Low product count - auto-refreshing...</span>
+                  <span className="text-yellow-600 ml-2">⚠️ Auto-refreshing to get complete database...</span>
                 )}
               </span>
             )}
@@ -205,22 +202,17 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               variant="outline"
               size="sm"
               onClick={async () => {
-                setRefreshSuccess(false);
                 toast({
                   title: "Refreshing CEC Data",
                   description: "Loading CEC-approved products from official sources..."
                 });
                 try {
                   await refreshData();
-                  setRefreshSuccess(true);
                   toast({
                     title: "CEC Data Updated",
                     description: "Successfully loaded latest CEC products"
                   });
-                  // Hide success indicator after 5 seconds
-                  setTimeout(() => setRefreshSuccess(false), 5000);
                 } catch (error) {
-                  setRefreshSuccess(false);
                   toast({
                     title: "Refresh Failed",
                     description: "Could not update CEC data",
