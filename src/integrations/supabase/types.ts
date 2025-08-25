@@ -19,40 +19,61 @@ export type Database = {
           approval_expires: string | null
           approval_status: string | null
           brand: string
+          capacity_kwh: number | null
           certificate: string | null
           chemistry: string | null
           datasheet_url: string | null
+          description: string | null
           hash: string | null
           id: number
+          image_url: string | null
           model: string
+          nominal_capacity: number | null
           scraped_at: string
           source_url: string
+          units: number | null
+          usable_capacity: number | null
+          vpp_capable: boolean | null
         }
         Insert: {
           approval_expires?: string | null
           approval_status?: string | null
           brand: string
+          capacity_kwh?: number | null
           certificate?: string | null
           chemistry?: string | null
           datasheet_url?: string | null
+          description?: string | null
           hash?: string | null
           id?: number
+          image_url?: string | null
           model: string
+          nominal_capacity?: number | null
           scraped_at?: string
           source_url: string
+          units?: number | null
+          usable_capacity?: number | null
+          vpp_capable?: boolean | null
         }
         Update: {
           approval_expires?: string | null
           approval_status?: string | null
           brand?: string
+          capacity_kwh?: number | null
           certificate?: string | null
           chemistry?: string | null
           datasheet_url?: string | null
+          description?: string | null
           hash?: string | null
           id?: number
+          image_url?: string | null
           model?: string
+          nominal_capacity?: number | null
           scraped_at?: string
           source_url?: string
+          units?: number | null
+          usable_capacity?: number | null
+          vpp_capable?: boolean | null
         }
         Relationships: []
       }
@@ -114,9 +135,12 @@ export type Database = {
           brand: string
           certificate: string | null
           datasheet_url: string | null
+          description: string | null
           hash: string | null
           id: number
+          image_url: string | null
           model: string
+          power_rating: number | null
           scraped_at: string
           source_url: string
           technology: string | null
@@ -127,9 +151,12 @@ export type Database = {
           brand: string
           certificate?: string | null
           datasheet_url?: string | null
+          description?: string | null
           hash?: string | null
           id?: number
+          image_url?: string | null
           model: string
+          power_rating?: number | null
           scraped_at?: string
           source_url: string
           technology?: string | null
@@ -140,9 +167,12 @@ export type Database = {
           brand?: string
           certificate?: string | null
           datasheet_url?: string | null
+          description?: string | null
           hash?: string | null
           id?: number
+          image_url?: string | null
           model?: string
+          power_rating?: number | null
           scraped_at?: string
           source_url?: string
           technology?: string | null
@@ -211,7 +241,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      all_products: {
+        Row: {
+          approval_expires: string | null
+          approval_status: string | null
+          brand: string | null
+          capacity: number | null
+          certificate: string | null
+          description: string | null
+          id: number | null
+          image_url: string | null
+          model: string | null
+          product_type: string | null
+          rating: number | null
+          scraped_at: string | null
+          source_url: string | null
+          specs: string | null
+          vpp_capable: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
