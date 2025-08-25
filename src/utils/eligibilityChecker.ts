@@ -1,4 +1,12 @@
-import { CalculationInput } from "./rebateCalculations";
+export interface CalculationInput {
+  postcode: string;
+  solarKw: number;
+  batteryKwh?: number;
+  installDate: string;
+  stcPrice: number;
+  vppProvider?: string;
+  mode?: string;
+}
 
 export interface EligibilityResult {
   status: "green" | "yellow" | "red";

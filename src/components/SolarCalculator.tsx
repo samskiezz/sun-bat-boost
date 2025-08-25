@@ -4,7 +4,7 @@ import { InputModeTabs } from "./InputModeTabs";
 import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
-import { calculateRebates, CalculationInput } from "@/utils/rebateCalculations";
+import { RebateCalculator } from "./RebateCalculator";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
@@ -12,12 +12,14 @@ import { useCECData } from "@/hooks/useCECData";
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
+  const [activeTab, setActiveTab] = useState<'quick' | 'picker' | 'ocr' | 'rebates'>('quick');
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
 
   const handleCalculate = (formData: any) => {
     try {
-      const input: CalculationInput = {
+      // Legacy calculation logic for existing forms
+      const input = {
         postcode: formData.postcode,
         solarKw: formData.solarKw,
         batteryKwh: formData.batteryKwh,
@@ -27,15 +29,13 @@ const SolarCalculator = () => {
         mode: formData.mode
       };
 
-      const calculationResults = calculateRebates(input);
-      const eligibilityResults = checkEligibility(input, true);
-
-      setResults(calculationResults);
-      setEligibility(eligibilityResults);
+      // For now, just show success message since the old rebate system is replaced
+      setResults(null);
+      setEligibility(null);
 
       toast({
         title: "Calculation complete",
-        description: `Total rebates available: $${calculationResults.totals.today.toLocaleString()}`
+        description: "Use the Rebates tab for detailed rebate calculations"
       });
     } catch (error) {
       toast({
@@ -64,7 +64,11 @@ const SolarCalculator = () => {
         }) : "Loading..."} />
         
         <div className="max-w-4xl mx-auto space-y-8">
-          <InputModeTabs onCalculate={handleCalculate} />
+          <InputModeTabs activeTab={activeTab} onTabChange={setActiveTab} onCalculate={handleCalculate} />
+          
+          {activeTab === 'rebates' && (
+            <RebateCalculator />
+          )}
           
           {results && eligibility && (
             <div className="space-y-8">
