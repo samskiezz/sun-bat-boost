@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 export const InitialDataLoader = () => {
   const { toast } = useToast();
 
-  // Force refresh of battery data to restore full dataset
+  // Force refresh of both panels and batteries to get real model names
   useEffect(() => {
     const initializeData = async () => {
       try {
@@ -20,21 +20,16 @@ export const InitialDataLoader = () => {
 
         console.log(`Current data: ${batteryCount} batteries, ${panelCount} panels`);
 
-        // Always refresh batteries to restore full dataset (target 1500+)
-        if (batteryCount < 1200) {
-          console.log('Refreshing battery data to restore full dataset...');
-          await supabase.functions.invoke('cec-battery-scraper');
-        }
-
-        // Refresh panels if needed
-        if (panelCount < 500) {
-          console.log('Refreshing panel data...');
-          await supabase.functions.invoke('cec-panel-scraper');
-        }
+        // Always refresh both datasets to get real model names
+        console.log('Refreshing panel data with real model names...');
+        await supabase.functions.invoke('cec-panel-scraper');
+        
+        console.log('Refreshing battery data with real model names...');
+        await supabase.functions.invoke('cec-battery-scraper');
 
         toast({
           title: "Database refreshed!",
-          description: `Loading complete: ${panelCount} panels, refreshing batteries to 1200+`
+          description: `Refreshing with real Trina Solar, Sigenergy, and GoodWe models...`
         });
 
       } catch (error) {
