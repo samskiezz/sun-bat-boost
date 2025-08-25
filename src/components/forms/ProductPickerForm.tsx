@@ -151,7 +151,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 <SelectValue placeholder="Select CEC-approved panel" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                {panels.map(panel => (
+                {panels.filter(panel => panel.id && panel.id.trim() !== '').map(panel => (
                   <SelectItem key={panel.id} value={panel.id}>
                     <div className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-500" />
@@ -194,7 +194,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 <SelectValue placeholder="Select CEC-approved inverter" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                {inverters.map(inverter => (
+                {inverters.filter(inverter => inverter.id && inverter.id.trim() !== '').map(inverter => (
                   <SelectItem key={inverter.id} value={inverter.id}>
                     <div className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-500" />
@@ -219,7 +219,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="none">No battery</SelectItem>
-                {batteries.map(battery => (
+                {batteries.filter(battery => battery.id && battery.id.trim() !== '').map(battery => (
                   <SelectItem key={battery.id} value={battery.id}>
                     <div className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-500" />
@@ -241,7 +241,9 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="none">No VPP</SelectItem>
-                {(selectedBattery ? compatibleVPPs : vppProviders).map(vpp => (
+                {(selectedBattery ? compatibleVPPs : vppProviders)
+                  .filter(vpp => vpp.id && vpp.id.trim() !== '')
+                  .map(vpp => (
                   <SelectItem key={vpp.id} value={vpp.id}>
                     <div className="flex items-center gap-2">
                       {selectedBattery && compatibleVPPs.includes(vpp) && (

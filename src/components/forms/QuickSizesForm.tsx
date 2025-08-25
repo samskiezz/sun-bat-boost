@@ -173,7 +173,9 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
                   ) : (
                     <>
                       <SelectItem value="none">None</SelectItem>
-                      {vppProviders.map(provider => (
+                      {vppProviders
+                        .filter(provider => provider.id && provider.id.trim() !== '')
+                        .map(provider => (
                         <SelectItem key={provider.id} value={provider.id}>
                           {provider.name} - ${provider.signup_bonus} signup + ${provider.estimated_annual_reward}/year
                         </SelectItem>
