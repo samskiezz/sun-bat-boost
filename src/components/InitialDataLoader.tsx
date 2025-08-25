@@ -9,27 +9,31 @@ export const InitialDataLoader = () => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Always trigger battery scraper to ensure latest data including Sigenergy
-        console.log('Refreshing CEC battery data with latest brands...');
-        
-        const { data, error } = await supabase.functions.invoke('cec-battery-scraper', {
-          body: JSON.stringify({})
-        });
+        // Check current counts
+        const [batteryResult, panelResult] = await Promise.all([
+          supabase.from('batteries').select('id', { count: 'exact' }).limit(1),
+          supabase.from('pv_modules').select('id', { count: 'exact' }).limit(1)
+        ]);
 
-        if (error) {
-          console.error('Error refreshing data:', error);
-          toast({
-            title: "Data refresh failed",
-            description: "Using existing data. Some brands may be missing.",
-            variant: "destructive"
-          });
-          return;
+        const batteryCount = batteryResult.count || 0;
+        const panelCount = panelResult.count || 0;
+
+        console.log(`Current data: ${batteryCount} batteries, ${panelCount} panels`);
+
+        // Refresh both if needed
+        if (batteryCount < 500) {
+          console.log('Refreshing battery data...');
+          await supabase.functions.invoke('cec-battery-scraper');
         }
 
-        console.log('CEC data refreshed successfully:', data);
+        if (panelCount < 500) {
+          console.log('Refreshing panel data...');
+          await supabase.functions.invoke('cec-panel-scraper');
+        }
+
         toast({
-          title: "Database updated!",
-          description: "Latest CEC-approved products including all brands loaded."
+          title: "Database refreshed!",
+          description: "Latest CEC-approved products loaded."
         });
 
       } catch (error) {
