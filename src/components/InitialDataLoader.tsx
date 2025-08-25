@@ -20,8 +20,8 @@ export const InitialDataLoader = () => {
 
         console.log(`Current data: ${batteryCount} batteries, ${panelCount} panels`);
 
-        // Always refresh batteries to restore full dataset (target 1200+)
-        if (batteryCount < 1000) {
+        // Always refresh batteries to restore full dataset (target 1500+)
+        if (batteryCount < 1200) {
           console.log('Refreshing battery data to restore full dataset...');
           await supabase.functions.invoke('cec-battery-scraper');
         }

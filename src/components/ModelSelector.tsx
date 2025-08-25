@@ -41,26 +41,26 @@ export default function ModelSelector({
   const [panelSearch, setPanelSearch] = useState('');
   const [batterySearch, setBatterySearch] = useState('');
 
-  // Filter panels with auto-suggest
+  // Filter panels with auto-suggest (no caps, show exact counts)
   const filteredPanels = useMemo(() => {
-    if (!panelSearch.trim()) return panels.slice(0, 20); // Show first 20 when no search
+    if (!panelSearch.trim()) return panels; // Show ALL when no search
     
     return panels.filter(panel => 
       panel.brand.toLowerCase().includes(panelSearch.toLowerCase()) ||
       panel.model.toLowerCase().includes(panelSearch.toLowerCase()) ||
       panel.technology?.toLowerCase().includes(panelSearch.toLowerCase())
-    ).slice(0, 50); // Limit results for performance
+    ); // No artificial limits
   }, [panels, panelSearch]);
 
-  // Filter batteries with auto-suggest  
+  // Filter batteries with auto-suggest (no caps, show exact counts)
   const filteredBatteries = useMemo(() => {
-    if (!batterySearch.trim()) return batteries.slice(0, 20); // Show first 20 when no search
+    if (!batterySearch.trim()) return batteries; // Show ALL when no search
     
     return batteries.filter(battery =>
       battery.brand.toLowerCase().includes(batterySearch.toLowerCase()) ||
       battery.model.toLowerCase().includes(batterySearch.toLowerCase()) ||
       battery.chemistry?.toLowerCase().includes(batterySearch.toLowerCase())
-    ).slice(0, 50); // Limit results for performance
+    ); // No artificial limits
   }, [batteries, batterySearch]);
 
   // Calculate totals
@@ -211,11 +211,12 @@ export default function ModelSelector({
                   className="pl-10"
                 />
               </div>
-              {panelSearch && (
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredPanels.length} panels matching "{panelSearch}"
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {panelSearch 
+                  ? `Showing ${filteredPanels.length} panels matching "${panelSearch}" out of ${panels.length} total`
+                  : `Showing all ${panels.length} CEC-approved panels`
+                }
+              </p>
             </div>
 
             {/* Selected Panels Summary */}
@@ -332,11 +333,12 @@ export default function ModelSelector({
                   className="pl-10"
                 />
               </div>
-              {batterySearch && (
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredBatteries.length} batteries matching "{batterySearch}"
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {batterySearch 
+                  ? `Showing ${filteredBatteries.length} batteries matching "${batterySearch}" out of ${batteries.length} total`
+                  : `Showing all ${batteries.length} CEC-approved batteries`
+                }
+              </p>
             </div>
 
             {/* Selected Batteries Summary */}
