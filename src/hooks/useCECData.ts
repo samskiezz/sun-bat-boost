@@ -89,63 +89,52 @@ export const useCECData = () => {
 
       console.log('Fetching ALL CEC data (complete dataset)...');
 
-      // Fetch data in larger batches to get everything
-      const fetchCompleteTable = async (tableName: string): Promise<any[]> => {
-        const allData: any[] = [];
-        let from = 0;
-        const batchSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          console.log(`Fetching ${tableName} batch starting at ${from}...`);
-          
-          const { data, error, count } = await (supabase as any)
-            .from(tableName)
-            .select('*', { count: 'exact' })
-            .range(from, from + batchSize - 1)
-            .order('brand', { ascending: true });
-
-          if (error) {
-            console.error(`Error fetching ${tableName}:`, error);
-            throw error;
-          }
-
-          if (data && data.length > 0) {
-            allData.push(...data);
-            from += batchSize;
-            hasMore = data.length === batchSize;
-            console.log(`${tableName}: Loaded ${allData.length} records...`);
-          } else {
-            hasMore = false;
-          }
-
-          // Safety check to prevent infinite loops
-          if (from > 10000) {
-            console.warn(`${tableName}: Breaking at ${from} to prevent infinite loop`);
-            break;
-          }
-        }
-
-        console.log(`${tableName}: Final count: ${allData.length} records`);
-        return allData;
-      };
-
-      // Fetch all data in parallel
-      const [panelData, batteryData, vppResult, changesResult] = await Promise.all([
-        fetchCompleteTable('pv_modules'),
-        fetchCompleteTable('batteries'),
+      // Fetch data without any limits - get ALL records
+      const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
+        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
+        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
         (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
 
       console.log('Complete data fetch results:', {
-        panels: panelData.length,
-        batteries: batteryData.length,
+        panels: pvResult.data?.length || 0,
+        batteries: batteryResult.data?.length || 0,
         vppProviders: vppResult.data?.length || 0,
-        changes: changesResult.data?.length || 0
+        changes: changesResult.data?.length || 0,
+        panelsError: pvResult.error,
+        batteriesError: batteryResult.error,
+        vppError: vppResult.error,
+        changesError: changesResult.error
       });
 
+      // Handle errors but don't throw - continue with what we have
+      if (pvResult.error) {
+        console.error('PV modules error:', pvResult.error);
+      } else {
+        setPanels(pvResult.data || []);
+      }
+
+      if (batteryResult.error) {
+        console.error('Batteries error:', batteryResult.error);
+      } else {
+        setBatteries(batteryResult.data || []);
+      }
+
+      if (vppResult.error) {
+        console.error('VPP providers error:', vppResult.error);
+      } else {
+        setVppProviders(vppResult.data || []);
+      }
+
+      if (changesResult.error) {
+        console.error('Product changes error:', changesResult.error);
+      } else {
+        setProductChanges(changesResult.data || []);
+      }
+
       // Debug: Check for Trina Solar specifically
+      const panelData = pvResult.data || [];
       if (panelData.length > 0) {
         const trinaPanels = panelData.filter((p: any) => 
           p.brand && p.brand.toLowerCase().includes('trina')
@@ -156,13 +145,8 @@ export const useCECData = () => {
         console.log(`✅ All ${allBrands.length} panel brands:`, allBrands.slice(0, 15));
       }
 
-      // Update state
-      setPanels(panelData || []);
-      setBatteries(batteryData || []);
-      setVppProviders(vppResult.data || []);
-      setProductChanges(changesResult.data || []);
-
       // Set last updated timestamp
+      const batteryData = batteryResult.data || [];
       const allScrapedDates = [
         ...panelData.map((p: any) => p.scraped_at),
         ...batteryData.map((b: any) => b.scraped_at)

@@ -182,19 +182,27 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
           {/* Debug info with refresh */}
           <div className="text-xs text-muted-foreground mb-4 p-2 bg-black/10 rounded flex items-center justify-between">
             {loading ? (
-              <span>Loading CEC data...</span>
+              <span className="flex items-center gap-2">
+                <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>
+                Loading CEC data...
+              </span>
             ) : (
               <span>
                 Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
                 {autoRefreshing ? (
                   <span className="text-blue-600 ml-2 flex items-center gap-1">
                     <RefreshCw className="w-3 h-3 animate-spin" />
-                    Auto-refreshing database (attempt {autoRefreshAttempts}/15)...
+                    Auto-refreshing database (attempt {autoRefreshAttempts}/10)...
                   </span>
                 ) : dataComplete ? (
-                  <span className="text-green-600 ml-2">✅ Database complete - {panels.length} panels, {batteries.length} batteries loaded</span>
+                  <span className="text-green-600 ml-2 flex items-center gap-1">
+                    ✅ Database complete - {panels.length} panels, {batteries.length} batteries loaded
+                  </span>
                 ) : (
-                  <span className="text-yellow-600 ml-2">⚠️ Auto-refreshing to get complete database...</span>
+                  <span className="text-yellow-600 ml-2 flex items-center gap-1">
+                    ⚠️ Auto-refreshing to get complete database...
+                    <div className="w-3 h-3 border border-yellow-600 border-t-transparent rounded-full animate-spin ml-1"></div>
+                  </span>
                 )}
               </span>
             )}
