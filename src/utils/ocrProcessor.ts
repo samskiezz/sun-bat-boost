@@ -1,5 +1,5 @@
 // OCR Processing for Solar Quotes
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 import { SOLAR_PANELS, searchPanels } from '@/data/panelData';
 import { BATTERY_SYSTEMS, searchBatteries } from '@/data/batteryData';
 
@@ -57,8 +57,8 @@ export const processQuoteImage = async (imageFile: File): Promise<OCRResult> => 
     
     // Configure worker for better text recognition
     await worker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()$×x-: \n',
-      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()$×x: -\n',
+      tessedit_pageseg_mode: PSM.AUTO,
     });
     
     // Process the image
@@ -94,7 +94,7 @@ const extractSystemData = async (text: string): Promise<OCRResult['extractedData
   };
   
   // Clean up text
-  const cleanText = text.replace(/[^\w\s\d.,()$×x-:]/g, ' ').replace(/\s+/g, ' ');
+  const cleanText = text.replace(/[^\w\s\d.,()$×x:\-]/g, ' ').replace(/\s+/g, ' ');
   
   // Extract panels
   const panelMatches = [...cleanText.matchAll(PATTERNS.panelQuantity)];
