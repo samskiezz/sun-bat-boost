@@ -5,34 +5,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Zap, Battery, DollarSign, Plug } from "lucide-react";
+import { Calendar, MapPin, Zap, DollarSign, Plug } from "lucide-react";
+import { Slider3D } from "@/components/ui/slider-3d";
+import { useCECData } from "@/hooks/useCECData";
 
 interface QuickSizesFormProps {
   onSubmit: (data: any) => void;
 }
 
 export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
+  const { vppProviders, loading, getBestVPPForBattery } = useCECData();
   const [formData, setFormData] = useState({
     postcode: "",
     installDate: new Date().toISOString().split('T')[0],
-    solarKw: "",
-    batteryKwh: "",
+    solarKw: 6.6, // Changed to number for 3D slider
+    batteryKwh: 0, // Changed to number for 3D slider  
     stcPrice: "38",
     vppProvider: ""
   });
 
   const solarPresets = [6.6, 10, 13, 20, 30];
-  const batteryPresets = [10, 13.5, 20, 27, 40];
-  const vppProviders = ["AGL", "Origin", "EnergyAustralia", "Simply Energy", "None"];
+  const vppProviders_static = ["AGL", "Origin", "EnergyAustralia", "Simply Energy", "None"];
+
+  // Get recommended VPP based on battery selection
+  const recommendedVPP = formData.batteryKwh > 0 ? getBestVPPForBattery("tesla-powerwall-2") : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
       mode: "quick",
       ...formData,
-      solarKw: parseFloat(formData.solarKw),
-      batteryKwh: parseFloat(formData.batteryKwh),
-      stcPrice: parseFloat(formData.stcPrice)
+      solarKw: formData.solarKw,
+      batteryKwh: formData.batteryKwh,
+      stcPrice: parseFloat(formData.stcPrice),
+      recommendedVPP
     });
   };
 
@@ -79,19 +85,19 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
             </div>
           </div>
 
-          {/* Solar Size */}
-          <div className="space-y-3">
+          {/* Solar Size with Presets */}
+          <div className="space-y-4">
             <Label className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
               Solar System Size (kW)
             </Label>
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="flex flex-wrap gap-2 mb-4">
               {solarPresets.map(size => (
                 <Badge 
                   key={size}
-                  variant={formData.solarKw === size.toString() ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => setFormData({...formData, solarKw: size.toString()})}
+                  variant={formData.solarKw === size ? "default" : "outline"}
+                  className="cursor-pointer transition-all duration-200 hover:scale-105"
+                  onClick={() => setFormData({...formData, solarKw: size})}
                 >
                   {size} kW
                 </Badge>
@@ -100,34 +106,38 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
             <Input
               placeholder="Or enter custom size"
               value={formData.solarKw}
-              onChange={(e) => setFormData({...formData, solarKw: e.target.value})}
+              onChange={(e) => setFormData({...formData, solarKw: parseFloat(e.target.value) || 0})}
               required
             />
           </div>
 
-          {/* Battery Size */}
-          <div className="space-y-3">
+          {/* Modern 3D Battery Slider */}
+          <div className="space-y-4">
             <Label className="flex items-center gap-2">
-              <Battery className="w-4 h-4" />
-              Battery Size (kWh) - Optional
+              <Zap className="w-4 h-4" />
+              Battery Size (Optional)
             </Label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {batteryPresets.map(size => (
-                <Badge 
-                  key={size}
-                  variant={formData.batteryKwh === size.toString() ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => setFormData({...formData, batteryKwh: size.toString()})}
-                >
-                  {size} kWh
-                </Badge>
-              ))}
-            </div>
-            <Input
-              placeholder="Or enter custom size (leave blank for none)"
+            <Slider3D
+              min={0}
+              max={50}
+              step={0.5}
               value={formData.batteryKwh}
-              onChange={(e) => setFormData({...formData, batteryKwh: e.target.value})}
+              onChange={(value) => setFormData({...formData, batteryKwh: value})}
+              label="Battery Capacity"
+              unit="kWh"
+              gradient="bg-gradient-primary"
+              className="w-full"
             />
+            {formData.batteryKwh > 0 && (
+              <div className="text-sm text-muted-foreground">
+                💡 Battery selected: {formData.batteryKwh} kWh
+                {recommendedVPP && (
+                  <span className="block mt-1">
+                    Recommended VPP: {recommendedVPP.name} (${recommendedVPP.signup_bonus} signup + ${recommendedVPP.estimated_annual_reward}/year)
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* STC Price & VPP */}
@@ -158,11 +168,18 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
                   <SelectValue placeholder="Select VPP (optional)" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border border-border z-50">
-                  {vppProviders.map(provider => (
-                    <SelectItem key={provider} value={provider}>
-                      {provider}
-                    </SelectItem>
-                  ))}
+                  {loading ? (
+                    <SelectItem value="loading" disabled>Loading VPP providers...</SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="none">None</SelectItem>
+                      {vppProviders.map(provider => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.name} - ${provider.signup_bonus} signup + ${provider.estimated_annual_reward}/year
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

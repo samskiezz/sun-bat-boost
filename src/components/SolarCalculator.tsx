@@ -3,14 +3,17 @@ import { HeroHeader } from "./HeroHeader";
 import { InputModeTabs } from "./InputModeTabs";
 import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
+import { InitialDataLoader } from "./InitialDataLoader";
 import { calculateRebates, CalculationInput } from "@/utils/rebateCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
+import { useCECData } from "@/hooks/useCECData";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
   const { toast } = useToast();
+  const { lastUpdated, refreshData } = useCECData();
 
   const handleCalculate = (formData: any) => {
     try {
@@ -52,8 +55,13 @@ const SolarCalculator = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <InitialDataLoader />
       <div className="container mx-auto px-4 py-8">
-        <HeroHeader lastUpdated="25 August 2025" />
+        <HeroHeader lastUpdated={lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-AU', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }) : "Loading..."} />
         
         <div className="max-w-4xl mx-auto space-y-8">
           <InputModeTabs onCalculate={handleCalculate} />
