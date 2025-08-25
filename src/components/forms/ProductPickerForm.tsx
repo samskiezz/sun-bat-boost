@@ -34,11 +34,23 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   // Filter panels for search
   const filteredPanels = useMemo(() => {
     if (!panelSearch.trim()) return [];
-    return panels.filter(panel =>
-      panel.brand.toLowerCase().includes(panelSearch.toLowerCase()) ||
-      panel.model.toLowerCase().includes(panelSearch.toLowerCase()) ||
-      panel.technology?.toLowerCase().includes(panelSearch.toLowerCase())
-    ).slice(0, 100); // Show top 100 matches
+    const searchTerm = panelSearch.toLowerCase().trim();
+    console.log('Searching panels for:', searchTerm);
+    
+    const results = panels.filter(panel => {
+      const brandMatch = panel.brand.toLowerCase().includes(searchTerm);
+      const modelMatch = panel.model.toLowerCase().includes(searchTerm);
+      const techMatch = panel.technology?.toLowerCase().includes(searchTerm);
+      
+      return brandMatch || modelMatch || techMatch;
+    }).slice(0, 100); // Show top 100 matches
+    
+    console.log(`Found ${results.length} panels matching "${searchTerm}"`);
+    if (searchTerm.includes('trina')) {
+      console.log('Trina matches:', results.filter(p => p.brand.toLowerCase().includes('trina')));
+    }
+    
+    return results;
   }, [panels, panelSearch]);
 
   // Filter batteries for search  
