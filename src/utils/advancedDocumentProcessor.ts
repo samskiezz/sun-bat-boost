@@ -2,6 +2,7 @@ import { createWorker, PSM } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import { intelligentMatcher } from './intelligentMatcher';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -243,162 +244,20 @@ const processExcelFile = async (file: File): Promise<string> => {
 
 // Advanced database matching with scoring
 class EquipmentMatcher {
-  private panels: any[] = [];
-  private batteries: any[] = [];
-  
   async initialize() {
-    console.log('Initializing equipment database...');
-    
-    // Load all panels
-    let from = 0;
-    let hasMore = true;
-    
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('pv_modules')
-        .select('*')
-        .range(from, from + 999);
-
-      if (error) {
-        console.error('Error loading panels:', error);
-        break;
-      }
-
-      if (data && data.length > 0) {
-        this.panels = [...this.panels, ...data];
-        from += 1000;
-        hasMore = data.length === 1000;
-      } else {
-        hasMore = false;
-      }
-    }
-    
-    // Load all batteries
-    from = 0;
-    hasMore = true;
-    
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('batteries')
-        .select('*')
-        .range(from, from + 999);
-
-      if (error) {
-        console.error('Error loading batteries:', error);
-        break;
-      }
-
-      if (data && data.length > 0) {
-        this.batteries = [...this.batteries, ...data];
-        from += 1000;
-        hasMore = data.length === 1000;
-      } else {
-        hasMore = false;
-      }
-    }
-    
-    console.log(`Loaded ${this.panels.length} panels and ${this.batteries.length} batteries`);
+    await intelligentMatcher.initialize();
   }
   
-  // Advanced panel matching with multiple algorithms
+  // Advanced panel matching using intelligent matcher
   matchPanel(description: string, context: string = '') {
-    const candidates = this.panels.map(panel => {
-      let score = 0;
-      const desc = description.toLowerCase();
-      const brand = panel.brand.toLowerCase();
-      const model = panel.model.toLowerCase();
-      const fullName = `${brand} ${model}`.toLowerCase();
-      
-      // Exact model match (highest score)
-      if (desc.includes(model)) {
-        score += 100;
-      }
-      
-      // Brand match
-      if (desc.includes(brand)) {
-        score += 50;
-      }
-      
-      // Full name match
-      if (desc.includes(fullName)) {
-        score += 90;
-      }
-      
-      // Power rating match
-      if (panel.power_rating && desc.includes(panel.power_rating.toString())) {
-        score += 30;
-      }
-      
-      // Watt/W match
-      const wattMatch = desc.match(/(\d+)\s*(w|watt)/i);
-      if (wattMatch && panel.power_rating && Math.abs(parseInt(wattMatch[1]) - panel.power_rating) < 10) {
-        score += 40;
-      }
-      
-      // Context bonus (if description appears in solar/panel context)
-      if (context.toLowerCase().includes('solar') || context.toLowerCase().includes('panel')) {
-        score += 20;
-      }
-      
-      return {
-        ...panel,
-        confidence: Math.min(score / 100, 1),
-        matchScore: score
-      };
-    });
-    
-    // Return best match if confidence > 0.4
-    const bestMatch = candidates.sort((a, b) => b.matchScore - a.matchScore)[0];
-    return bestMatch && bestMatch.confidence > 0.4 ? bestMatch : null;
+    const match = intelligentMatcher.findBestPanelMatch(description);
+    return match;
   }
   
-  // Advanced battery matching
+  // Advanced battery matching using intelligent matcher
   matchBattery(description: string, context: string = '') {
-    const candidates = this.batteries.map(battery => {
-      let score = 0;
-      const desc = description.toLowerCase();
-      const brand = battery.brand.toLowerCase();
-      const model = battery.model.toLowerCase();
-      const fullName = `${brand} ${model}`.toLowerCase();
-      
-      // Exact model match
-      if (desc.includes(model)) {
-        score += 100;
-      }
-      
-      // Brand match
-      if (desc.includes(brand)) {
-        score += 50;
-      }
-      
-      // Full name match
-      if (desc.includes(fullName)) {
-        score += 90;
-      }
-      
-      // Capacity match
-      const capacityMatch = desc.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-      if (capacityMatch && battery.capacity_kwh) {
-        const extractedCapacity = parseFloat(capacityMatch[1]);
-        if (Math.abs(extractedCapacity - battery.capacity_kwh) < 1) {
-          score += 60;
-        }
-      }
-      
-      // Context bonus
-      if (context.toLowerCase().includes('battery') || context.toLowerCase().includes('storage')) {
-        score += 20;
-      }
-      
-      return {
-        ...battery,
-        confidence: Math.min(score / 100, 1),
-        matchScore: score
-      };
-    });
-    
-    const bestMatch = candidates.sort((a, b) => b.matchScore - a.matchScore)[0];
-    return bestMatch && bestMatch.confidence > 0.4 ? bestMatch : null;
+    const match = intelligentMatcher.findBestBatteryMatch(description);
+    return match;
   }
 }
 
@@ -449,6 +308,9 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
   const matcher = new EquipmentMatcher();
   await matcher.initialize();
   
+  console.log('=== INTELLIGENT EXTRACTION STARTING ===');
+  console.log('Raw text:', text.substring(0, 500) + '...');
+  
   const extractedData: AdvancedProcessorResult['extractedData'] = {
     panels: [],
     batteries: [],
@@ -458,8 +320,7 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     installer: undefined
   };
   
-  // Context-aware extraction
-  let currentSection = '';
+  // Enhanced pattern recognition with context awareness
   const panelCandidates: Array<{description: string, context: string, line: string}> = [];
   const batteryCandidates: Array<{description: string, context: string, line: string}> = [];
   
@@ -467,32 +328,32 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     const line = lines[i];
     const lowerLine = line.toLowerCase();
     
-    // Identify sections
-    if (lowerLine.includes('solar') && (lowerLine.includes('panel') || lowerLine.includes('module'))) {
-      currentSection = 'panels';
-    } else if (lowerLine.includes('battery') || lowerLine.includes('storage')) {
-      currentSection = 'battery';
-    } else if (lowerLine.includes('inverter')) {
-      currentSection = 'inverter';
-    } else if (lowerLine.includes('app') || lowerLine.includes('monitoring')) {
-      currentSection = 'app';
-    }
+    console.log(`Processing line ${i}: "${line}"`);
     
-    // Skip app/monitoring sections completely
-    if (currentSection === 'app' || lowerLine.includes('app') || lowerLine.includes('monitoring') || lowerLine.includes('visibility')) {
+    // Skip non-equipment lines
+    if (lowerLine.includes('app') || 
+        lowerLine.includes('monitoring') || 
+        lowerLine.includes('visibility') ||
+        lowerLine.includes('control') ||
+        lowerLine.includes('designed to give') ||
+        lowerLine.includes('real-time') ||
+        lowerLine.includes('features')) {
+      console.log('  -> Skipped (app/monitoring content)');
       continue;
     }
     
-    // Extract solar panels with context
+    // Extract solar panels with enhanced patterns
     const panelPatterns = [
-      // Specific model patterns (Tiger Neo, JKM series, etc.)
-      /(Tiger\s+Neo|JKM\d+[A-Z]*[-_]?\d*[A-Z]*[-_]?[A-Z0-9]*)/gi,
-      // Quantity x Model patterns
+      // Tiger Neo specific pattern
+      /(Tiger\s+Neo\s+N-type\s+[A-Z0-9\-]+)/gi,
+      // JKM series with model numbers
+      /(JKM\d{3,}[A-Z]*[-_]?\d*[A-Z]*[-_]?[A-Z0-9]*)/gi,
+      // Quantity x Model patterns  
       /(\d+)\s*[x×]\s*([A-Z]{2,}[0-9]{3,}[A-Z]*[-_]?[0-9]*[A-Z]*)/gi,
-      // Wattage with model
-      /(\d+)\s*[Ww]att\s*([A-Z][a-zA-Z0-9\s\-\.]+)/gi,
-      // Brand model combinations
-      /(jinko|trina|canadian|lg|rec|sunpower|ja\s*solar|longi|risen)\s*([A-Z0-9\s\-\.]+)/gi
+      // Wattage with panels
+      /(\d{3,})\s*[Ww]att\s*panels?/gi,
+      // Brand + model combinations
+      /((?:jinko|trina|canadian|lg|rec|sunpower)\s*[A-Z0-9\s\-\.]+)/gi
     ];
     
     for (const pattern of panelPatterns) {
@@ -501,22 +362,34 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
         if (match[0].length > 5) {
           panelCandidates.push({
             description: match[0].trim(),
-            context: currentSection || 'general',
+            context: 'solar_panel',
             line: line
           });
+          console.log(`  -> Found panel candidate: "${match[0].trim()}"`);
         }
       }
     }
     
-    // Extract batteries with context (be more specific about NOT including inverters)
-    if (!lowerLine.includes('inverter') && !lowerLine.includes('sma') && !lowerLine.includes('fronius')) {
+    // Extract batteries with enhanced patterns (exclude inverters explicitly)
+    if (!lowerLine.includes('inverter') && 
+        !lowerLine.includes('sma') && 
+        !lowerLine.includes('fronius') &&
+        !lowerLine.includes('enphase') &&
+        !lowerLine.includes('solaredge')) {
+      
       const batteryPatterns = [
-        // Specific battery patterns
-        /(SigenStor|Sigen\s*Battery|BAT\s*\d+(?:\.\d+)?)/gi,
-        // Capacity patterns
-        /(\d+(?:\.\d+)?)\s*kwh\s*(?:of\s*)?(?:battery\s*storage|storage|battery)/gi,
-        // Brand model for batteries only
-        /(sigenergy|tesla|lg|byd|pylontech|sonnen)\s*([A-Z0-9\s\-\.]+)/gi
+        // Sigen Battery with capacity
+        /(Sigen\s+Battery[\s\S]*?(\d+(?:\.\d+)?)\s*kwh)/gi,
+        // SigenStor models
+        /(SigenStor\s+[A-Z0-9\s\-\.]+)/gi,
+        // Capacity with "of Battery Storage"
+        /(\d+(?:\.\d+)?)\s*kwh\s*of\s*Battery\s*Storage/gi,
+        // Battery with capacity
+        /(\d+(?:\.\d+)?)\s*kwh\s*(?:battery|storage)/gi,
+        // Sigenergy brand
+        /(Sigenergy[\s\S]*?(?:\d+(?:\.\d+)?)\s*kwh)/gi,
+        // BAT models
+        /(BAT\s*\d+(?:\.\d+)?)/gi
       ];
       
       for (const pattern of batteryPatterns) {
@@ -525,76 +398,94 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
           if (match[0].length > 5) {
             batteryCandidates.push({
               description: match[0].trim(),
-              context: currentSection || 'general',
+              context: 'battery_storage', 
               line: line
             });
+            console.log(`  -> Found battery candidate: "${match[0].trim()}"`);
           }
         }
       }
     }
   }
   
-  // Process panel candidates
+  console.log(`Found ${panelCandidates.length} panel candidates and ${batteryCandidates.length} battery candidates`);
+  
+  // Process panel candidates with intelligent matching
   const processedPanels = new Set<string>();
   for (const candidate of panelCandidates) {
     if (!processedPanels.has(candidate.description)) {
       processedPanels.add(candidate.description);
       
+      console.log(`Matching panel: "${candidate.description}"`);
       const match = matcher.matchPanel(candidate.description, candidate.context);
       
-      // Extract quantity and watts from line
-      const quantityMatch = candidate.line.match(/(\d+)\s*[x×]/i);
-      const wattsMatch = candidate.line.match(/(\d+)\s*[Ww]att/i);
-      
-      extractedData.panels?.push({
-        description: candidate.description,
-        confidence: match ? match.confidence : 0.3,
-        quantity: quantityMatch ? parseInt(quantityMatch[1]) : undefined,
-        watts: wattsMatch ? parseInt(wattsMatch[1]) : match?.power_rating,
-        cecId: match?.certificate,
-        suggestedMatch: match ? {
-          id: match.id,
-          brand: match.brand,
-          model: match.model,
-          watts: match.power_rating || 0,
-          cec_id: match.certificate || 'CEC-LISTED',
+      if (match) {
+        // Extract additional info from line
+        const quantityMatch = candidate.line.match(/(\d+)\s*[x×]/i);
+        const wattsMatch = candidate.line.match(/(\d{3,})\s*[Ww]att/i);
+        
+        extractedData.panels?.push({
+          description: candidate.description,
           confidence: match.confidence,
-          matchType: 'advanced'
-        } : undefined
-      });
+          quantity: quantityMatch ? parseInt(quantityMatch[1]) : undefined,
+          watts: wattsMatch ? parseInt(wattsMatch[1]) : match?.power_rating,
+          cecId: match.certificate,
+          suggestedMatch: {
+            id: match.id,
+            brand: match.brand,
+            model: match.model,
+            watts: match.power_rating || 0,
+            cec_id: match.certificate || 'CEC-LISTED',
+            confidence: match.confidence,
+            matchType: match.matchType
+          }
+        });
+        
+        console.log(`✓ Panel matched: ${match.brand} ${match.model} (${(match.confidence * 100).toFixed(1)}%)`);
+      } else {
+        console.log(`✗ No panel match found for: "${candidate.description}"`);
+      }
     }
   }
   
-  // Process battery candidates
+  // Process battery candidates with intelligent matching
   const processedBatteries = new Set<string>();
   for (const candidate of batteryCandidates) {
     if (!processedBatteries.has(candidate.description)) {
       processedBatteries.add(candidate.description);
       
+      console.log(`Matching battery: "${candidate.description}"`);
       const match = matcher.matchBattery(candidate.description, candidate.context);
       
-      // Extract capacity from line
-      const capacityMatch = candidate.line.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-      
-      extractedData.batteries?.push({
-        description: candidate.description,
-        confidence: match ? match.confidence : 0.3,
-        capacity_kwh: capacityMatch ? parseFloat(capacityMatch[1]) : match?.capacity_kwh,
-        cecId: match?.certificate,
-        suggestedMatch: match ? {
-          id: match.id,
-          brand: match.brand,
-          model: match.model,
-          capacity_kwh: match.capacity_kwh || 0,
-          cec_id: match.certificate || 'CEC-LISTED',
+      if (match) {
+        // Extract capacity from line
+        const capacityMatch = candidate.line.match(/(\d+(?:\.\d+)?)\s*kwh/gi);
+        let extractedCapacity = capacityMatch ? parseFloat(capacityMatch[0].replace(/kwh/gi, '')) : undefined;
+        
+        extractedData.batteries?.push({
+          description: candidate.description,
           confidence: match.confidence,
-          matchType: 'advanced'
-        } : undefined
-      });
+          capacity_kwh: extractedCapacity || match.capacity_kwh,
+          cecId: match.certificate,
+          suggestedMatch: {
+            id: match.id,
+            brand: match.brand,
+            model: match.model,
+            capacity_kwh: match.capacity_kwh || 0,
+            cec_id: match.certificate || 'CEC-LISTED',
+            confidence: match.confidence,
+            matchType: match.matchType
+          }
+        });
+        
+        console.log(`✓ Battery matched: ${match.brand} ${match.model} ${match.capacity_kwh}kWh (${(match.confidence * 100).toFixed(1)}%)`);
+      } else {
+        console.log(`✗ No battery match found for: "${candidate.description}"`);
+      }
     }
   }
   
-  // Extract system size with better patterns
+  // Extract system size with enhanced patterns
   const systemSizePatterns = [
     /(\d+(?:\.\d+)?)\s*kw\s*of\s*solar\s*power/gi,
     /(\d+(?:\.\d+)?)\s*kw\s*(?:system|capacity|install)/gi
@@ -609,6 +500,7 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
           unit: 'kw',
           confidence: 0.9
         };
+        console.log(`✓ System size found: ${match[1]}kW`);
         break;
       }
     }
@@ -626,11 +518,15 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
           value: postcode,
           confidence: 0.8
         };
+        console.log(`✓ Postcode found: ${postcode}`);
         break;
       }
     }
     if (extractedData.postcode) break;
   }
+  
+  console.log('=== EXTRACTION COMPLETE ===');
+  console.log(`Final results: ${extractedData.panels?.length || 0} panels, ${extractedData.batteries?.length || 0} batteries`);
   
   return extractedData;
 }
