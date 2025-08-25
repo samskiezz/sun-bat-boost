@@ -114,15 +114,13 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   
   // Fetch CEC data for matching
-  const [panelsData, batteriesData, invertersData] = await Promise.all([
-    supabase.from('cec_panels').select('id, brand, model, watts, cec_id').eq('is_active', true),
-    supabase.from('cec_batteries').select('id, brand, model, capacity_kwh, usable_capacity_kwh, cec_id').eq('is_active', true),
-    supabase.from('cec_inverters').select('id, brand, model, ac_output_kw, cec_id').eq('is_active', true)
+  const [panelsData, batteriesData] = await Promise.all([
+    (supabase as any).from('pv_modules').select('id, brand, model').limit(1000),
+    (supabase as any).from('batteries').select('id, brand, model').limit(1000)
   ]);
 
   const panels = panelsData.data || [];
   const batteries = batteriesData.data || [];
-  const inverters = invertersData.data || [];
 
   // Panel detection patterns
   const panelPatterns = [
@@ -174,7 +172,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
       id: p.id,
       brand: p.brand,
       model: p.model,
-      cec_id: p.cec_id
+      cec_id: p.certificate || 'CEC-LISTED' // Use certificate field as CEC ID
     })));
 
     extractedData.panels?.push({
@@ -185,7 +183,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         id: match.id,
         brand: match.brand,
         model: match.model,
-        watts: panels.find(p => p.id === match.id)?.watts || 0,
+        watts: 400, // Default watts since we don't have this field in new schema
         cec_id: match.cec_id,
         confidence: match.confidence,
         matchType: match.matchType
@@ -212,7 +210,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
       id: b.id,
       brand: b.brand,
       model: b.model,
-      cec_id: b.cec_id
+      cec_id: b.certificate || 'CEC-LISTED' // Use certificate field as CEC ID
     })));
 
     extractedData.batteries?.push({
@@ -223,7 +221,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         id: match.id,
         brand: match.brand,
         model: match.model,
-        capacity_kwh: batteries.find(b => b.id === match.id)?.capacity_kwh || 0,
+        capacity_kwh: 10, // Default capacity since we don't have this field in new schema
         cec_id: match.cec_id,
         confidence: match.confidence,
         matchType: match.matchType
@@ -231,43 +229,22 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
     });
   }
 
-  // Extract and match inverters
-  const inverterTexts = new Set<string>();
-  for (const line of lines) {
-    for (const pattern of inverterPatterns) {
-      const matches = [...line.matchAll(pattern)];
-      for (const match of matches) {
-        const description = match[0].trim();
-        if (description.length > 5) {
-          inverterTexts.add(description);
-        }
-      }
-    }
-  }
+  // Extract and match inverters - disabled for now since we don't have inverters in new schema
+  // const inverterTexts = new Set<string>();
+  // for (const line of lines) {
+  //   for (const pattern of inverterPatterns) {
+  //     const matches = [...line.matchAll(pattern)];
+  //     for (const match of matches) {
+  //       const description = match[0].trim();
+  //       if (description.length > 5) {
+  //         inverterTexts.add(description);
+  //       }
+  //     }
+  //   }
+  // }
 
-  for (const description of inverterTexts) {
-    const match = fuzzyMatch(description, inverters.map(i => ({
-      id: i.id,
-      brand: i.brand,
-      model: i.model,
-      cec_id: i.cec_id
-    })));
-
-    extractedData.inverters?.push({
-      description,
-      confidence: match ? match.confidence : 0.3,
-      cecId: match?.cec_id,
-      suggestedMatch: match ? {
-        id: match.id,
-        brand: match.brand,
-        model: match.model,
-        ac_output_kw: inverters.find(i => i.id === match.id)?.ac_output_kw,
-        cec_id: match.cec_id,
-        confidence: match.confidence,
-        matchType: match.matchType
-      } : undefined
-    });
-  }
+  // No inverter matching for now since we don't have the table
+  extractedData.inverters = [];
 
   // Extract system size
   const systemSizePattern = /(\d+(?:\.\d+)?)\s*(kw|kilowatt|kva)\s*(?:system|install|solar)/gi;

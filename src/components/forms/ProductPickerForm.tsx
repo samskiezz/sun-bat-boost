@@ -14,25 +14,24 @@ interface ProductPickerFormProps {
 }
 
 export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
-  const { panels, batteries, inverters, vppProviders, loading, getCompatibleVPPs, refreshData } = useCECData();
+  const { panels, batteries, vppProviders, loading, getCompatibleVPPs, refreshData } = useCECData();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     postcode: "",
     installDate: new Date().toISOString().split('T')[0],
     panelId: "",
     panelQty: "",
-    inverterId: "",
     batteryId: "",
     stcPrice: "38",
     vppProvider: ""
   });
 
   const selectedPanel = panels.find(p => p.id === formData.panelId);
-  const selectedInverter = inverters.find(i => i.id === formData.inverterId);
   const selectedBattery = formData.batteryId === "none" ? null : batteries.find(b => b.id === formData.batteryId);
   
+  // Calculate system size based on panel selection - assume 400W average for new CEC panels
   const systemKw = selectedPanel && formData.panelQty 
-    ? (selectedPanel.watts * parseInt(formData.panelQty)) / 1000 
+    ? (400 * parseInt(formData.panelQty)) / 1000  // Assume 400W average panel
     : 0;
 
   // Get compatible VPP providers for selected battery
@@ -55,10 +54,8 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
       panelQty: parseInt(formData.panelQty),
       stcPrice: parseFloat(formData.stcPrice),
       systemKw,
-      batteryKwh: selectedBattery?.capacity_kwh,
       selectedProducts: {
         panel: selectedPanel,
-        inverter: selectedInverter,
         battery: selectedBattery
       }
     });
@@ -83,7 +80,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
           Product Picker
         </CardTitle>
         <CardDescription>
-          Choose from CEC-approved solar panels, inverters, and batteries
+          Choose from CEC-approved solar panels and batteries
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -124,7 +121,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <span>Loading CEC data...</span>
             ) : (
               <span>
-                Loaded: {panels.length} panels, {batteries.length} batteries, {inverters.length} inverters, {vppProviders.length} VPPs
+                Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
                 {(panels.length < 50 || batteries.length < 50) && (
                   <span className="text-yellow-600 ml-2">⚠️ Limited data - click refresh to load full CEC database</span>
                 )}
@@ -137,7 +134,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               onClick={async () => {
                 toast({
                   title: "Refreshing CEC Data",
-                  description: "Loading hundreds of CEC-approved products..."
+                  description: "Loading CEC-approved products from official sources..."
                 });
                 try {
                   await refreshData();
@@ -172,14 +169,14 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
                 {panels.length === 0 ? (
-                  <SelectItem value="no-panels" disabled>No panels loaded</SelectItem>
+                  <SelectItem value="no-panels" disabled>No panels loaded - try refreshing</SelectItem>
                 ) : (
                   panels.filter(panel => panel.id && panel.id.trim() !== '').map(panel => (
                     <SelectItem key={panel.id} value={panel.id}>
                       <div className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500" />
-                        {panel.brand} {panel.model} ({panel.watts}W)
-                        {panel.efficiency && <span className="text-xs text-muted-foreground">- {panel.efficiency}%</span>}
+                        {panel.brand} {panel.model}
+                        {panel.technology && <span className="text-xs text-muted-foreground">- {panel.technology}</span>}
                       </div>
                     </SelectItem>
                   ))
@@ -210,31 +207,6 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             )}
           </div>
 
-          {/* Inverter */}
-          <div className="space-y-2">
-            <Label>Inverter</Label>
-            <Select value={formData.inverterId} onValueChange={(value) => setFormData({...formData, inverterId: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select CEC-approved inverter" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border border-border z-50">
-                {inverters.length === 0 ? (
-                  <SelectItem value="no-inverters" disabled>No inverters loaded</SelectItem>
-                ) : (
-                  inverters.filter(inverter => inverter.id && inverter.id.trim() !== '').map(inverter => (
-                    <SelectItem key={inverter.id} value={inverter.id}>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500" />
-                        {inverter.brand} {inverter.model} ({inverter.ac_output_kw}kW)
-                        {inverter.efficiency && <span className="text-xs text-muted-foreground">- {inverter.efficiency}%</span>}
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Battery */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -248,13 +220,13 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="none">No battery</SelectItem>
                 {batteries.length === 0 ? (
-                  <SelectItem value="no-batteries" disabled>No batteries loaded</SelectItem>
+                  <SelectItem value="no-batteries" disabled>No batteries loaded - try refreshing</SelectItem>
                 ) : (
                   batteries.filter(battery => battery.id && battery.id.trim() !== '').map(battery => (
                     <SelectItem key={battery.id} value={battery.id}>
                       <div className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500" />
-                        {battery.brand} {battery.model} ({battery.capacity_kwh}kWh)
+                        {battery.brand} {battery.model}
                         {battery.chemistry && <span className="text-xs text-muted-foreground">- {battery.chemistry}</span>}
                       </div>
                     </SelectItem>
@@ -307,26 +279,20 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
           </div>
 
           {/* CEC Status */}
-          {(selectedPanel || selectedInverter || selectedBattery) && (
+          {(selectedPanel || selectedBattery) && (
             <div className="space-y-2">
               <Label>CEC Approval Status</Label>
               <div className="flex flex-wrap gap-2">
                 {selectedPanel && (
                   <Badge variant="default" className="gap-1">
                     <Check className="w-3 h-3" />
-                    Panel Approved ({selectedPanel.cec_listing_id})
-                  </Badge>
-                )}
-                {selectedInverter && (
-                  <Badge variant="default" className="gap-1">
-                    <Check className="w-3 h-3" />
-                    Inverter Approved ({selectedInverter.cec_listing_id})
+                    Panel Approved ({selectedPanel.certificate || 'CEC Listed'})
                   </Badge>
                 )}
                 {selectedBattery && (
                   <Badge variant="default" className="gap-1">
                     <Check className="w-3 h-3" />
-                    Battery Approved ({selectedBattery.cec_listing_id})
+                    Battery Approved ({selectedBattery.certificate || 'CEC Listed'})
                   </Badge>
                 )}
               </div>

@@ -1,6 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Search, Zap } from "lucide-react";
-import { QuoteOCRForm } from "./forms/QuoteOCRForm";
 import { ProductPickerForm } from "./forms/ProductPickerForm";
 import { QuickSizesForm } from "./forms/QuickSizesForm";
 
@@ -29,7 +28,9 @@ export const InputModeTabs = ({ onCalculate }: InputModeTabsProps) => {
       </TabsList>
 
       <TabsContent value="ocr">
-        <QuoteOCRForm onSubmit={onCalculate} />
+        <div className="text-center text-muted-foreground py-8">
+          OCR Quote Upload - Coming Soon
+        </div>
       </TabsContent>
 
       <TabsContent value="picker">

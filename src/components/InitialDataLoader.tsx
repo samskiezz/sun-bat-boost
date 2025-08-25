@@ -9,8 +9,8 @@ export const InitialDataLoader = () => {
     const initializeData = async () => {
       try {
         // Check if data already exists
-        const { data: panelsCheck } = await supabase
-          .from('cec_panels')
+        const { data: panelsCheck } = await (supabase as any)
+          .from('pv_modules')
           .select('id')
           .limit(1);
 
@@ -21,9 +21,9 @@ export const InitialDataLoader = () => {
 
         console.log('Initializing CEC data...');
         
-        // Call the edge function to populate initial data
-        const { data, error } = await supabase.functions.invoke('update-cec-data', {
-          body: { refresh_type: 'all' }
+        // Call the new edge function to populate initial data
+        const { data, error } = await supabase.functions.invoke('cec-scrape', {
+          body: JSON.stringify({ mode: 'run' })
         });
 
         if (error) {
