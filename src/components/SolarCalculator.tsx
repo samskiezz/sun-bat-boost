@@ -21,7 +21,8 @@ const SolarCalculator = () => {
     try {
       // Ensure proper data extraction for both picker and quick modes
       const solarKw = formData.solarKw || formData.systemKw || 0;
-      const batteryKwh = formData.batteryKwh || (formData.selectedProducts?.battery?.usable_capacity_kwh) || 0;
+      const batteryKwh = formData.batteryId === "none" ? 0 : 
+        (formData.batteryKwh || (formData.selectedProducts?.battery?.capacity_kwh) || 0);
       
       const input = {
         postcode: formData.postcode,

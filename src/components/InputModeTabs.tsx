@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Search, Zap } from "lucide-react";
 import { ProductPickerForm } from "./forms/ProductPickerForm";
 import { QuickSizesForm } from "./forms/QuickSizesForm";
+import OCRScanner from "./OCRScanner";
 
 export type InputMode = "ocr" | "picker" | "quick";
 
@@ -28,9 +29,20 @@ export const InputModeTabs = ({ onCalculate }: InputModeTabsProps) => {
       </TabsList>
 
       <TabsContent value="ocr">
-        <div className="text-center text-muted-foreground py-8">
-          OCR Quote Upload - Coming Soon
-        </div>
+        <OCRScanner onDataExtracted={(data) => {
+          // Transform OCR data to format expected by calculator
+          const formData = {
+            mode: "ocr",
+            postcode: data.postcode?.value || "",
+            installDate: new Date().toISOString().split('T')[0],
+            solarKw: data.systemSize?.value || 0,
+            batteryKwh: data.batteries?.[0]?.suggestedMatch?.capacity_kwh || 0,
+            stcPrice: 38,
+            vppProvider: "",
+            extractedData: data
+          };
+          onCalculate(formData);
+        }} />
       </TabsContent>
 
       <TabsContent value="picker">

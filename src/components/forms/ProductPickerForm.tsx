@@ -450,6 +450,22 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               Battery (Optional)
             </Label>
             
+            <div className="flex items-center gap-2 mb-2">
+              <Button
+                type="button"
+                variant={formData.batteryId === "none" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setFormData({...formData, batteryId: "none"});
+                  setBatterySearch("");
+                  setShowBatteryResults(false);
+                }}
+              >
+                Solar Only
+              </Button>
+              <span className="text-sm text-muted-foreground">or search for batteries:</span>
+            </div>
+            
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -611,7 +627,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             className="w-full"
             disabled={!selectedPanel || !formData.panelQty || !formData.postcode}
           >
-            Calculate Solar Returns
+            Calculate Rebates
           </Button>
         </form>
       </CardContent>

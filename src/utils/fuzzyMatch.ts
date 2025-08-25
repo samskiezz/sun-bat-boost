@@ -5,6 +5,9 @@ export interface MatchCandidate {
   brand: string;
   model: string;
   cec_id?: string;
+  power_rating?: number;
+  capacity_kwh?: number;
+  usable_capacity?: number;
 }
 
 export interface FuzzyMatchResult extends MatchCandidate {
@@ -25,43 +28,83 @@ export function fuzzyMatch(
   };
 
   for (const candidate of candidates) {
-    // Try brand + model match (highest priority)
-    const brandModelScore = compareTwoStrings(
-      query, 
-      `${candidate.brand} ${candidate.model}`.toLowerCase()
+    if (!candidate.brand || !candidate.model) continue;
+    
+    const brand = candidate.brand.toLowerCase();
+    const model = candidate.model.toLowerCase();
+    
+    // Enhanced matching strategies
+    
+    // 1. Exact brand + model match (highest priority)
+    const brandModelScore = compareTwoStrings(query, `${brand} ${model}`);
+    
+    // 2. Model contains query or query contains model
+    const modelScore = Math.max(
+      compareTwoStrings(query, model),
+      model.includes(query) ? 0.8 : 0,
+      query.includes(model) && model.length > 3 ? 0.75 : 0
     );
     
-    // Try model only match
-    const modelScore = compareTwoStrings(query, candidate.model.toLowerCase());
+    // 3. Brand contains query or query contains brand
+    const brandScore = Math.max(
+      compareTwoStrings(query, brand),
+      brand.includes(query) ? 0.7 : 0,
+      query.includes(brand) && brand.length > 2 ? 0.65 : 0
+    );
     
-    // Try brand only match (lowest priority)
-    const brandScore = compareTwoStrings(query, candidate.brand.toLowerCase());
+    // 4. Partial word matching for brand names
+    const brandWords = brand.split(/[\s\-]+/);
+    const queryWords = query.split(/[\s\-]+/);
+    let partialBrandScore = 0;
+    
+    for (const queryWord of queryWords) {
+      for (const brandWord of brandWords) {
+        if (queryWord.length > 2 && brandWord.includes(queryWord)) {
+          partialBrandScore = Math.max(partialBrandScore, 0.6);
+        }
+        if (brandWord.length > 2 && queryWord.includes(brandWord)) {
+          partialBrandScore = Math.max(partialBrandScore, 0.55);
+        }
+      }
+    }
+    
+    // 5. Model number pattern matching (for technical product codes)
+    const modelPattern = /[A-Z]{2,}\-?\d{3,}[A-Z0-9]*/gi;
+    const queryModelMatch = query.match(modelPattern);
+    const candidateModelMatch = model.match(modelPattern);
+    
+    let patternScore = 0;
+    if (queryModelMatch && candidateModelMatch) {
+      for (const qMatch of queryModelMatch) {
+        for (const cMatch of candidateModelMatch) {
+          patternScore = Math.max(patternScore, compareTwoStrings(qMatch.toLowerCase(), cMatch.toLowerCase()));
+        }
+      }
+    }
     
     // Determine best match type and score
-    if (brandModelScore > best.score) {
+    const scores = [
+      { score: brandModelScore, type: 'brand_model' as const },
+      { score: Math.max(modelScore, patternScore), type: 'model_only' as const },
+      { score: Math.max(brandScore, partialBrandScore), type: 'brand_only' as const }
+    ];
+    
+    const bestForCandidate = scores.reduce((best, current) => 
+      current.score > best.score ? current : best
+    );
+    
+    if (bestForCandidate.score > best.score) {
       best = { 
-        score: brandModelScore, 
+        score: bestForCandidate.score, 
         item: candidate, 
-        matchType: 'brand_model' 
-      };
-    } else if (modelScore > best.score) {
-      best = { 
-        score: modelScore, 
-        item: candidate, 
-        matchType: 'model_only' 
-      };
-    } else if (brandScore > best.score && brandScore > 0.8) {
-      // Only consider brand matches if they're very high confidence
-      best = { 
-        score: brandScore, 
-        item: candidate, 
-        matchType: 'brand_only' 
+        matchType: bestForCandidate.type 
       };
     }
   }
 
   // Return match if confidence is above threshold
-  if (best.score >= 0.72 && best.item) {
+  // Lower threshold for better matching of quote line items
+  if (best.score >= 0.4 && best.item) {
     return {
       ...best.item,
       confidence: best.score,

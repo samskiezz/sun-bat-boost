@@ -113,27 +113,99 @@ export const processQuoteImage = async (imageFile: File): Promise<OCRResult> => 
 async function extractSystemData(text: string): Promise<OCRResult['extractedData']> {
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   
-  // Fetch CEC data for matching
-  const [panelsData, batteriesData] = await Promise.all([
-    (supabase as any).from('pv_modules').select('id, brand, model').limit(1000),
-    (supabase as any).from('batteries').select('id, brand, model').limit(1000)
+  const [panels, batteries] = await Promise.all([
+    (async () => {
+      let allPanels: any[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('pv_modules')
+          .select('*')
+          .range(from, from + 999);
+
+        if (error) {
+          console.error('Error fetching panels:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allPanels = [...allPanels, ...data];
+          from += 1000;
+          hasMore = data.length === 1000;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allPanels;
+    })(),
+    (async () => {
+      let allBatteries: any[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('batteries')
+          .select('*')
+          .range(from, from + 999);
+
+        if (error) {
+          console.error('Error fetching batteries:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allBatteries = [...allBatteries, ...data];
+          from += 1000;
+          hasMore = data.length === 1000;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allBatteries;
+    })()
   ]);
 
-  const panels = panelsData.data || [];
-  const batteries = batteriesData.data || [];
-
-  // Panel detection patterns
+  // Enhanced panel detection patterns for quote line items
   const panelPatterns = [
-    /(\d+)\s*(w|watt|watts?)\s*([a-zA-Z0-9\s\-\.]+(?:panel|module|solar))/gi,
-    /([a-zA-Z0-9\s\-\.]+)\s*(\d+)\s*(w|watt|watts?)/gi,
-    /(panel|module|solar)[\s:]*([a-zA-Z0-9\s\-\.]+)/gi
+    // Standard power rating patterns
+    /(\d+)\s*(w|watt|watts?)\s*([a-zA-Z0-9\s\-\.&]+(?:panel|module|solar|mono|poly|perc|topcon))/gi,
+    /([a-zA-Z0-9\s\-\.&]+)\s*(\d+)\s*(w|watt|watts?)/gi,
+    
+    // Brand-specific patterns
+    /(jinko|trina|canadian\s*solar|lg|rec|sunpower|q\s*cells|ja\s*solar|longi|risen|astronergy|hyundai)[\s\-]([a-zA-Z0-9\s\-\.&]+)/gi,
+    
+    // General solar equipment patterns
+    /(panel|module|solar)[\s:]*([a-zA-Z0-9\s\-\.&]+)/gi,
+    
+    // Quote line item patterns (quantity x description)
+    /(\d+)\s*x\s*([a-zA-Z0-9\s\-\.&]+(?:panel|module|solar|mono|poly|perc|topcon))/gi,
+    
+    // Model number patterns
+    /([A-Z]{2,}\-?\d{3,}[A-Z]*\-?[A-Z0-9]*)/gi
   ];
 
-  // Battery detection patterns  
+  // Enhanced battery detection patterns  
   const batteryPatterns = [
-    /(\d+(?:\.\d+)?)\s*(kwh|kw)\s*([a-zA-Z0-9\s\-\.]+(?:battery|storage))/gi,
-    /([a-zA-Z0-9\s\-\.]+)\s*(\d+(?:\.\d+)?)\s*(kwh|kw)\s*(?:battery|storage)/gi,
-    /(battery|storage)[\s:]*([a-zA-Z0-9\s\-\.]+)/gi
+    // Capacity-based patterns
+    /(\d+(?:\.\d+)?)\s*(kwh|kw)\s*([a-zA-Z0-9\s\-\.&]+(?:battery|storage|powerwall|enphase|tesla))/gi,
+    /([a-zA-Z0-9\s\-\.&]+)\s*(\d+(?:\.\d+)?)\s*(kwh|kw)\s*(?:battery|storage)/gi,
+    
+    // Brand-specific patterns
+    /(tesla|lg|byd|pylontech|sungrow|redback|enphase|sonnen|alpha\s*ess|fronius)[\s\-]([a-zA-Z0-9\s\-\.&]+(?:battery|storage|powerwall)?)/gi,
+    
+    // General patterns
+    /(battery|storage|powerwall)[\s:]*([a-zA-Z0-9\s\-\.&]+)/gi,
+    
+    // Quote line item patterns
+    /(\d+)\s*x\s*([a-zA-Z0-9\s\-\.&]+(?:battery|storage|powerwall|kwh))/gi,
+    
+    // Model patterns with capacity
+    /([A-Z]{2,}\-?\d+(?:\.\d+)?[A-Z]*)/gi
   ];
 
   // Inverter detection patterns
@@ -172,7 +244,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
       id: p.id,
       brand: p.brand,
       model: p.model,
-      cec_id: p.certificate || 'CEC-LISTED' // Use certificate field as CEC ID
+      cec_id: p.certificate || 'CEC-LISTED'
     })));
 
     extractedData.panels?.push({
@@ -183,7 +255,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         id: match.id,
         brand: match.brand,
         model: match.model,
-        watts: 400, // Default watts since we don't have this field in new schema
+        watts: match.power_rating || 400, // Use actual power rating from database
         cec_id: match.cec_id || 'CEC-LISTED',
         confidence: match.confidence,
         matchType: match.matchType
@@ -210,7 +282,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
       id: b.id,
       brand: b.brand,
       model: b.model,
-      cec_id: b.certificate || 'CEC-LISTED' // Use certificate field as CEC ID
+      cec_id: b.certificate || 'CEC-LISTED'
     })));
 
     extractedData.batteries?.push({
@@ -221,7 +293,7 @@ async function extractSystemData(text: string): Promise<OCRResult['extractedData
         id: match.id,
         brand: match.brand,
         model: match.model,
-        capacity_kwh: 10, // Default capacity since we don't have this field in new schema
+        capacity_kwh: match.capacity_kwh || match.usable_capacity || 10, // Use actual capacity from database
         cec_id: match.cec_id || 'CEC-LISTED',
         confidence: match.confidence,
         matchType: match.matchType
