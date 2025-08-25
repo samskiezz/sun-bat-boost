@@ -46,7 +46,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
 
   const selectedPanel = cecPanels.find(p => p.id === formData.panelId);
   const selectedInverter = cecInverters.find(i => i.id === formData.inverterId);
-  const selectedBattery = cecBatteries.find(b => b.id === formData.batteryId);
+  const selectedBattery = formData.batteryId === "none" ? null : cecBatteries.find(b => b.id === formData.batteryId);
   
   const systemKw = selectedPanel && formData.panelQty 
     ? (selectedPanel.watts * parseInt(formData.panelQty)) / 1000 
@@ -122,7 +122,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Select CEC-approved panel" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card border border-border z-50">
                 {cecPanels.map(panel => (
                   <SelectItem key={panel.id} value={panel.id}>
                     <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Select CEC-approved inverter" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card border border-border z-50">
                 {cecInverters.map(inverter => (
                   <SelectItem key={inverter.id} value={inverter.id}>
                     <div className="flex items-center gap-2">
@@ -187,8 +187,8 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Select CEC-approved battery (optional)" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No battery</SelectItem>
+              <SelectContent className="bg-card border border-border z-50">
+                <SelectItem value="none">No battery</SelectItem>
                 {cecBatteries.map(battery => (
                   <SelectItem key={battery.id} value={battery.id}>
                     <div className="flex items-center gap-2">

@@ -157,7 +157,7 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
                 <SelectTrigger>
                   <SelectValue placeholder="Select VPP (optional)" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card border border-border z-50">
                   {vppProviders.map(provider => (
                     <SelectItem key={provider} value={provider}>
                       {provider}
