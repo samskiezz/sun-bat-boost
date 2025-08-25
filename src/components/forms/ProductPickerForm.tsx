@@ -43,6 +43,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const [batterySearch, setBatterySearch] = useState("");
   const [showPanelResults, setShowPanelResults] = useState(false);
   const [showBatteryResults, setShowBatteryResults] = useState(false);
+  const [refreshSuccess, setRefreshSuccess] = useState(false);
 
   // Filter panels for search
   const filteredPanels = useMemo(() => {
@@ -176,7 +177,9 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             ) : (
               <span>
                 Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
-                {(panels.length < 500 || batteries.length < 500) && (
+                {refreshSuccess ? (
+                  <span className="text-green-600 ml-2">✅ Database updated successfully</span>
+                ) : (panels.length < 1500 || batteries.length < 800) && (
                   <span className="text-yellow-600 ml-2">⚠️ Refreshing database - click refresh if counts seem low</span>
                 )}
               </span>
@@ -186,17 +189,22 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               variant="outline"
               size="sm"
               onClick={async () => {
+                setRefreshSuccess(false);
                 toast({
                   title: "Refreshing CEC Data",
                   description: "Loading CEC-approved products from official sources..."
                 });
                 try {
                   await refreshData();
+                  setRefreshSuccess(true);
                   toast({
                     title: "CEC Data Updated",
                     description: "Successfully loaded latest CEC products"
                   });
+                  // Hide success indicator after 5 seconds
+                  setTimeout(() => setRefreshSuccess(false), 5000);
                 } catch (error) {
+                  setRefreshSuccess(false);
                   toast({
                     title: "Refresh Failed",
                     description: "Could not update CEC data",

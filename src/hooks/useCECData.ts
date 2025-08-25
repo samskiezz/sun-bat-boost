@@ -85,8 +85,8 @@ export const useCECData = () => {
 
       // Fetch all data in parallel - using any to bypass TypeScript issues until types are regenerated
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }).limit(2000),
-        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }).limit(1000),
+        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
+        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
         (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
