@@ -504,10 +504,15 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     }
   }
   
-  console.log(`Found ${panelCandidates.length} panel candidates and ${batteryCandidates.length} battery candidates`);
+  console.log(`📋 Found ${panelCandidates.length} panel candidates and ${batteryCandidates.length} battery candidates`);
   
-  // Process panel candidates with intelligent matching
+  // SMART DEDUPLICATION AND FILTERING
+  console.log('🧠 === SMART FILTERING AND DEDUPLICATION ===');
+  
+  // Process panel candidates with intelligent matching and deduplication
   const processedPanels = new Set<string>();
+  const finalPanelResults: any[] = [];
+  
   for (const candidate of panelCandidates) {
     if (!processedPanels.has(candidate.description)) {
       processedPanels.add(candidate.description);
@@ -532,7 +537,7 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
         const quantityMatch = candidate.line.match(/(\d+)\s*[x×]/i);
         const wattsMatch = candidate.line.match(/(\d{3,})\s*[Ww]att/i);
         
-        extractedData.panels?.push({
+        const panelResult = {
           description: candidate.description,
           confidence: match.confidence,
           quantity: quantityMatch ? parseInt(quantityMatch[1]) : undefined,
@@ -547,17 +552,40 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
             confidence: match.confidence,
             matchType: match.matchType
           }
-        });
+        };
         
-        console.log(`✓ Panel matched: ${match.brand} ${match.model} (${(match.confidence * 100).toFixed(1)}%)`);
+        finalPanelResults.push(panelResult);
+        console.log(`✅ Panel matched: ${match.brand} ${match.model} (${(match.confidence * 100).toFixed(1)}%)`);
       } else {
-        console.log(`✗ No panel match found for: "${candidate.description}"`);
+        console.log(`❌ No panel match found for: "${candidate.description}"`);
       }
     }
   }
   
-  // Process battery candidates with intelligent matching
+  // FILTER AND DEDUPLICATE PANELS - Keep only the highest confidence unique results
+  const uniquePanels = new Map<string, any>();
+  
+  for (const result of finalPanelResults) {
+    const key = `${result.suggestedMatch.brand}_${result.suggestedMatch.model}`;
+    
+    if (!uniquePanels.has(key) || uniquePanels.get(key).confidence < result.confidence) {
+      uniquePanels.set(key, result);
+    }
+  }
+  
+  // Only keep high confidence results (80%+) or if no high confidence, keep the best one
+  const highConfidencePanels = Array.from(uniquePanels.values()).filter(p => p.confidence >= 0.8);
+  const finalPanels = highConfidencePanels.length > 0 
+    ? highConfidencePanels 
+    : Array.from(uniquePanels.values()).slice(0, 1); // Keep only the best if no high confidence
+  
+  extractedData.panels = finalPanels;
+  console.log(`🎯 Final panels after deduplication: ${finalPanels.length}`);
+  
+  // Process battery candidates with intelligent matching and deduplication
   const processedBatteries = new Set<string>();
+  const finalBatteryResults: any[] = [];
+  
   for (const candidate of batteryCandidates) {
     if (!processedBatteries.has(candidate.description)) {
       processedBatteries.add(candidate.description);
@@ -582,7 +610,7 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
         const capacityMatch = candidate.line.match(/(\d+(?:\.\d+)?)\s*kwh/gi);
         let extractedCapacity = capacityMatch ? parseFloat(capacityMatch[0].replace(/kwh/gi, '')) : undefined;
         
-        extractedData.batteries?.push({
+        const batteryResult = {
           description: candidate.description,
           confidence: match.confidence,
           capacity_kwh: extractedCapacity || match.capacity_kwh,
@@ -596,14 +624,35 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
             confidence: match.confidence,
             matchType: match.matchType
           }
-        });
+        };
         
-        console.log(`✓ Battery matched: ${match.brand} ${match.model} ${match.capacity_kwh}kWh (${(match.confidence * 100).toFixed(1)}%)`);
+        finalBatteryResults.push(batteryResult);
+        console.log(`✅ Battery matched: ${match.brand} ${match.model} ${match.capacity_kwh}kWh (${(match.confidence * 100).toFixed(1)}%)`);
       } else {
-        console.log(`✗ No battery match found for: "${candidate.description}"`);
+        console.log(`❌ No battery match found for: "${candidate.description}"`);
       }
     }
   }
+  
+  // FILTER AND DEDUPLICATE BATTERIES - Keep only the highest confidence unique results
+  const uniqueBatteries = new Map<string, any>();
+  
+  for (const result of finalBatteryResults) {
+    const key = `${result.suggestedMatch.brand}_${result.suggestedMatch.model}`;
+    
+    if (!uniqueBatteries.has(key) || uniqueBatteries.get(key).confidence < result.confidence) {
+      uniqueBatteries.set(key, result);
+    }
+  }
+  
+  // Only keep high confidence results (80%+) or if no high confidence, keep the best one
+  const highConfidenceBatteries = Array.from(uniqueBatteries.values()).filter(b => b.confidence >= 0.8);
+  const finalBatteries = highConfidenceBatteries.length > 0 
+    ? highConfidenceBatteries 
+    : Array.from(uniqueBatteries.values()).slice(0, 1); // Keep only the best if no high confidence
+  
+  extractedData.batteries = finalBatteries;
+  console.log(`🎯 Final batteries after deduplication: ${finalBatteries.length}`);
   
   // Extract system size with enhanced patterns
   const systemSizePatterns = [
