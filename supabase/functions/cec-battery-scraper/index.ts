@@ -34,6 +34,42 @@ Deno.serve(async (req) => {
 
     console.log('Starting CEC battery scraping...');
 
+    // Check if data needs updating (older than 7 days)
+    const { data: needsUpdate, error: checkError } = await supabase.rpc('check_data_freshness', {
+      table_name_param: 'batteries'
+    });
+
+    if (checkError) {
+      console.error('Error checking data freshness:', checkError);
+    }
+
+    if (!needsUpdate) {
+      console.log('Battery data is fresh (less than 7 days old), skipping update');
+      
+      // Get current count from tracking table
+      const { data: tracking } = await supabase
+        .from('data_update_tracking')
+        .select('record_count, last_updated')
+        .eq('table_name', 'batteries')
+        .single();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Battery data is current (${tracking?.record_count || 0} batteries, updated ${tracking?.last_updated})`,
+          count: tracking?.record_count || 0,
+          source: 'Database Cache',
+          skipped: true
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    console.log('Battery data needs updating, proceeding with scrape...');
+
     // Since the CEC website uses dynamic JavaScript, we'll try to fetch the data
     // by looking for their API endpoints or data sources
     const cecUrl = 'https://cleanenergycouncil.org.au/industry-programs/products-program/batteries';
@@ -299,7 +335,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const finalBatteries = deduplicatedBatteries;
+    
     console.log(`Successfully updated battery database with ${insertedCount} CEC approved batteries`);
+
+    // Update tracking table
+    await supabase.rpc('update_data_tracking', {
+      table_name_param: 'batteries',
+      count_param: insertedCount,
+      status_param: 'completed',
+      notes_param: `Updated with ${insertedCount} batteries from CEC scraping`
+    });
 
     return new Response(
       JSON.stringify({

@@ -30,6 +30,42 @@ Deno.serve(async (req) => {
 
     console.log('Starting CEC panel scraping...');
 
+    // Check if data needs updating (older than 7 days)
+    const { data: needsUpdate, error: checkError } = await supabase.rpc('check_data_freshness', {
+      table_name_param: 'pv_modules'
+    });
+
+    if (checkError) {
+      console.error('Error checking data freshness:', checkError);
+    }
+
+    if (!needsUpdate) {
+      console.log('Panel data is fresh (less than 7 days old), skipping update');
+      
+      // Get current count from tracking table
+      const { data: tracking } = await supabase
+        .from('data_update_tracking')
+        .select('record_count, last_updated')
+        .eq('table_name', 'pv_modules')
+        .single();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Panel data is current (${tracking?.record_count || 0} panels, updated ${tracking?.last_updated})`,
+          count: tracking?.record_count || 0,
+          source: 'Database Cache',
+          skipped: true
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    console.log('Panel data needs updating, proceeding with scrape...');
+
     // Generate a comprehensive list of CEC approved solar panel brands and models
     const cecPanelBrands = [
       'Aiko Panel', 'JinkoSolar', 'LONGi Solar', 'Trina Solar', 'Canadian Solar', 'JA Solar',
@@ -231,6 +267,14 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Successfully updated panel database with ${insertedCount} CEC approved panels`);
+
+    // Update tracking table
+    await supabase.rpc('update_data_tracking', {
+      table_name_param: 'pv_modules',
+      count_param: insertedCount,
+      status_param: 'completed',
+      notes_param: `Updated with ${insertedCount} panels from CEC scraping`
+    });
 
     return new Response(
       JSON.stringify({

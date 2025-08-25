@@ -163,9 +163,9 @@ export const useCECData = () => {
 
       if (isComplete) {
         console.log('✅ Database is complete! Panels:', panelData.length, 'Batteries:', batteryData.length);
-        setAutoRefreshing(false);
       } else {
-        console.log('⚠️ Database incomplete. Panels:', panelData.length, 'Batteries:', batteryData.length);
+        console.log('⚠️ Database may need updating. Panels:', panelData.length, 'Batteries:', batteryData.length);
+        console.log('💡 Use the refresh button to get the latest data if needed.');
       }
 
     } catch (err) {
@@ -203,14 +203,14 @@ export const useCECData = () => {
     try {
       setAutoRefreshing(true);
       
-      // Use force complete scrape
+      // Force update by calling scrapers directly (will check if update needed)
       await forceCompleteScrape();
       
       // Wait then fetch all data
       setTimeout(async () => {
         await fetchAllDataComplete(true);
         setAutoRefreshing(false);
-      }, 5000);
+      }, 3000);
       
     } catch (err) {
       console.error('❌ Error refreshing data:', err);

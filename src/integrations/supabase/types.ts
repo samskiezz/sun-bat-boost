@@ -77,6 +77,36 @@ export type Database = {
         }
         Relationships: []
       }
+      data_update_tracking: {
+        Row: {
+          created_at: string
+          id: string
+          last_updated: string
+          notes: string | null
+          record_count: number
+          status: string
+          table_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          record_count?: number
+          status?: string
+          table_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_updated?: string
+          notes?: string | null
+          record_count?: number
+          status?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       postcode_zones: {
         Row: {
           created_at: string
@@ -263,9 +293,22 @@ export type Database = {
       }
     }
     Functions: {
+      check_data_freshness: {
+        Args: { table_name_param: string }
+        Returns: boolean
+      }
       refresh_battery_data: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      update_data_tracking: {
+        Args: {
+          count_param: number
+          notes_param?: string
+          status_param?: string
+          table_name_param: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
