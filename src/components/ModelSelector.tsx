@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Zap, Battery, Plus, Minus, Search, Star } from 'lucide-react';
 import { useCECData } from '@/hooks/useCECData';
 
@@ -41,48 +40,28 @@ export default function ModelSelector({
   const [selectedBatteries, setSelectedBatteries] = useState<SelectedBattery[]>(initialBatteries);
   const [panelSearch, setPanelSearch] = useState('');
   const [batterySearch, setBatterySearch] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState<string>('all');
-  const [selectedBatteryBrand, setSelectedBatteryBrand] = useState<string>('all');
 
-  // Get unique brands
-  const panelBrands = useMemo(() => {
-    const brands = new Set(panels.map(panel => panel.brand));
-    return Array.from(brands).sort();
-  }, [panels]);
-
-  const batteryBrands = useMemo(() => {
-    const brands = new Set(batteries.map(battery => battery.brand));
-    return Array.from(brands).sort();
-  }, [batteries]);
-
-  // Filter panels
-  const filteredPanels = panels.filter(panel => {
-    const matchesSearch = panelSearch === '' || 
+  // Filter panels with auto-suggest
+  const filteredPanels = useMemo(() => {
+    if (!panelSearch.trim()) return panels.slice(0, 20); // Show first 20 when no search
+    
+    return panels.filter(panel => 
       panel.brand.toLowerCase().includes(panelSearch.toLowerCase()) ||
-      panel.model.toLowerCase().includes(panelSearch.toLowerCase());
-    const matchesBrand = selectedBrand === 'all' || panel.brand === selectedBrand;
-    return matchesSearch && matchesBrand;
-  });
+      panel.model.toLowerCase().includes(panelSearch.toLowerCase()) ||
+      panel.technology?.toLowerCase().includes(panelSearch.toLowerCase())
+    ).slice(0, 50); // Limit results for performance
+  }, [panels, panelSearch]);
 
-  // Filter batteries
-  const filteredBatteries = batteries.filter(battery => {
-    const matchesSearch = batterySearch === '' || 
+  // Filter batteries with auto-suggest  
+  const filteredBatteries = useMemo(() => {
+    if (!batterySearch.trim()) return batteries.slice(0, 20); // Show first 20 when no search
+    
+    return batteries.filter(battery =>
       battery.brand.toLowerCase().includes(batterySearch.toLowerCase()) ||
-      battery.model.toLowerCase().includes(batterySearch.toLowerCase());
-    const matchesBrand = selectedBatteryBrand === 'all' || battery.brand === selectedBatteryBrand;
-    return matchesSearch && matchesBrand;
-  });
-
-  // Create combobox options
-  const panelBrandOptions: ComboboxOption[] = [
-    { value: 'all', label: 'All Brands' },
-    ...panelBrands.map(brand => ({ value: brand, label: brand }))
-  ];
-
-  const batteryBrandOptions: ComboboxOption[] = [
-    { value: 'all', label: 'All Brands' },
-    ...batteryBrands.map(brand => ({ value: brand, label: brand }))
-  ];
+      battery.model.toLowerCase().includes(batterySearch.toLowerCase()) ||
+      battery.chemistry?.toLowerCase().includes(batterySearch.toLowerCase())
+    ).slice(0, 50); // Limit results for performance
+  }, [batteries, batterySearch]);
 
   // Calculate totals
   const totalPvSize = selectedPanels.reduce((total, panel) => {
@@ -219,32 +198,24 @@ export default function ModelSelector({
 
           {/* Panels Tab */}
           <TabsContent value="panels" className="space-y-4">
-            {/* Panel Filters */}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Label htmlFor="panel-search">Search Panels</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="panel-search"
-                    placeholder="Search by brand or model..."
-                    value={panelSearch}
-                    onChange={(e) => setPanelSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="panel-brand">Brand</Label>
-                <Combobox
-                  options={panelBrandOptions}
-                  value={selectedBrand}
-                  onValueChange={setSelectedBrand}
-                  placeholder="All Brands"
-                  searchPlaceholder="Search brands..."
-                  className="w-40"
+            {/* Panel Search Only */}
+            <div className="space-y-2">
+              <Label htmlFor="panel-search">Search Solar Panels</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="panel-search"
+                  placeholder="Search by brand, model, or technology... (e.g. 'JinkoSolar', '450W', 'PERC')"
+                  value={panelSearch}
+                  onChange={(e) => setPanelSearch(e.target.value)}
+                  className="pl-10"
                 />
               </div>
+              {panelSearch && (
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredPanels.length} panels matching "{panelSearch}"
+                </p>
+              )}
             </div>
 
             {/* Selected Panels Summary */}
@@ -348,32 +319,24 @@ export default function ModelSelector({
 
           {/* Batteries Tab */}
           <TabsContent value="batteries" className="space-y-4">
-            {/* Battery Filters */}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Label htmlFor="battery-search">Search Batteries</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="battery-search"
-                    placeholder="Search by brand or model..."
-                    value={batterySearch}
-                    onChange={(e) => setBatterySearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="battery-brand">Brand</Label>
-                <Combobox
-                  options={batteryBrandOptions}
-                  value={selectedBatteryBrand}
-                  onValueChange={setSelectedBatteryBrand}
-                  placeholder="All Brands"
-                  searchPlaceholder="Search brands..."
-                  className="w-40"
+            {/* Battery Search Only */}
+            <div className="space-y-2">
+              <Label htmlFor="battery-search">Search Battery Systems</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="battery-search"
+                  placeholder="Search by brand, model, or chemistry... (e.g. 'Tesla', '13.5kWh', 'LiFePO4')"
+                  value={batterySearch}
+                  onChange={(e) => setBatterySearch(e.target.value)}
+                  className="pl-10"
                 />
               </div>
+              {batterySearch && (
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredBatteries.length} batteries matching "{batterySearch}"
+                </p>
+              )}
             </div>
 
             {/* Selected Batteries Summary */}
