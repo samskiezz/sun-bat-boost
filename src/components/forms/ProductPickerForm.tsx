@@ -50,27 +50,46 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const [showPanelResults, setShowPanelResults] = useState(false);
   const [showBatteryResults, setShowBatteryResults] = useState(false);
 
-  // Filter panels for search
+  // Filter panels for search - Fixed to handle all cases properly
   const filteredPanels = useMemo(() => {
     if (!panelSearch.trim()) return [];
     const searchTerm = panelSearch.toLowerCase().trim();
-    console.log('Searching panels for:', searchTerm, 'in', panels.length, 'total panels');
+    console.log('🔍 Searching panels for:', searchTerm, 'in', panels.length, 'total panels');
+    
+    if (panels.length === 0) {
+      console.log('⚠️ No panels loaded yet');
+      return [];
+    }
     
     const results = panels.filter(panel => {
-      const brandMatch = panel.brand.toLowerCase().includes(searchTerm);
-      const modelMatch = panel.model.toLowerCase().includes(searchTerm);
-      const techMatch = panel.technology?.toLowerCase().includes(searchTerm);
+      if (!panel) return false;
+      
+      // Normalize strings and handle null/undefined cases
+      const brand = (panel.brand || '').toLowerCase();
+      const model = (panel.model || '').toLowerCase();
+      const tech = (panel.technology || '').toLowerCase();
+      
+      const brandMatch = brand.includes(searchTerm);
+      const modelMatch = model.includes(searchTerm);
+      const techMatch = tech.includes(searchTerm);
       
       return brandMatch || modelMatch || techMatch;
     }).slice(0, 100); // Show top 100 matches
     
-    console.log(`Found ${results.length} panels matching "${searchTerm}"`);
+    console.log(`✅ Found ${results.length} panels matching "${searchTerm}"`);
     
-    // Special debug for Trina
+    // Enhanced debug for Trina
     if (searchTerm.includes('trina')) {
-      const allTrinaPanels = panels.filter(p => p.brand.toLowerCase().includes('trina'));
-      console.log('All Trina panels in database:', allTrinaPanels.length, allTrinaPanels.slice(0, 5));
-      console.log('Trina matches in results:', results.filter(p => p.brand.toLowerCase().includes('trina')));
+      const allTrinaPanels = panels.filter(p => p?.brand?.toLowerCase().includes('trina'));
+      console.log('🏭 All Trina panels in database:', allTrinaPanels.length);
+      console.log('🏭 Sample Trina panels:', allTrinaPanels.slice(0, 3).map(p => ({
+        id: p.id,
+        brand: p.brand,
+        model: p.model,
+        power: p.power_rating
+      })));
+      const trinaInResults = results.filter(p => p?.brand?.toLowerCase().includes('trina'));
+      console.log('🎯 Trina matches in filtered results:', trinaInResults.length);
     }
     
     return results;
@@ -90,9 +109,21 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => b.id === formData.batteryId);
   
   // Calculate system size based on panel selection using actual power rating
-  const systemKw = selectedPanel && formData.panelQty 
-    ? ((selectedPanel.power_rating || 400) * parseInt(formData.panelQty)) / 1000
-    : 0;
+  const systemKw = useMemo(() => {
+    if (!selectedPanel || !formData.panelQty) return 0;
+    const qty = parseInt(formData.panelQty);
+    const powerRating = selectedPanel.power_rating || 400; // Default 400W if no rating
+    const calculatedKw = (powerRating * qty) / 1000;
+    console.log('💡 System calculation:', { 
+      panelId: selectedPanel.id,
+      brand: selectedPanel.brand,
+      model: selectedPanel.model,
+      powerRating, 
+      qty, 
+      calculatedKw 
+    });
+    return calculatedKw;
+  }, [selectedPanel, formData.panelQty]);
 
   // Get compatible VPP providers for selected battery
   const compatibleVPPs = selectedBattery ? getCompatibleVPPs(selectedBattery.brand) : [];
@@ -219,6 +250,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                     key={panel.id}
                     className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
                     onClick={() => {
+                      console.log('🎯 Panel selected:', { id: panel.id, brand: panel.brand, model: panel.model, power: panel.power_rating });
                       setFormData({...formData, panelId: panel.id});
                       setPanelSearch(`${panel.brand} ${panel.model}`);
                       setShowPanelResults(false);
@@ -328,6 +360,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                     key={battery.id}
                     className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
                     onClick={() => {
+                      console.log('🔋 Battery selected:', { id: battery.id, brand: battery.brand, model: battery.model, capacity: battery.capacity_kwh });
                       setFormData({...formData, batteryId: battery.id});
                       setBatterySearch(`${battery.brand} ${battery.model}`);
                       setShowBatteryResults(false);
