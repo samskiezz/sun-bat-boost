@@ -91,8 +91,8 @@ export const useCECData = () => {
 
       // Fetch ALL data without any limits - complete dataset
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        supabase.from('pv_modules').select('*').order('brand', { ascending: true }),
-        supabase.from('batteries').select('*').order('brand', { ascending: true }),
+        supabase.from('pv_modules').select('*').range(0, 2000).order('brand', { ascending: true }),
+        supabase.from('batteries').select('*').range(0, 1000).order('brand', { ascending: true }),
         supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
