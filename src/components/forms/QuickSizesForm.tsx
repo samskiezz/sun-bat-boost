@@ -85,57 +85,45 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
             </div>
           </div>
 
-          {/* Solar Size with Presets */}
+          {/* Solar System Slider */}
           <div className="space-y-4">
-            <Label className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              Solar System Size (kW)
-            </Label>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {solarPresets.map(size => (
-                <Badge 
-                  key={size}
-                  variant={formData.solarKw === size ? "default" : "outline"}
-                  className="cursor-pointer transition-all duration-200 hover:scale-105"
-                  onClick={() => setFormData({...formData, solarKw: size})}
-                >
-                  {size} kW
-                </Badge>
-              ))}
-            </div>
-            <Input
-              placeholder="Or enter custom size"
+            <Slider3D
+              min={0}
+              max={99}
+              step={0.1}
               value={formData.solarKw}
-              onChange={(e) => setFormData({...formData, solarKw: parseFloat(e.target.value) || 0})}
-              required
+              onChange={(value) => setFormData({...formData, solarKw: value})}
+              label="Solar System Size"
+              unit="kW"
+              gradient="solar"
+              className="w-full"
             />
           </div>
 
-          {/* Modern 3D Battery Slider */}
+          {/* Battery Capacity Slider */}
           <div className="space-y-4">
-            <Label className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              Battery Size (Optional)
-            </Label>
             <Slider3D
               min={0}
-              max={50}
+              max={100}
               step={0.5}
               value={formData.batteryKwh}
               onChange={(value) => setFormData({...formData, batteryKwh: value})}
               label="Battery Capacity"
               unit="kWh"
-              gradient="bg-gradient-primary"
+              gradient="battery"
               className="w-full"
             />
             {formData.batteryKwh > 0 && (
-              <div className="text-sm text-muted-foreground">
-                💡 Battery selected: {formData.batteryKwh} kWh
-                {recommendedVPP && (
-                  <span className="block mt-1">
-                    Recommended VPP: {recommendedVPP.name} (${recommendedVPP.signup_bonus} signup + ${recommendedVPP.estimated_annual_reward}/year)
-                  </span>
-                )}
+              <div className="p-4 rounded-2xl backdrop-blur-sm bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-400/20">
+                <div className="text-sm text-muted-foreground">
+                  💡 <span className="font-semibold text-green-600 dark:text-green-400">Battery selected:</span> {formData.batteryKwh} kWh
+                  {recommendedVPP && (
+                    <span className="block mt-2 text-xs">
+                      <span className="font-medium text-primary">Recommended VPP:</span> {recommendedVPP.name} 
+                      <span className="text-green-600 dark:text-green-400"> (${recommendedVPP.signup_bonus} signup + ${recommendedVPP.estimated_annual_reward}/year)</span>
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
