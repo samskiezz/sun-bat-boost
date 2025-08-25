@@ -14,7 +14,345 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      battery_vpp_compatibility: {
+        Row: {
+          battery_id: string | null
+          compatibility_score: number | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          verified_date: string | null
+          vpp_provider_id: string | null
+        }
+        Insert: {
+          battery_id?: string | null
+          compatibility_score?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          verified_date?: string | null
+          vpp_provider_id?: string | null
+        }
+        Update: {
+          battery_id?: string | null
+          compatibility_score?: number | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          verified_date?: string | null
+          vpp_provider_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "battery_vpp_compatibility_battery_id_fkey"
+            columns: ["battery_id"]
+            isOneToOne: false
+            referencedRelation: "cec_batteries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "battery_vpp_compatibility_vpp_provider_id_fkey"
+            columns: ["vpp_provider_id"]
+            isOneToOne: false
+            referencedRelation: "vpp_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cec_batteries: {
+        Row: {
+          approved_date: string | null
+          brand: string
+          capacity_kwh: number
+          cec_listing_id: string | null
+          chemistry: string | null
+          created_at: string | null
+          cycles: number | null
+          dimensions_height: number | null
+          dimensions_length: number | null
+          dimensions_width: number | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean | null
+          model: string
+          model_number: string
+          updated_at: string | null
+          usable_capacity_kwh: number | null
+          voltage: number | null
+          warranty_years: number | null
+          weight: number | null
+        }
+        Insert: {
+          approved_date?: string | null
+          brand: string
+          capacity_kwh: number
+          cec_listing_id?: string | null
+          chemistry?: string | null
+          created_at?: string | null
+          cycles?: number | null
+          dimensions_height?: number | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model: string
+          model_number: string
+          updated_at?: string | null
+          usable_capacity_kwh?: number | null
+          voltage?: number | null
+          warranty_years?: number | null
+          weight?: number | null
+        }
+        Update: {
+          approved_date?: string | null
+          brand?: string
+          capacity_kwh?: number
+          cec_listing_id?: string | null
+          chemistry?: string | null
+          created_at?: string | null
+          cycles?: number | null
+          dimensions_height?: number | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string
+          model_number?: string
+          updated_at?: string | null
+          usable_capacity_kwh?: number | null
+          voltage?: number | null
+          warranty_years?: number | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      cec_data_refresh_log: {
+        Row: {
+          completed_at: string | null
+          data_source_url: string | null
+          error_message: string | null
+          id: string
+          records_added: number | null
+          records_deactivated: number | null
+          records_updated: number | null
+          refresh_type: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          data_source_url?: string | null
+          error_message?: string | null
+          id?: string
+          records_added?: number | null
+          records_deactivated?: number | null
+          records_updated?: number | null
+          refresh_type: string
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          completed_at?: string | null
+          data_source_url?: string | null
+          error_message?: string | null
+          id?: string
+          records_added?: number | null
+          records_deactivated?: number | null
+          records_updated?: number | null
+          refresh_type?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      cec_inverters: {
+        Row: {
+          ac_output_kw: number
+          approved_date: string | null
+          brand: string
+          cec_listing_id: string | null
+          created_at: string | null
+          dc_input_kw: number | null
+          dimensions_height: number | null
+          dimensions_length: number | null
+          dimensions_width: number | null
+          efficiency: number | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean | null
+          model: string
+          model_number: string
+          mppt_channels: number | null
+          phases: number | null
+          type: string | null
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          ac_output_kw: number
+          approved_date?: string | null
+          brand: string
+          cec_listing_id?: string | null
+          created_at?: string | null
+          dc_input_kw?: number | null
+          dimensions_height?: number | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          efficiency?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model: string
+          model_number: string
+          mppt_channels?: number | null
+          phases?: number | null
+          type?: string | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          ac_output_kw?: number
+          approved_date?: string | null
+          brand?: string
+          cec_listing_id?: string | null
+          created_at?: string | null
+          dc_input_kw?: number | null
+          dimensions_height?: number | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          efficiency?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string
+          model_number?: string
+          mppt_channels?: number | null
+          phases?: number | null
+          type?: string | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      cec_panels: {
+        Row: {
+          approved_date: string | null
+          brand: string
+          cec_listing_id: string | null
+          created_at: string | null
+          dimensions_length: number | null
+          dimensions_width: number | null
+          efficiency: number | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean | null
+          model: string
+          model_number: string
+          technology: string | null
+          updated_at: string | null
+          watts: number
+          weight: number | null
+        }
+        Insert: {
+          approved_date?: string | null
+          brand: string
+          cec_listing_id?: string | null
+          created_at?: string | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          efficiency?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model: string
+          model_number: string
+          technology?: string | null
+          updated_at?: string | null
+          watts: number
+          weight?: number | null
+        }
+        Update: {
+          approved_date?: string | null
+          brand?: string
+          cec_listing_id?: string | null
+          created_at?: string | null
+          dimensions_length?: number | null
+          dimensions_width?: number | null
+          efficiency?: number | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string
+          model_number?: string
+          technology?: string | null
+          updated_at?: string | null
+          watts?: number
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      vpp_providers: {
+        Row: {
+          company: string
+          compatible_battery_brands: string[] | null
+          compatible_inverter_brands: string[] | null
+          contact_phone: string | null
+          created_at: string | null
+          estimated_annual_reward: number | null
+          id: string
+          is_active: boolean | null
+          max_battery_kwh: number | null
+          min_battery_kwh: number | null
+          name: string
+          requirements: string | null
+          signup_bonus: number | null
+          states_available: string[] | null
+          terms_url: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          company: string
+          compatible_battery_brands?: string[] | null
+          compatible_inverter_brands?: string[] | null
+          contact_phone?: string | null
+          created_at?: string | null
+          estimated_annual_reward?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_battery_kwh?: number | null
+          min_battery_kwh?: number | null
+          name: string
+          requirements?: string | null
+          signup_bonus?: number | null
+          states_available?: string[] | null
+          terms_url?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          company?: string
+          compatible_battery_brands?: string[] | null
+          compatible_inverter_brands?: string[] | null
+          contact_phone?: string | null
+          created_at?: string | null
+          estimated_annual_reward?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_battery_kwh?: number | null
+          min_battery_kwh?: number | null
+          name?: string
+          requirements?: string | null
+          signup_bonus?: number | null
+          states_available?: string[] | null
+          terms_url?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
