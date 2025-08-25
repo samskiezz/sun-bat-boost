@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CECPanel {
@@ -77,76 +77,95 @@ export const useCECData = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [autoRefreshAttempts, setAutoRefreshAttempts] = useState(0);
+  const [dataComplete, setDataComplete] = useState(false);
 
-  const fetchData = async (skipLoadingState = false) => {
+  // Fetch all data without any limits
+  const fetchAllDataComplete = useCallback(async (skipLoadingState = false) => {
     try {
       if (!skipLoadingState) {
         setLoading(true);
       }
       setError(null);
 
-      console.log('Fetching CEC data...');
+      console.log('Fetching ALL CEC data (complete dataset)...');
 
-      // Fetch all data in parallel - using any to bypass TypeScript issues until types are regenerated
-      const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
-        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
+      // Fetch data in larger batches to get everything
+      const fetchCompleteTable = async (tableName: string): Promise<any[]> => {
+        const allData: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          console.log(`Fetching ${tableName} batch starting at ${from}...`);
+          
+          const { data, error, count } = await (supabase as any)
+            .from(tableName)
+            .select('*', { count: 'exact' })
+            .range(from, from + batchSize - 1)
+            .order('brand', { ascending: true });
+
+          if (error) {
+            console.error(`Error fetching ${tableName}:`, error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            allData.push(...data);
+            from += batchSize;
+            hasMore = data.length === batchSize;
+            console.log(`${tableName}: Loaded ${allData.length} records...`);
+          } else {
+            hasMore = false;
+          }
+
+          // Safety check to prevent infinite loops
+          if (from > 10000) {
+            console.warn(`${tableName}: Breaking at ${from} to prevent infinite loop`);
+            break;
+          }
+        }
+
+        console.log(`${tableName}: Final count: ${allData.length} records`);
+        return allData;
+      };
+
+      // Fetch all data in parallel
+      const [panelData, batteryData, vppResult, changesResult] = await Promise.all([
+        fetchCompleteTable('pv_modules'),
+        fetchCompleteTable('batteries'),
         (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
 
-      console.log('Fetched data:', {
-        panels: pvResult.data?.length || 0,
-        batteries: batteryResult.data?.length || 0,
+      console.log('Complete data fetch results:', {
+        panels: panelData.length,
+        batteries: batteryData.length,
         vppProviders: vppResult.data?.length || 0,
-        changes: changesResult.data?.length || 0,
-        panelsError: pvResult.error,
-        batteriesError: batteryResult.error,
-        vppError: vppResult.error,
-        changesError: changesResult.error
+        changes: changesResult.data?.length || 0
       });
 
       // Debug: Check for Trina Solar specifically
-      if (pvResult.data) {
-        const trinaPanels = pvResult.data.filter((p: any) => p.brand.toLowerCase().includes('trina'));
-        console.log(`Found ${trinaPanels.length} Trina Solar panels:`, trinaPanels.slice(0, 5));
+      if (panelData.length > 0) {
+        const trinaPanels = panelData.filter((p: any) => 
+          p.brand && p.brand.toLowerCase().includes('trina')
+        );
+        console.log(`✅ Found ${trinaPanels.length} Trina Solar panels:`, trinaPanels.slice(0, 3));
         
-        const allBrands = [...new Set(pvResult.data.map((p: any) => p.brand))].sort();
-        console.log('All panel brands loaded:', allBrands.length, allBrands.slice(0, 10));
+        const allBrands = [...new Set(panelData.map((p: any) => p.brand))].sort();
+        console.log(`✅ All ${allBrands.length} panel brands:`, allBrands.slice(0, 15));
       }
 
-      if (pvResult.error) {
-        console.error('PV modules error:', pvResult.error);
-        // Don't throw, just log the error
-      } else {
-        setPanels(pvResult.data || []);
-      }
+      // Update state
+      setPanels(panelData || []);
+      setBatteries(batteryData || []);
+      setVppProviders(vppResult.data || []);
+      setProductChanges(changesResult.data || []);
 
-      if (batteryResult.error) {
-        console.error('Batteries error:', batteryResult.error);
-        // Don't throw, just log the error  
-      } else {
-        setBatteries(batteryResult.data || []);
-      }
-
-      if (vppResult.error) {
-        console.error('VPP providers error:', vppResult.error);
-        // Don't throw, just log the error
-      } else {
-        setVppProviders(vppResult.data || []);
-      }
-
-      if (changesResult.error) {
-        console.error('Product changes error:', changesResult.error);
-        // Don't throw, just log the error
-      } else {
-        setProductChanges(changesResult.data || []);
-      }
-
-      // Set last updated from the most recent scraped_at timestamp
+      // Set last updated timestamp
       const allScrapedDates = [
-        ...(pvResult.data || []).map((p: any) => p.scraped_at),
-        ...(batteryResult.data || []).map((b: any) => b.scraped_at)
+        ...panelData.map((p: any) => p.scraped_at),
+        ...batteryData.map((b: any) => b.scraped_at)
       ].filter(Boolean);
 
       if (allScrapedDates.length > 0) {
@@ -154,87 +173,100 @@ export const useCECData = () => {
         setLastUpdated(latestDate);
       }
 
+      // Check if data is complete
+      const isComplete = panelData.length >= 1300 && batteryData.length >= 800;
+      setDataComplete(isComplete);
+
+      if (isComplete) {
+        console.log('✅ Database is complete! Panels:', panelData.length, 'Batteries:', batteryData.length);
+        setAutoRefreshing(false);
+      } else {
+        console.log('⚠️ Database incomplete. Panels:', panelData.length, 'Batteries:', batteryData.length);
+      }
+
     } catch (err) {
-      console.error('Error fetching CEC data:', err);
+      console.error('❌ Error fetching complete CEC data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
     } finally {
-      setLoading(false);
+      if (!skipLoadingState) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
-  const refreshData = async () => {
+  // Force complete scrape using new edge function
+  const forceCompleteScrape = useCallback(async () => {
     try {
-      console.log('Triggering CEC scrape...');
+      console.log('🚀 Triggering force complete scrape...');
       
-      // Call the new cec-scrape edge function
-      const { data, error } = await supabase.functions.invoke('cec-scrape', {
-        body: JSON.stringify({ mode: 'run' })
-      });
+      const { data, error } = await supabase.functions.invoke('force-complete-scrape', {});
 
       if (error) {
-        console.error('CEC scrape error:', error);
+        console.error('❌ Force scrape error:', error);
         throw error;
       }
 
-      console.log('CEC scrape result:', data);
-      
-      // Wait a moment then refresh the local data
-      setTimeout(() => {
-        fetchData();
-      }, 2000);
-
+      console.log('✅ Force scrape result:', data);
       return data;
     } catch (err) {
-      console.error('Error refreshing CEC data:', err);
+      console.error('❌ Error in force scrape:', err);
       throw err;
     }
-  };
+  }, []);
 
-  // Auto-refresh logic to ensure sufficient data
-  const checkAndAutoRefresh = async () => {
-    const hasInsufficientData = panels.length < 1500 || batteries.length < 800;
-    const shouldAutoRefresh = hasInsufficientData && autoRefreshAttempts < 10 && !autoRefreshing && !loading;
-    
-    if (shouldAutoRefresh) {
-      console.log(`Auto-refreshing data: panels=${panels.length}, batteries=${batteries.length}, attempt=${autoRefreshAttempts + 1}`);
+  // Main refresh function
+  const refreshData = useCallback(async () => {
+    try {
       setAutoRefreshing(true);
+      
+      // Use force complete scrape
+      await forceCompleteScrape();
+      
+      // Wait then fetch all data
+      setTimeout(async () => {
+        await fetchAllDataComplete(true);
+        setAutoRefreshing(false);
+      }, 5000);
+      
+    } catch (err) {
+      console.error('❌ Error refreshing data:', err);
+      setAutoRefreshing(false);
+      throw err;
+    }
+  }, [forceCompleteScrape, fetchAllDataComplete]);
+
+  // Auto-refresh logic
+  const autoRefresh = useCallback(async () => {
+    if (dataComplete || autoRefreshing || loading || autoRefreshAttempts >= 10) {
+      return;
+    }
+
+    const needsRefresh = panels.length < 1300 || batteries.length < 800;
+    
+    if (needsRefresh) {
+      console.log(`🔄 Auto-refresh needed: panels=${panels.length}, batteries=${batteries.length}, attempt=${autoRefreshAttempts + 1}`);
       setAutoRefreshAttempts(prev => prev + 1);
       
       try {
-        // Call the new cec-scrape edge function
-        const { data, error } = await supabase.functions.invoke('cec-scrape', {
-          body: JSON.stringify({ mode: 'run' })
-        });
-
-        if (error) {
-          console.error('Auto-refresh CEC scrape error:', error);
-        } else {
-          console.log('Auto-refresh CEC scrape result:', data);
-        }
-        
-        // Wait then refresh data without loading state to prevent flickering
-        setTimeout(async () => {
-          await fetchData(true); // Skip loading state to prevent flickering
-          setAutoRefreshing(false);
-        }, 3000);
+        await refreshData();
       } catch (error) {
-        console.error('Auto-refresh failed:', error);
+        console.error('❌ Auto-refresh failed:', error);
         setAutoRefreshing(false);
       }
     }
-  };
+  }, [panels.length, batteries.length, dataComplete, autoRefreshing, loading, autoRefreshAttempts, refreshData]);
 
-  // Check for auto-refresh after data changes
+  // Auto-refresh effect
   useEffect(() => {
-    if (!loading && panels.length > 0 && batteries.length > 0) {
-      checkAndAutoRefresh();
+    if (!loading && !dataComplete && panels.length > 0) {
+      const timer = setTimeout(autoRefresh, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [panels.length, batteries.length, loading, autoRefreshAttempts, autoRefreshing]);
+  }, [loading, dataComplete, panels.length, batteries.length, autoRefresh]);
 
   // Helper functions for VPP compatibility
-  const getCompatibleVPPs = (batteryBrand: string): VPPProvider[] => {
+  const getCompatibleVPPs = useCallback((batteryBrand: string): VPPProvider[] => {
     return vppProviders.filter(vpp => {
-      // Check battery brand compatibility
       if (vpp.compatible_battery_brands && vpp.compatible_battery_brands.length > 0) {
         return vpp.compatible_battery_brands.some(brand => 
           brand.toLowerCase() === batteryBrand.toLowerCase()
@@ -242,39 +274,40 @@ export const useCECData = () => {
       }
       return true;
     });
-  };
+  }, [vppProviders]);
 
-  const getBestVPPForBattery = (batteryBrand: string): VPPProvider | null => {
+  const getBestVPPForBattery = useCallback((batteryBrand: string): VPPProvider | null => {
     const compatibleVPPs = getCompatibleVPPs(batteryBrand);
     if (compatibleVPPs.length === 0) return null;
 
-    // Return the VPP with the highest total value (signup bonus + estimated annual reward)
     return compatibleVPPs.reduce((best, current) => {
       const currentValue = (current.signup_bonus || 0) + (current.estimated_annual_reward || 0);
       const bestValue = (best.signup_bonus || 0) + (best.estimated_annual_reward || 0);
       return currentValue > bestValue ? current : best;
     });
-  };
+  }, [getCompatibleVPPs]);
 
+  // Initial load
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchAllDataComplete();
+  }, [fetchAllDataComplete]);
 
   return {
     panels,
     batteries,
-    inverters: [], // Empty array for now since we don't have inverters in the new schema
+    inverters: [],
     vppProviders,
-    compatibility: [], // Empty array for now since we don't have compatibility table yet
+    compatibility: [],
     productChanges,
     loading,
     error,
     lastUpdated,
     autoRefreshing,
     autoRefreshAttempts,
+    dataComplete,
     refreshData,
     getCompatibleVPPs,
     getBestVPPForBattery,
-    refetch: fetchData
+    refetch: fetchAllDataComplete
   };
 };

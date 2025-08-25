@@ -22,7 +22,8 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     getCompatibleVPPs, 
     refreshData,
     autoRefreshing,
-    autoRefreshAttempts
+    autoRefreshAttempts,
+    dataComplete
   } = useCECData();
   const { toast } = useToast();
   
@@ -188,10 +189,10 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 {autoRefreshing ? (
                   <span className="text-blue-600 ml-2 flex items-center gap-1">
                     <RefreshCw className="w-3 h-3 animate-spin" />
-                    Auto-refreshing database (attempt {autoRefreshAttempts}/10)...
+                    Auto-refreshing database (attempt {autoRefreshAttempts}/15)...
                   </span>
-                ) : (panels.length >= 1500 && batteries.length >= 800) ? (
-                  <span className="text-green-600 ml-2">✅ Database complete</span>
+                ) : dataComplete ? (
+                  <span className="text-green-600 ml-2">✅ Database complete - {panels.length} panels, {batteries.length} batteries loaded</span>
                 ) : (
                   <span className="text-yellow-600 ml-2">⚠️ Auto-refreshing to get complete database...</span>
                 )}
