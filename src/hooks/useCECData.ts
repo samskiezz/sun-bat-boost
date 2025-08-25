@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CECPanel {
-  id: string;
+  id: number;
   brand: string;
   model: string;
   technology?: string;
@@ -19,7 +19,7 @@ export interface CECPanel {
 }
 
 export interface CECBattery {
-  id: string;
+  id: number;
   brand: string;
   model: string;
   chemistry?: string;
@@ -58,8 +58,8 @@ export interface VPPProvider {
 }
 
 export interface ProductChange {
-  id: string;
-  product_type: 'pv' | 'battery';
+  id: number;
+  product_type: string;
   brand: string;
   model: string;
   old_hash?: string;
@@ -91,10 +91,10 @@ export const useCECData = () => {
 
       // Fetch ALL data without any limits - complete dataset
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
-        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
-        (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
-        (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
+        supabase.from('pv_modules').select('*').order('brand', { ascending: true }),
+        supabase.from('batteries').select('*').order('brand', { ascending: true }),
+        supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
+        supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
 
       console.log('Complete data fetch results:', {
