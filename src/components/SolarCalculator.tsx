@@ -10,8 +10,6 @@ import { calculateSolarRebates, type CalculatorInputs, type CalculatorResults } 
 import { VPP_INCENTIVES } from '@/data/solarData';
 
 export default function SolarCalculator() {
-  console.log('SolarCalculator component rendering');
-  
   const [inputs, setInputs] = useState<CalculatorInputs>({
     install_date: new Date().toISOString().split('T')[0],
     postcode: '',
@@ -247,13 +245,13 @@ export default function SolarCalculator() {
 
                         {/* VPP Incentive */}
                         {results.vpp.vpp_incentive_aud > 0 && (
-                          <div className="flex justify-between items-center p-4 bg-secondary rounded-lg">
+                          <div className="flex justify-between items-center p-4 bg-gradient-vpp rounded-lg text-white shadow-vpp">
                             <div>
                               <h4 className="font-semibold flex items-center gap-2">
                                 <Network className="w-4 h-4" />
                                 {results.vpp.provider}
                               </h4>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-sm opacity-90">
                                 {results.vpp.conditions}
                               </p>
                             </div>
