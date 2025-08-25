@@ -345,37 +345,49 @@ async function extractSystemData(text: string): Promise<ProcessorResult['extract
 
   // Enhanced panel detection patterns for quote/invoice line items
   const panelPatterns = [
-    // Line item patterns (quantity x description)
-    /(\d+)\s*[x×]\s*([a-zA-Z0-9\s\-\.&]+(?:panel|module|solar|mono|poly|perc|topcon|bifacial))/gi,
+    // Specific model patterns first (highest priority)
+    /([A-Z]{2,}[0-9]{2,}[A-Z]*[-_]?[0-9]{2,}[A-Z]*[-_]?[A-Z0-9]*)\s*(?:panel|module|solar)?/gi,
     
-    // Power rating patterns
-    /(\d+)\s*(w|watt|watts?)\s*([a-zA-Z0-9\s\-\.&]+(?:panel|module|solar|mono|poly|perc|topcon))/gi,
-    /([a-zA-Z0-9\s\-\.&]+)\s*(\d+)\s*(w|watt|watts?)/gi,
+    // Line item patterns with quantity and wattage
+    /(\d+)\s*[x×]\s*([A-Z]{2,}[0-9]{3,}[A-Z]*[-_]?[0-9]*[A-Z]*[-_]?[A-Z0-9]*)/gi,
+    /(\d+)\s*[x×]\s*([^,\n]+(?:panel|module|solar))/gi,
     
-    // Brand-specific patterns
-    /(jinko|trina|canadian\s*solar|lg|rec|sunpower|q\s*cells|ja\s*solar|longi|risen|astronergy|hyundai|tier\s*1)[\s\-]([a-zA-Z0-9\s\-\.&]+)/gi,
+    // Power rating with model patterns
+    /(\d+)\s*(w|watt|watts?)\s*([A-Z]{2,}[0-9]{2,}[A-Z]*[-_]?[0-9]*[A-Z]*)/gi,
+    /([A-Z]{2,}[0-9]{2,}[A-Z]*[-_]?[0-9]*[A-Z]*)\s*(\d+)\s*(w|watt|watts?)/gi,
     
-    // Model number patterns
-    /([A-Z]{2,}\-?\d{3,}[A-Z]*\-?[A-Z0-9]*)/gi,
+    // Brand-specific patterns (more specific)
+    /(jinko|trina|canadian\s*solar|lg|rec|sunpower|q\s*cells|ja\s*solar|longi|risen|astronergy|hyundai|tier\s*1|tiger\s*neo)[\s\-]([A-Z0-9\s\-\.&]+)/gi,
     
-    // Invoice/quote specific patterns
+    // Wattage and description patterns
+    /(\d+)\s*(w|watt|watts?)\s*([a-zA-Z0-9\s\-\.&]+(?:panel|module|solar|mono|poly|perc|topcon|bifacial))/gi,
+    
+    // General solar equipment patterns (lower priority)
     /(solar\s*panel|pv\s*module|photovoltaic)[\s:]*([a-zA-Z0-9\s\-\.&]+)/gi
   ];
 
-  // Enhanced battery detection patterns
+  // Enhanced battery detection patterns with better capacity matching
   const batteryPatterns = [
-    // Line item patterns
-    /(\d+)\s*[x×]\s*([a-zA-Z0-9\s\-\.&]+(?:battery|storage|powerwall|enphase|tesla))/gi,
+    // Specific battery model patterns (highest priority)
+    /([A-Z][a-zA-Z]*\s*(?:stor|bat|battery))\s*([A-Z0-9\s\-\.]+)/gi,
+    /(sigenergy|sigen|pylontech|byd|tesla|lg|sonnen|enphase|redback|alpha\s*ess)[\s\-]*([A-Z0-9\s\-\.&]+)/gi,
     
-    // Capacity-based patterns
-    /(\d+(?:\.\d+)?)\s*(kwh|kw)\s*([a-zA-Z0-9\s\-\.&]+(?:battery|storage|powerwall))/gi,
-    /([a-zA-Z0-9\s\-\.&]+)\s*(\d+(?:\.\d+)?)\s*(kwh|kw)\s*(?:battery|storage)/gi,
+    // Capacity-based patterns with better matching
+    /(\d+(?:\.\d+)?)\s*(kwh|kw)\s*(?:of\s*)?(?:battery\s*storage|storage|battery)/gi,
+    /(?:battery\s*storage|storage)[\s:]*(\d+(?:\.\d+)?)\s*(kwh|kw)/gi,
     
-    // Brand-specific patterns
-    /(tesla|lg|byd|pylontech|sungrow|redback|enphase|sonnen|alpha\s*ess|fronius|powerwall)[\s\-]([a-zA-Z0-9\s\-\.&]+)/gi,
+    // Line item patterns for batteries
+    /(\d+)\s*[x×]\s*([^,\n]+(?:battery|storage|powerwall|bat\s*\d+))/gi,
     
-    // Model patterns
-    /([A-Z]{2,}\-?\d+(?:\.\d+)?[A-Z]*)/gi
+    // Model number patterns for batteries
+    /([A-Z]{2,}\s*(?:stor|bat|battery))\s*(\d+(?:\.\d+)?)/gi,
+    /(bat|battery|stor)\s*(\d+(?:\.\d+)?)/gi,
+    
+    // Brand and model combinations
+    /(powerwall|tesla|lg\s*chem|byd|pylontech)[\s\-]([A-Z0-9\s\-\.&]+)/gi,
+    
+    // General battery patterns (lower priority)  
+    /(battery|storage|powerwall)[\s:]*([a-zA-Z0-9\s\-\.&]+)/gi
   ];
 
   const extractedData: ProcessorResult['extractedData'] = {
@@ -387,14 +399,28 @@ async function extractSystemData(text: string): Promise<ProcessorResult['extract
     installer: undefined
   };
 
-  // Extract and match panels
+  // Extract and match panels with improved filtering
   const panelTexts = new Set<string>();
   for (const line of lines) {
+    // Skip lines that contain app-related or non-equipment terms
+    if (line.toLowerCase().includes('app') || 
+        line.toLowerCase().includes('monitoring') || 
+        line.toLowerCase().includes('visibility') ||
+        line.toLowerCase().includes('control') ||
+        line.toLowerCase().includes('designed to give')) {
+      continue;
+    }
+    
     for (const pattern of panelPatterns) {
       const matches = [...line.matchAll(pattern)];
       for (const match of matches) {
         const description = match[0].trim();
-        if (description.length > 5 && !description.match(/^\d+$/)) {
+        // Filter out non-equipment matches
+        if (description.length > 5 && 
+            !description.match(/^\d+$/) && 
+            !description.toLowerCase().includes('app') &&
+            !description.toLowerCase().includes('monitoring') &&
+            !description.toLowerCase().includes('visibility')) {
           panelTexts.add(description);
         }
       }
@@ -409,30 +435,48 @@ async function extractSystemData(text: string): Promise<ProcessorResult['extract
       cec_id: p.certificate || 'CEC-LISTED'
     })));
 
-    extractedData.panels?.push({
-      description,
-      confidence: match ? match.confidence : 0.3,
-      cecId: match?.cec_id,
-      suggestedMatch: match ? {
-        id: match.id,
-        brand: match.brand,
-        model: match.model,
-        watts: match.power_rating || 400,
-        cec_id: match.cec_id || 'CEC-LISTED',
-        confidence: match.confidence,
-        matchType: match.matchType
-      } : undefined
-    });
+    // Only add if we have a decent confidence match or if it clearly looks like a panel model
+    const isLikelyPanel = /\d{3,}[A-Z]*[-_]?\d*[A-Z]*|watt|panel|module|solar/gi.test(description);
+    if (match || isLikelyPanel) {
+      extractedData.panels?.push({
+        description,
+        confidence: match ? match.confidence : 0.3,
+        cecId: match?.cec_id,
+        suggestedMatch: match ? {
+          id: match.id,
+          brand: match.brand,
+          model: match.model,
+          watts: match.power_rating || 400,
+          cec_id: match.cec_id || 'CEC-LISTED',
+          confidence: match.confidence,
+          matchType: match.matchType
+        } : undefined
+      });
+    }
   }
 
-  // Extract and match batteries
+  // Extract and match batteries with improved filtering
   const batteryTexts = new Set<string>();
   for (const line of lines) {
+    // Skip lines that contain app-related or non-equipment terms
+    if (line.toLowerCase().includes('app') || 
+        line.toLowerCase().includes('monitoring') || 
+        line.toLowerCase().includes('visibility') ||
+        line.toLowerCase().includes('control') ||
+        line.toLowerCase().includes('designed to give')) {
+      continue;
+    }
+    
     for (const pattern of batteryPatterns) {
       const matches = [...line.matchAll(pattern)];
       for (const match of matches) {
         const description = match[0].trim();
-        if (description.length > 5 && !description.match(/^\d+$/)) {
+        // Filter out non-equipment matches
+        if (description.length > 5 && 
+            !description.match(/^\d+$/) && 
+            !description.toLowerCase().includes('app') &&
+            !description.toLowerCase().includes('monitoring') &&
+            !description.toLowerCase().includes('visibility')) {
           batteryTexts.add(description);
         }
       }
@@ -447,24 +491,29 @@ async function extractSystemData(text: string): Promise<ProcessorResult['extract
       cec_id: b.certificate || 'CEC-LISTED'
     })));
 
-    extractedData.batteries?.push({
-      description,
-      confidence: match ? match.confidence : 0.3,
-      cecId: match?.cec_id,
-      suggestedMatch: match ? {
-        id: match.id,
-        brand: match.brand,
-        model: match.model,
-        capacity_kwh: match.capacity_kwh || match.usable_capacity || 10,
-        cec_id: match.cec_id || 'CEC-LISTED',
-        confidence: match.confidence,
-        matchType: match.matchType
-      } : undefined
-    });
+    // Only add if we have a decent confidence match or if it clearly looks like a battery
+    const isLikelyBattery = /\d+(\.\d+)?\s*kwh|battery|storage|powerwall|bat\s*\d+|sigen|pylontech|tesla/gi.test(description);
+    if (match || isLikelyBattery) {
+      extractedData.batteries?.push({
+        description,
+        confidence: match ? match.confidence : 0.3,
+        cecId: match?.cec_id,
+        suggestedMatch: match ? {
+          id: match.id,
+          brand: match.brand,
+          model: match.model,
+          capacity_kwh: match.capacity_kwh || match.usable_capacity || 10,
+          cec_id: match.cec_id || 'CEC-LISTED',
+          confidence: match.confidence,
+          matchType: match.matchType
+        } : undefined
+      });
+    }
   }
 
-  // Extract system size
+  // Extract system size with improved patterns
   const systemSizePatterns = [
+    /(\d+(?:\.\d+)?)\s*kw\s*of\s*solar\s*power/gi,
     /(\d+(?:\.\d+)?)\s*(kw|kilowatt|kva)\s*(?:system|install|solar|capacity)/gi,
     /(?:system\s*size|capacity)[\s:]*(\d+(?:\.\d+)?)\s*(kw|kilowatt)/gi
   ];
