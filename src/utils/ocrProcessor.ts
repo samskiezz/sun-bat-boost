@@ -1,50 +1,73 @@
-// OCR Processing for Solar Quotes
 import { createWorker, PSM } from 'tesseract.js';
-import { SOLAR_PANELS, searchPanels } from '@/data/panelData';
-import { BATTERY_SYSTEMS, searchBatteries } from '@/data/batteryData';
+import { fuzzyMatch, fuzzyMatchMultiple, type MatchCandidate } from './fuzzyMatch';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface OCRResult {
   success: boolean;
   extractedData?: {
     panels?: Array<{
-      model: string;
-      quantity: number;
-      power_watts?: number;
+      description: string;
       confidence: number;
+      cecId?: string;
+      suggestedMatch?: {
+        id: string;
+        brand: string;
+        model: string;
+        watts: number;
+        cec_id?: string;
+        confidence: number;
+        matchType: string;
+      };
     }>;
     batteries?: Array<{
-      model: string;
-      quantity: number;
-      capacity_kwh?: number;
+      description: string;
       confidence: number;
+      cecId?: string;
+      suggestedMatch?: {
+        id: string;
+        brand: string;
+        model: string;
+        capacity_kwh: number;
+        cec_id?: string;
+        confidence: number;
+        matchType: string;
+      };
     }>;
-    installer?: string;
-    totalSystemSize?: number;
-    totalCost?: number;
-    postcode?: string;
+    inverters?: Array<{
+      description: string;
+      confidence: number;
+      cecId?: string;
+      suggestedMatch?: {
+        id: string;
+        brand: string;
+        model: string;
+        ac_output_kw?: number;
+        cec_id?: string;
+        confidence: number;
+        matchType: string;
+      };
+    }>;
+    systemSize?: {
+      value: number;
+      unit: string;
+      confidence: number;
+    };
+    totalCost?: {
+      value: number;
+      confidence: number;
+    };
+    postcode?: {
+      value: string;
+      confidence: number;
+    };
+    installer?: {
+      name: string;
+      confidence: number;
+    };
   };
   rawText?: string;
   error?: string;
 }
-
-// Common patterns for OCR text extraction
-const PATTERNS = {
-  // Panel patterns
-  panelQuantity: /(\d+)\s*(?:x|×)\s*([^\n]+(?:panel|solar|module|PV))/gi,
-  panelModel: /(?:panel|solar|module|PV):\s*([^\n]+)/gi,
-  panelWatts: /(\d+(?:\.\d+)?)\s*(?:w|watt|kw|kilowatt)/gi,
-  
-  // Battery patterns  
-  batteryQuantity: /(\d+)\s*(?:x|×)\s*([^\n]+(?:battery|storage|kwh))/gi,
-  batteryModel: /(?:battery|storage):\s*([^\n]+)/gi,
-  batteryCapacity: /(\d+(?:\.\d+)?)\s*kwh/gi,
-  
-  // System details
-  systemSize: /(?:system size|total capacity|dc size):\s*(\d+(?:\.\d+)?)\s*(?:kw|kilowatt)/gi,
-  totalCost: /(?:total|cost|price):\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,
-  postcode: /(?:postcode|post code):\s*(\d{4})/gi,
-  installer: /(?:installer|company|dealer):\s*([^\n]+)/gi,
-};
 
 export const processQuoteImage = async (imageFile: File): Promise<OCRResult> => {
   let worker: Tesseract.Worker | null = null;
@@ -87,116 +110,226 @@ export const processQuoteImage = async (imageFile: File): Promise<OCRResult> => 
   }
 };
 
-const extractSystemData = async (text: string): Promise<OCRResult['extractedData']> => {
-  const result: OCRResult['extractedData'] = {
+async function extractSystemData(text: string): Promise<OCRResult['extractedData']> {
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  
+  // Fetch CEC data for matching
+  const [panelsData, batteriesData, invertersData] = await Promise.all([
+    supabase.from('cec_panels').select('id, brand, model, watts, cec_id').eq('is_active', true),
+    supabase.from('cec_batteries').select('id, brand, model, capacity_kwh, usable_capacity_kwh, cec_id').eq('is_active', true),
+    supabase.from('cec_inverters').select('id, brand, model, ac_output_kw, cec_id').eq('is_active', true)
+  ]);
+
+  const panels = panelsData.data || [];
+  const batteries = batteriesData.data || [];
+  const inverters = invertersData.data || [];
+
+  // Panel detection patterns
+  const panelPatterns = [
+    /(\d+)\s*(w|watt|watts?)\s*([a-zA-Z0-9\s\-\.]+(?:panel|module|solar))/gi,
+    /([a-zA-Z0-9\s\-\.]+)\s*(\d+)\s*(w|watt|watts?)/gi,
+    /(panel|module|solar)[\s:]*([a-zA-Z0-9\s\-\.]+)/gi
+  ];
+
+  // Battery detection patterns  
+  const batteryPatterns = [
+    /(\d+(?:\.\d+)?)\s*(kwh|kw)\s*([a-zA-Z0-9\s\-\.]+(?:battery|storage))/gi,
+    /([a-zA-Z0-9\s\-\.]+)\s*(\d+(?:\.\d+)?)\s*(kwh|kw)\s*(?:battery|storage)/gi,
+    /(battery|storage)[\s:]*([a-zA-Z0-9\s\-\.]+)/gi
+  ];
+
+  // Inverter detection patterns
+  const inverterPatterns = [
+    /(\d+(?:\.\d+)?)\s*(kw|kilowatt)\s*([a-zA-Z0-9\s\-\.]+(?:inverter))/gi,
+    /([a-zA-Z0-9\s\-\.]+)\s*(\d+(?:\.\d+)?)\s*(kw|kilowatt)\s*(?:inverter)/gi,
+    /(inverter)[\s:]*([a-zA-Z0-9\s\-\.]+)/gi
+  ];
+
+  const extractedData: OCRResult['extractedData'] = {
     panels: [],
     batteries: [],
+    inverters: [],
+    systemSize: undefined,
+    totalCost: undefined,
+    postcode: undefined,
+    installer: undefined
   };
-  
-  // Clean up text
-  const cleanText = text.replace(/[^\w\s\d.,()$×x:\-]/g, ' ').replace(/\s+/g, ' ');
-  
-  // Extract panels
-  const panelMatches = [...cleanText.matchAll(PATTERNS.panelQuantity)];
-  for (const match of panelMatches) {
-    const quantity = parseInt(match[1]);
-    const description = match[2].trim();
-    
-    // Try to find matching panel model
-    const foundPanels = searchPanels(description);
-    if (foundPanels.length > 0) {
-      const bestMatch = foundPanels[0]; // Take the best match
-      result.panels?.push({
-        model: bestMatch.model,
-        quantity,
-        power_watts: bestMatch.power_watts,
-        confidence: calculateMatchConfidence(description, bestMatch.model),
-      });
-    } else {
-      // Extract watts from description if no model match
-      const wattsMatch = description.match(/(\d+(?:\.\d+)?)\s*(?:w|watt)/i);
-      const watts = wattsMatch ? parseFloat(wattsMatch[1]) : undefined;
-      
-      result.panels?.push({
-        model: description,
-        quantity,
-        power_watts: watts,
-        confidence: 0.3, // Low confidence for unrecognized models
-      });
-    }
-  }
-  
-  // Extract batteries
-  const batteryMatches = [...cleanText.matchAll(PATTERNS.batteryQuantity)];
-  for (const match of batteryMatches) {
-    const quantity = parseInt(match[1]);
-    const description = match[2].trim();
-    
-    // Try to find matching battery model
-    const foundBatteries = searchBatteries(description);
-    if (foundBatteries.length > 0) {
-      const bestMatch = foundBatteries[0];
-      result.batteries?.push({
-        model: bestMatch.model,
-        quantity,
-        capacity_kwh: bestMatch.capacity_kwh,
-        confidence: calculateMatchConfidence(description, bestMatch.model),
-      });
-    } else {
-      // Extract capacity from description if no model match
-      const capacityMatch = description.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-      const capacity = capacityMatch ? parseFloat(capacityMatch[1]) : undefined;
-      
-      result.batteries?.push({
-        model: description,
-        quantity,
-        capacity_kwh: capacity,
-        confidence: 0.3, // Low confidence for unrecognized models
-      });
-    }
-  }
-  
-  // Extract other system details
-  const systemSizeMatch = cleanText.match(PATTERNS.systemSize);
-  if (systemSizeMatch) {
-    result.totalSystemSize = parseFloat(systemSizeMatch[1]);
-  }
-  
-  const totalCostMatch = cleanText.match(PATTERNS.totalCost);
-  if (totalCostMatch) {
-    result.totalCost = parseFloat(totalCostMatch[1].replace(/,/g, ''));
-  }
-  
-  const postcodeMatch = cleanText.match(PATTERNS.postcode);
-  if (postcodeMatch) {
-    result.postcode = postcodeMatch[1];
-  }
-  
-  const installerMatch = cleanText.match(PATTERNS.installer);
-  if (installerMatch) {
-    result.installer = installerMatch[1].trim();
-  }
-  
-  return result;
-};
 
-const calculateMatchConfidence = (description: string, modelName: string): number => {
-  const descLower = description.toLowerCase();
-  const modelLower = modelName.toLowerCase();
-  
-  // Simple confidence scoring based on word overlap
-  const descWords = descLower.split(/\s+/);
-  const modelWords = modelLower.split(/\s+/);
-  
-  let matches = 0;
-  for (const word of descWords) {
-    if (modelWords.some(mWord => mWord.includes(word) || word.includes(mWord))) {
-      matches++;
+  // Extract and match panels
+  const panelTexts = new Set<string>();
+  for (const line of lines) {
+    for (const pattern of panelPatterns) {
+      const matches = [...line.matchAll(pattern)];
+      for (const match of matches) {
+        const description = match[0].trim();
+        if (description.length > 5) {
+          panelTexts.add(description);
+        }
+      }
     }
   }
-  
-  return Math.min(matches / Math.max(descWords.length, modelWords.length), 1.0);
-};
+
+  for (const description of panelTexts) {
+    const match = fuzzyMatch(description, panels.map(p => ({
+      id: p.id,
+      brand: p.brand,
+      model: p.model,
+      cec_id: p.cec_id
+    })));
+
+    extractedData.panels?.push({
+      description,
+      confidence: match ? match.confidence : 0.3,
+      cecId: match?.cec_id,
+      suggestedMatch: match ? {
+        id: match.id,
+        brand: match.brand,
+        model: match.model,
+        watts: panels.find(p => p.id === match.id)?.watts || 0,
+        cec_id: match.cec_id,
+        confidence: match.confidence,
+        matchType: match.matchType
+      } : undefined
+    });
+  }
+
+  // Extract and match batteries
+  const batteryTexts = new Set<string>();
+  for (const line of lines) {
+    for (const pattern of batteryPatterns) {
+      const matches = [...line.matchAll(pattern)];
+      for (const match of matches) {
+        const description = match[0].trim();
+        if (description.length > 5) {
+          batteryTexts.add(description);
+        }
+      }
+    }
+  }
+
+  for (const description of batteryTexts) {
+    const match = fuzzyMatch(description, batteries.map(b => ({
+      id: b.id,
+      brand: b.brand,
+      model: b.model,
+      cec_id: b.cec_id
+    })));
+
+    extractedData.batteries?.push({
+      description,
+      confidence: match ? match.confidence : 0.3,
+      cecId: match?.cec_id,
+      suggestedMatch: match ? {
+        id: match.id,
+        brand: match.brand,
+        model: match.model,
+        capacity_kwh: batteries.find(b => b.id === match.id)?.capacity_kwh || 0,
+        cec_id: match.cec_id,
+        confidence: match.confidence,
+        matchType: match.matchType
+      } : undefined
+    });
+  }
+
+  // Extract and match inverters
+  const inverterTexts = new Set<string>();
+  for (const line of lines) {
+    for (const pattern of inverterPatterns) {
+      const matches = [...line.matchAll(pattern)];
+      for (const match of matches) {
+        const description = match[0].trim();
+        if (description.length > 5) {
+          inverterTexts.add(description);
+        }
+      }
+    }
+  }
+
+  for (const description of inverterTexts) {
+    const match = fuzzyMatch(description, inverters.map(i => ({
+      id: i.id,
+      brand: i.brand,
+      model: i.model,
+      cec_id: i.cec_id
+    })));
+
+    extractedData.inverters?.push({
+      description,
+      confidence: match ? match.confidence : 0.3,
+      cecId: match?.cec_id,
+      suggestedMatch: match ? {
+        id: match.id,
+        brand: match.brand,
+        model: match.model,
+        ac_output_kw: inverters.find(i => i.id === match.id)?.ac_output_kw,
+        cec_id: match.cec_id,
+        confidence: match.confidence,
+        matchType: match.matchType
+      } : undefined
+    });
+  }
+
+  // Extract system size
+  const systemSizePattern = /(\d+(?:\.\d+)?)\s*(kw|kilowatt|kva)\s*(?:system|install|solar)/gi;
+  for (const line of lines) {
+    const match = systemSizePattern.exec(line);
+    if (match) {
+      extractedData.systemSize = {
+        value: parseFloat(match[1]),
+        unit: match[2].toLowerCase(),
+        confidence: 0.8
+      };
+      break;
+    }
+  }
+
+  // Extract total cost
+  const costPattern = /\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g;
+  const costs: number[] = [];
+  for (const line of lines) {
+    const matches = [...line.matchAll(costPattern)];
+    for (const match of matches) {
+      const value = parseFloat(match[1].replace(/,/g, ''));
+      if (value > 1000) { // Likely system cost
+        costs.push(value);
+      }
+    }
+  }
+  if (costs.length > 0) {
+    extractedData.totalCost = {
+      value: Math.max(...costs), // Take the highest cost as likely system total
+      confidence: 0.7
+    };
+  }
+
+  // Extract postcode
+  const postcodePattern = /(?:postcode|post\s*code|postal\s*code)[\s:]*(\d{4})/gi;
+  for (const line of lines) {
+    const match = postcodePattern.exec(line);
+    if (match) {
+      extractedData.postcode = {
+        value: match[1],
+        confidence: 0.9
+      };
+      break;
+    }
+  }
+
+  // Extract installer name
+  const installerPattern = /(installer|company|business)[\s:]*([a-zA-Z0-9\s&\-\.]{3,50})/gi;
+  for (const line of lines) {
+    const match = installerPattern.exec(line);
+    if (match) {
+      extractedData.installer = {
+        name: match[2].trim(),
+        confidence: 0.6
+      };
+      break;
+    }
+  }
+
+  return extractedData;
+}
 
 // Helper function to validate and clean extracted data
 export const validateExtractedData = (data: OCRResult['extractedData']): {
@@ -215,16 +348,24 @@ export const validateExtractedData = (data: OCRResult['extractedData']): {
   // Check panel confidence levels
   data?.panels?.forEach((panel, index) => {
     if (panel.confidence < 0.5) {
-      warnings.push(`Panel ${index + 1} has low confidence match: ${panel.model}`);
-      suggestions.push('Please verify the panel model manually');
+      warnings.push(`Panel ${index + 1} has low confidence match: ${panel.description}`);
+      suggestions.push('Please verify the panel model manually against CEC approved list');
     }
   });
   
   // Check battery confidence levels
   data?.batteries?.forEach((battery, index) => {
     if (battery.confidence < 0.5) {
-      warnings.push(`Battery ${index + 1} has low confidence match: ${battery.model}`);
-      suggestions.push('Please verify the battery model manually');
+      warnings.push(`Battery ${index + 1} has low confidence match: ${battery.description}`);
+      suggestions.push('Please verify the battery model manually against CEC approved list');
+    }
+  });
+  
+  // Check inverter confidence levels
+  data?.inverters?.forEach((inverter, index) => {
+    if (inverter.confidence < 0.5) {
+      warnings.push(`Inverter ${index + 1} has low confidence match: ${inverter.description}`);
+      suggestions.push('Please verify the inverter model manually against CEC approved list');
     }
   });
   

@@ -170,10 +170,10 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                       {result.extractedData.panels.map((panel, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div>
-                            <p className="font-medium">{panel.model}</p>
+                            <p className="font-medium">{panel.suggestedMatch?.model || panel.description}</p>
                             <p className="text-sm text-muted-foreground">
-                              Quantity: {panel.quantity}
-                              {panel.power_watts && ` • ${panel.power_watts}W each`}
+                              {panel.suggestedMatch?.watts && `${panel.suggestedMatch.watts}W`}
+                              {panel.cecId && ` • CEC: ${panel.cecId}`}
                             </p>
                           </div>
                           <Badge 
@@ -198,10 +198,10 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                       {result.extractedData.batteries.map((battery, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div>
-                            <p className="font-medium">{battery.model}</p>
+                            <p className="font-medium">{battery.suggestedMatch?.model || battery.description}</p>
                             <p className="text-sm text-muted-foreground">
-                              Quantity: {battery.quantity}
-                              {battery.capacity_kwh && ` • ${battery.capacity_kwh}kWh each`}
+                              {battery.suggestedMatch?.capacity_kwh && `${battery.suggestedMatch.capacity_kwh}kWh`}
+                              {battery.cecId && ` • CEC: ${battery.cecId}`}
                             </p>
                           </div>
                           <Badge 
@@ -216,26 +216,26 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                 )}
 
                 {/* Other Details */}
-                {(result.extractedData.totalSystemSize || result.extractedData.postcode || result.extractedData.installer) && (
+                {(result.extractedData.systemSize || result.extractedData.postcode || result.extractedData.installer) && (
                   <>
                     <Separator />
                     <div className="grid grid-cols-2 gap-4 text-sm">
-                      {result.extractedData.totalSystemSize && (
+                      {result.extractedData.systemSize && (
                         <div>
                           <p className="font-medium">System Size</p>
-                          <p className="text-muted-foreground">{result.extractedData.totalSystemSize}kW</p>
+                          <p className="text-muted-foreground">{result.extractedData.systemSize.value}{result.extractedData.systemSize.unit}</p>
                         </div>
                       )}
                       {result.extractedData.postcode && (
                         <div>
                           <p className="font-medium">Postcode</p>
-                          <p className="text-muted-foreground">{result.extractedData.postcode}</p>
+                          <p className="text-muted-foreground">{result.extractedData.postcode.value}</p>
                         </div>
                       )}
                       {result.extractedData.installer && (
                         <div className="col-span-2">
                           <p className="font-medium">Installer</p>
-                          <p className="text-muted-foreground">{result.extractedData.installer}</p>
+                          <p className="text-muted-foreground">{result.extractedData.installer.name}</p>
                         </div>
                       )}
                     </div>

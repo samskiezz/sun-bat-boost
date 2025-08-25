@@ -64,6 +64,7 @@ export type Database = {
           approved_date: string | null
           brand: string
           capacity_kwh: number
+          cec_id: string | null
           cec_listing_id: string | null
           chemistry: string | null
           created_at: string | null
@@ -86,6 +87,7 @@ export type Database = {
           approved_date?: string | null
           brand: string
           capacity_kwh: number
+          cec_id?: string | null
           cec_listing_id?: string | null
           chemistry?: string | null
           created_at?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           approved_date?: string | null
           brand?: string
           capacity_kwh?: number
+          cec_id?: string | null
           cec_listing_id?: string | null
           chemistry?: string | null
           created_at?: string | null
@@ -172,6 +175,7 @@ export type Database = {
           ac_output_kw: number
           approved_date: string | null
           brand: string
+          cec_id: string | null
           cec_listing_id: string | null
           created_at: string | null
           dc_input_kw: number | null
@@ -194,6 +198,7 @@ export type Database = {
           ac_output_kw: number
           approved_date?: string | null
           brand: string
+          cec_id?: string | null
           cec_listing_id?: string | null
           created_at?: string | null
           dc_input_kw?: number | null
@@ -216,6 +221,7 @@ export type Database = {
           ac_output_kw?: number
           approved_date?: string | null
           brand?: string
+          cec_id?: string | null
           cec_listing_id?: string | null
           created_at?: string | null
           dc_input_kw?: number | null
@@ -240,6 +246,7 @@ export type Database = {
         Row: {
           approved_date: string | null
           brand: string
+          cec_id: string | null
           cec_listing_id: string | null
           created_at: string | null
           dimensions_length: number | null
@@ -258,6 +265,7 @@ export type Database = {
         Insert: {
           approved_date?: string | null
           brand: string
+          cec_id?: string | null
           cec_listing_id?: string | null
           created_at?: string | null
           dimensions_length?: number | null
@@ -276,6 +284,7 @@ export type Database = {
         Update: {
           approved_date?: string | null
           brand?: string
+          cec_id?: string | null
           cec_listing_id?: string | null
           created_at?: string | null
           dimensions_length?: number | null
@@ -290,6 +299,54 @@ export type Database = {
           updated_at?: string | null
           watts?: number
           weight?: number | null
+        }
+        Relationships: []
+      }
+      postcode_zones: {
+        Row: {
+          created_at: string
+          postcode: number
+          state: string
+          zone: number
+        }
+        Insert: {
+          created_at?: string
+          postcode: number
+          state: string
+          zone: number
+        }
+        Update: {
+          created_at?: string
+          postcode?: number
+          state?: string
+          zone?: number
+        }
+        Relationships: []
+      }
+      refresh_log: {
+        Row: {
+          created_at: string
+          details: string | null
+          fetched_at: string
+          id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          fetched_at?: string
+          id?: string
+          source: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          fetched_at?: string
+          id?: string
+          source?: string
+          status?: string
         }
         Relationships: []
       }
