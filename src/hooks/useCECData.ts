@@ -79,7 +79,7 @@ export const useCECData = () => {
   const [autoRefreshAttempts, setAutoRefreshAttempts] = useState(0);
   const [dataComplete, setDataComplete] = useState(false);
 
-  // Fetch all data without any limits - for initial load
+  // Fetch all data with pagination to overcome Supabase limits
   const fetchAllDataComplete = useCallback(async (skipLoadingState = false) => {
     try {
       if (!skipLoadingState) {
@@ -87,87 +87,128 @@ export const useCECData = () => {
       }
       setError(null);
 
-      console.log('🔄 Fetching ALL CEC data (complete dataset - no limits)...');
+      console.log('🔄 Fetching ALL CEC data with pagination...');
 
-      // Fetch ALL data with NO LIMITS - use high ranges to ensure we get everything
-      const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        supabase.from('pv_modules').select('*').range(0, 5000).order('brand', { ascending: true }),
-        supabase.from('batteries').select('*').range(0, 2000).order('brand', { ascending: true }),
-        supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
-        supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
+      // Helper functions to fetch all pages for specific tables
+      const fetchAllPanels = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('pv_modules')
+            .select('*')
+            .range(from, from + pageSize - 1)
+            .order('brand', { ascending: true });
+
+          if (error) {
+            console.error(`Error fetching pv_modules page ${from}:`, error);
+            break;
+          }
+
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            from += pageSize;
+            hasMore = data.length === pageSize;
+            console.log(`📄 Fetched ${data.length} panels (total: ${allData.length})`);
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData;
+      };
+
+      const fetchAllBatteries = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('batteries')
+            .select('*')
+            .range(from, from + pageSize - 1)
+            .order('brand', { ascending: true });
+
+          if (error) {
+            console.error(`Error fetching batteries page ${from}:`, error);
+            break;
+          }
+
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            from += pageSize;
+            hasMore = data.length === pageSize;
+            console.log(`📄 Fetched ${data.length} batteries (total: ${allData.length})`);
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData;
+      };
+
+      // Fetch all data using pagination
+      const [allPanels, allBatteries, allVppProviders, allChanges] = await Promise.all([
+        fetchAllPanels(),
+        fetchAllBatteries(),
+        supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }).then(r => r.data || []),
+        supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100).then(r => r.data || [])
       ]);
 
-      console.log('🎯 Complete data fetch results:', {
-        panels: pvResult.data?.length || 0,
-        batteries: batteryResult.data?.length || 0,
-        vppProviders: vppResult.data?.length || 0,
-        changes: changesResult.data?.length || 0,
-        panelsError: pvResult.error,
-        batteriesError: batteryResult.error,
-        vppError: vppResult.error,
-        changesError: changesResult.error
+      console.log('🎯 PAGINATION COMPLETE - Final results:', {
+        panels: allPanels.length,
+        batteries: allBatteries.length,
+        vppProviders: allVppProviders.length,
+        changes: allChanges.length
       });
 
-      // Immediate verification - check for key brands
-      if (pvResult.data) {
-        const trinaSolar = pvResult.data.filter((p: any) => 
+      // Immediate verification - check for key brands in paginated data
+      if (allPanels && allPanels.length > 0) {
+        const trinaSolar = allPanels.filter((p: any) => 
           p.brand && p.brand.toLowerCase().includes('trina')
         );
         console.log(`✅ TRINA SOLAR FOUND: ${trinaSolar.length} panels`);
         
-        const jinko = pvResult.data.filter((p: any) => 
+        const jinko = allPanels.filter((p: any) => 
           p.brand && p.brand.toLowerCase().includes('jinko')
         );
         console.log(`✅ JINKO FOUND: ${jinko.length} panels`);
         
-        const allBrands = [...new Set(pvResult.data.map((p: any) => p.brand))].sort();
+        const allBrands = [...new Set(allPanels.map((p: any) => p.brand))].sort();
         console.log(`✅ TOTAL BRANDS: ${allBrands.length}`, allBrands.slice(0, 10));
+        
+        if (trinaSolar.length > 0) {
+          console.log('🎯 TRINA SAMPLE:', trinaSolar.slice(0, 3).map(p => ({
+            id: p.id, brand: p.brand, model: p.model
+          })));
+        }
       }
 
-      if (vppResult.data) {
-        const amber = vppResult.data.filter((v: any) => 
+      if (allVppProviders && allVppProviders.length > 0) {
+        const amber = allVppProviders.filter((v: any) => 
           v.company && v.company.toLowerCase().includes('amber')
         );
         console.log(`✅ AMBER ELECTRIC FOUND: ${amber.length} VPP programs`);
-        console.log(`✅ TOTAL VPP PROVIDERS: ${vppResult.data.length}`);
+        console.log(`✅ TOTAL VPP PROVIDERS: ${allVppProviders.length}`);
       }
 
-      // Handle errors but don't throw - continue with what we have
-      if (pvResult.error) {
-        console.error('PV modules error:', pvResult.error);
-      } else {
-        setPanels(pvResult.data || []);
-      }
+      // Set the state with paginated data
+      setPanels(allPanels || []);
+      setBatteries(allBatteries || []);
+      setVppProviders(allVppProviders || []);
+      setProductChanges(allChanges || []);
 
-      if (batteryResult.error) {
-        console.error('Batteries error:', batteryResult.error);
-      } else {
-        setBatteries(batteryResult.data || []);
-      }
+      console.log(`🚀 STATE SET - Panels: ${allPanels.length}, Batteries: ${allBatteries.length}, VPPs: ${allVppProviders.length}`);
 
-      if (vppResult.error) {
-        console.error('VPP providers error:', vppResult.error);
-      } else {
-        setVppProviders(vppResult.data || []);
-      }
-
-      if (changesResult.error) {
-        console.error('Product changes error:', changesResult.error);
-      } else {
-        setProductChanges(changesResult.data || []);
-      }
-
-      // Store the data in state immediately
-      const panelData = pvResult.data || [];
-      const batteryData = batteryResult.data || [];
-      const vppData = vppResult.data || [];
-      
-      console.log(`🚀 SETTING STATE - Panels: ${panelData.length}, Batteries: ${batteryData.length}, VPPs: ${vppData.length}`);
-
-      // Set last updated timestamp
+      // Set last updated timestamp using paginated data
       const allScrapedDates = [
-        ...panelData.map((p: any) => p.scraped_at),
-        ...batteryData.map((b: any) => b.scraped_at)
+        ...allPanels.map((p: any) => p.scraped_at),
+        ...allBatteries.map((b: any) => b.scraped_at)
       ].filter(Boolean);
 
       if (allScrapedDates.length > 0) {
@@ -177,7 +218,7 @@ export const useCECData = () => {
 
       // Always consider data complete since we now use weekly updates
       setDataComplete(true);
-      console.log('✅ FINAL SUCCESS! Database loaded - Panels:', panelData.length, 'Batteries:', batteryData.length, 'VPPs:', vppData.length);
+      console.log('✅ PAGINATION SUCCESS! All database loaded - Panels:', allPanels.length, 'Batteries:', allBatteries.length, 'VPPs:', allVppProviders.length);
 
     } catch (err) {
       console.error('❌ Error fetching complete CEC data:', err);
