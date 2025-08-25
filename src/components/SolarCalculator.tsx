@@ -4,7 +4,7 @@ import { InputModeTabs } from "./InputModeTabs";
 import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
-import { RebateCalculator } from "./RebateCalculator";
+import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
@@ -12,13 +12,11 @@ import { useCECData } from "@/hooks/useCECData";
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
-  const [activeTab, setActiveTab] = useState<'quick' | 'picker' | 'ocr' | 'rebates'>('quick');
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
 
   const handleCalculate = (formData: any) => {
     try {
-      // Legacy calculation logic for existing forms
       const input = {
         postcode: formData.postcode,
         solarKw: formData.solarKw,
@@ -29,13 +27,48 @@ const SolarCalculator = () => {
         mode: formData.mode
       };
 
-      // For now, just show success message since the old rebate system is replaced
-      setResults(null);
-      setEligibility(null);
+      // Calculate rebates using the new logic
+      let rebateResults = null;
+      if (formData.batteryKwh && formData.batteryKwh > 0) {
+        const state = getStateFromPostcode(parseInt(formData.postcode));
+        const rebateInputs: RebateInputs = {
+          install_date: formData.installDate,
+          state_or_territory: state,
+          has_rooftop_solar: formData.solarKw > 0,
+          battery: {
+            usable_kWh: formData.batteryKwh,
+            vpp_capable: true,
+            battery_on_approved_list: true
+          },
+          stc_spot_price: formData.stcPrice,
+          joins_vpp: formData.vppProvider && formData.vppProvider !== "None"
+        };
+        
+        rebateResults = calculateBatteryRebates(rebateInputs);
+      }
+
+      const eligibilityResults = checkEligibility(input, true);
+      
+      // Enhanced results with rebate information
+      const calculationResults = {
+        totals: {
+          today: rebateResults?.total_cash_incentive || 0,
+          federal: rebateResults?.federal_discount || 0,
+          state: rebateResults?.state_rebate || 0,
+          vpp: rebateResults?.vpp_bonus || 0
+        },
+        rebates: rebateResults,
+        input: input
+      };
+
+      setResults(calculationResults);
+      setEligibility(eligibilityResults);
 
       toast({
         title: "Calculation complete",
-        description: "Use the Rebates tab for detailed rebate calculations"
+        description: rebateResults 
+          ? `Total rebates available: $${rebateResults.total_cash_incentive.toLocaleString()}`
+          : "Solar system calculation complete"
       });
     } catch (error) {
       toast({
@@ -64,11 +97,7 @@ const SolarCalculator = () => {
         }) : "Loading..."} />
         
         <div className="max-w-4xl mx-auto space-y-8">
-          <InputModeTabs activeTab={activeTab} onTabChange={setActiveTab} onCalculate={handleCalculate} />
-          
-          {activeTab === 'rebates' && (
-            <RebateCalculator />
-          )}
+          <InputModeTabs onCalculate={handleCalculate} />
           
           {results && eligibility && (
             <div className="space-y-8">
