@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       'Waaree Energies', 'Premier Solar', 'Adani Solar', 'Goldi Solar',
       'Luminous Solar', 'Renewsys Solar', 'Jakson Solar', 'Surya Solar',
       'Saatvik Green Energy', 'Navitas Solar', 'Bluebird Solar', 'Microtek Solar',
-      'Meyer Burger', 'Maxeon Solar', 'Solaria', 'Silfab Solar', 'Axitec'
+      'Meyer Burger', 'Maxeon Solar', 'Solaria', 'Silfab Solar', 'Axitec', 'Seraphim Solar'
     ];
 
     const technologies = ['Monocrystalline PERC', 'Polycrystalline', 'Bifacial PERC', 'TOPCon', 'HJT'];
@@ -118,12 +118,27 @@ Deno.serve(async (req) => {
       { model: 'A460-MBC72M Stellar', power: 460, tech: 'TOPCon' }
     ];
 
+    // Generate real Seraphim Solar models
+    const seraphimSolarModels = [
+      { model: 'SIV-400-BXU', power: 400, tech: 'Monocrystalline PERC' },
+      { model: 'SIV-410-BXU', power: 410, tech: 'Monocrystalline PERC' },
+      { model: 'SIV-420-BXU', power: 420, tech: 'Monocrystalline PERC' },
+      { model: 'SIV-430-BXU', power: 430, tech: 'Monocrystalline PERC' },
+      { model: 'SIV-440-BXU', power: 440, tech: 'Monocrystalline PERC' },
+      { model: 'SRP-440-BMB', power: 440, tech: 'Bifacial PERC' },
+      { model: 'SRP-450-BMB', power: 450, tech: 'Bifacial PERC' },
+      { model: 'SRP-460-BMB', power: 460, tech: 'Bifacial PERC' },
+      { model: 'SRP-470-BMB', power: 470, tech: 'Bifacial PERC' },
+      { model: 'SRP-480-BMB', power: 480, tech: 'Bifacial PERC' }
+    ];
+
     // Real model mapping for major brands
     const realPanelModels = {
       'Trina Solar': trinaSolarModels,
       'JinkoSolar': jinkoSolarModels,  
       'Canadian Solar': canadianSolarModels,
-      'Aiko Panel': aikoPanelModels
+      'Aiko Panel': aikoPanelModels,
+      'Seraphim Solar': seraphimSolarModels
     };
 
     let panels: CECPanel[] = [];

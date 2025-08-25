@@ -175,6 +175,12 @@ Deno.serve(async (req) => {
           { model: 'ECS15300', capacity: 15.3, chemistry: 'LiFePO4' },
           { model: 'ECS20400', capacity: 20.4, chemistry: 'LiFePO4' },
           { model: 'ECS25500', capacity: 25.5, chemistry: 'LiFePO4' }
+        ],
+        'Solax Power': [
+          { model: 'Triple Power T58', capacity: 5.8, chemistry: 'LiFePO4' },
+          { model: 'Triple Power T63', capacity: 6.3, chemistry: 'LiFePO4' },
+          { model: 'Triple Power T115', capacity: 11.5, chemistry: 'LiFePO4' },
+          { model: 'Triple Power T126', capacity: 12.6, chemistry: 'LiFePO4' }
         ]
       };
 
@@ -198,14 +204,14 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Add additional generic models for other brands to reach target count
+      // Add additional generic models for other brands to reach target count  
       const additionalBrands = [
-        'Fox ESS', 'Huawei', 'Victron Energy', 'Freedom Won', 'Blue Ion', 'Redback Technologies', 
+        'Huawei', 'Victron Energy', 'Freedom Won', 'Blue Ion', 'Redback Technologies', 
         'SimpliPhi Power', 'Fronius', 'SolarEdge', 'Selectronic', 'Growatt', 'SMA Solar',
         'Jinko Solar', 'Canadian Solar', 'Trina Solar', 'JA Solar', 'Q CELLS', 'REC Solar',
         'SunPower', 'Panasonic', 'LG Solar', 'Hanwha Q CELLS', 'LONGi Solar', 'JinkoSolar',
         'Risen Energy', 'Seraphim Solar', 'Talesun', 'Astronergy', 'ZNShine Solar',
-        'CATL', 'Goodwe Energy', 'Deye', 'Solax Power', 'Solar MD', 'Solar Edge Systems',
+        'CATL', 'Deye', 'Solar MD', 'Solar Edge Systems',
         'Ampetus Energy', 'Opal Energy', 'Pure Electric', 'Energy Renaissance'
       ];
       
