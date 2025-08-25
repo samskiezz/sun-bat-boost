@@ -26,8 +26,8 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     vppProvider: ""
   });
 
-  const selectedPanel = panels.find(p => p.id === formData.panelId);
-  const selectedBattery = formData.batteryId === "none" ? null : batteries.find(b => b.id === formData.batteryId);
+  const selectedPanel = formData.panelId ? panels.find(p => p.id === formData.panelId) : undefined;
+  const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => b.id === formData.batteryId);
   
   // Calculate system size based on panel selection - assume 400W average for new CEC panels
   const systemKw = selectedPanel && formData.panelQty 
@@ -171,7 +171,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 {panels.length === 0 ? (
                   <SelectItem value="no-panels" disabled>No panels loaded - try refreshing</SelectItem>
                 ) : (
-                  panels.filter(panel => panel.id && panel.id.trim() !== '').map(panel => (
+                  panels.filter(panel => panel.id).map(panel => (
                     <SelectItem key={panel.id} value={panel.id}>
                       <div className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500" />
@@ -222,7 +222,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 {batteries.length === 0 ? (
                   <SelectItem value="no-batteries" disabled>No batteries loaded - try refreshing</SelectItem>
                 ) : (
-                  batteries.filter(battery => battery.id && battery.id.trim() !== '').map(battery => (
+                  batteries.filter(battery => battery.id).map(battery => (
                     <SelectItem key={battery.id} value={battery.id}>
                       <div className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500" />
@@ -246,7 +246,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="none">No VPP</SelectItem>
                 {(selectedBattery ? compatibleVPPs : vppProviders)
-                  .filter(vpp => vpp.id && vpp.id.trim() !== '')
+                  .filter(vpp => vpp.id)
                   .map(vpp => (
                   <SelectItem key={vpp.id} value={vpp.id}>
                     <div className="flex items-center gap-2">
