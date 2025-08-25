@@ -410,25 +410,16 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 <div>Brand: <span className="font-medium">{selectedBattery.brand}</span></div>
                 <div>Model: <span className="font-medium">{selectedBattery.model}</span></div>
                 {selectedBattery.capacity_kwh && (
-                  <>
-                    <div>Capacity: <span className="font-medium">{selectedBattery.capacity_kwh} kWh</span></div>
-                    <div>Usable: <span className="font-medium">{(selectedBattery.capacity_kwh * 0.9).toFixed(1)} kWh</span></div>
-                  </>
+                  <div>Capacity: <span className="font-medium">{selectedBattery.capacity_kwh} kWh</span></div>
                 )}
                 {selectedBattery.chemistry && (
                   <div>Chemistry: <span className="font-medium">{selectedBattery.chemistry}</span></div>
                 )}
-                {selectedBattery.units && selectedBattery.units > 1 && (
-                  <div>Units: <span className="font-medium">{selectedBattery.units}</span></div>
+                {selectedBattery.vpp_capable && (
+                  <div className="col-span-2">
+                    <Badge variant="secondary" className="text-green-600">VPP Capable</Badge>
+                  </div>
                 )}
-                <div className="flex items-center gap-2">
-                  VPP Capable: 
-                  {selectedBattery.vpp_capable ? (
-                    <Badge variant="default" className="text-xs">✓ Yes</Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-xs">✗ No</Badge>
-                  )}
-                </div>
                 {selectedBattery.description && (
                   <div className="col-span-2 mt-2">
                     <span className="text-muted-foreground">{selectedBattery.description}</span>
@@ -438,25 +429,23 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </div>
           )}
 
-          {/* VPP Provider with Compatibility */}
-          <div className="space-y-2">
-            <Label htmlFor="vpp">VPP Provider</Label>
-            <Select value={formData.vppProvider} onValueChange={(value) => setFormData({...formData, vppProvider: value})}>
+          {/* VPP Provider Selection */}
+          <div className="space-y-4">
+            <Label>VPP Provider (Optional)</Label>
+            <Select 
+              value={formData.vppProvider} 
+              onValueChange={(value) => setFormData({...formData, vppProvider: value})}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select VPP provider (optional)" />
+                <SelectValue placeholder="Choose a Virtual Power Plant provider (optional)" />
               </SelectTrigger>
-              <SelectContent className="bg-card border border-border z-50">
-                <SelectItem value="none">No VPP</SelectItem>
-                {(selectedBattery ? compatibleVPPs : vppProviders)
-                  .filter(vpp => vpp.id)
-                  .map(vpp => (
+              <SelectContent>
+                <SelectItem value="none">No VPP Provider</SelectItem>
+                {vppProviders.map(vpp => (
                   <SelectItem key={vpp.id} value={vpp.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-2">
-                        {selectedBattery && compatibleVPPs.includes(vpp) && (
-                          <Check className="w-4 h-4 text-green-500" />
-                        )}
-                        <div className="flex flex-col items-start">
+                    <div className="flex items-start gap-3 py-2">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
                           <span className="font-medium">{vpp.name}</span>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>${vpp.signup_bonus} signup</span>
@@ -478,12 +467,12 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                   <div className="text-green-600">
                     ✅ {compatibleVPPs.length} VPP provider{compatibleVPPs.length > 1 ? 's' : ''} support {selectedBattery.brand} batteries:
                     <div className="mt-1 text-xs">
-                      {compatibleVPPs.map(vpp => vpp.name).join(', ')}
+                      {compatibleVPPs.map(vpp => `${vpp.name} ($${vpp.signup_bonus + vpp.estimated_annual_reward} total value)`).join(', ')}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-amber-600">
-                    ⚠️ No VPP providers currently support {selectedBattery.brand} batteries
+                  <div className="text-yellow-600">
+                    ⚠️ No VPP providers currently support {selectedBattery.brand} batteries in our database
                   </div>
                 )}
               </div>
@@ -495,38 +484,30 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             <Label htmlFor="stcPrice">STC Price ($)</Label>
             <Input
               id="stcPrice"
-              placeholder="38"
+              type="number"
+              step="0.01"
+              placeholder="e.g. 38.00"
               value={formData.stcPrice}
               onChange={(e) => setFormData({...formData, stcPrice: e.target.value})}
               required
             />
+            <div className="text-xs text-muted-foreground">
+              Current market STC price (typically $35-$45)
+            </div>
           </div>
 
-          {/* CEC Status */}
-          {(selectedPanel || selectedBattery) && (
-            <div className="space-y-2">
-              <Label>CEC Approval Status</Label>
-              <div className="flex flex-wrap gap-2">
-                {selectedPanel && (
-                  <Badge variant="default" className="gap-1">
-                    <Check className="w-3 h-3" />
-                    Panel Approved ({selectedPanel.certificate || 'CEC Listed'})
-                  </Badge>
-                )}
-                {selectedBattery && (
-                  <Badge variant="default" className="gap-1">
-                    <Check className="w-3 h-3" />
-                    Battery Approved ({selectedBattery.certificate || 'CEC Listed'})
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-          <Button type="submit" className="w-full" disabled={!formData.panelId || !formData.panelQty}>
-            Calculate Rebates
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={!selectedPanel || !formData.panelQty || !formData.postcode}
+          >
+            Calculate Solar Returns
           </Button>
         </form>
       </CardContent>
     </Card>
   );
 };
+
+// Also export as default for other components that might use it
+export default ProductPickerForm;
