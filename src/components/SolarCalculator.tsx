@@ -4,6 +4,7 @@ import { InputModeTabs } from "./InputModeTabs";
 import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
+import { SEOHead } from "./SEOHead";
 import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
 import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
@@ -18,10 +19,14 @@ const SolarCalculator = () => {
 
   const handleCalculate = (formData: any) => {
     try {
+      // Ensure proper data extraction for both picker and quick modes
+      const solarKw = formData.solarKw || formData.systemKw || 0;
+      const batteryKwh = formData.batteryKwh || (formData.selectedProducts?.battery?.usable_capacity_kwh) || 0;
+      
       const input = {
         postcode: formData.postcode,
-        solarKw: formData.solarKw,
-        batteryKwh: formData.batteryKwh,
+        solarKw,
+        batteryKwh,
         installDate: formData.installDate,
         stcPrice: formData.stcPrice,
         vppProvider: formData.vppProvider,
@@ -30,13 +35,13 @@ const SolarCalculator = () => {
 
       // Calculate solar rebates (STCs for panels)
       let solarResults = null;
-      if (formData.solarKw && formData.solarKw > 0) {
+      if (solarKw && solarKw > 0) {
         const solarInputs: CalculatorInputs = {
           install_date: formData.installDate,
           postcode: formData.postcode.toString(),
-          pv_dc_size_kw: formData.solarKw,
+          pv_dc_size_kw: solarKw,
           stc_price_aud: formData.stcPrice,
-          battery_capacity_kwh: formData.batteryKwh || 0,
+          battery_capacity_kwh: batteryKwh || 0,
           vpp_provider: formData.vppProvider && formData.vppProvider !== "None" ? formData.vppProvider : null
         };
         
@@ -45,14 +50,14 @@ const SolarCalculator = () => {
 
       // Calculate battery rebates using the new logic
       let batteryResults = null;
-      if (formData.batteryKwh && formData.batteryKwh > 0) {
+      if (batteryKwh && batteryKwh > 0) {
         const state = getStateFromPostcode(parseInt(formData.postcode));
         const rebateInputs: RebateInputs = {
           install_date: formData.installDate,
           state_or_territory: state,
-          has_rooftop_solar: formData.solarKw > 0,
+          has_rooftop_solar: solarKw > 0,
           battery: {
-            usable_kWh: formData.batteryKwh,
+            usable_kWh: batteryKwh,
             vpp_capable: true,
             battery_on_approved_list: true
           },
@@ -107,6 +112,7 @@ const SolarCalculator = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <SEOHead results={results} location={results?.input?.postcode} />
       <InitialDataLoader />
       <div className="container mx-auto px-4 py-8">
         <HeroHeader lastUpdated={lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-AU', { 

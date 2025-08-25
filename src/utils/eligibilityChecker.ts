@@ -14,10 +14,14 @@ export interface EligibilityResult {
   suggestions: string[];
 }
 
-// System size recommendations by state
+// System size recommendations with proper rebate limits
 const sizeRecommendations = {
   optimal: { min: 6.6, max: 13.2 },
-  battery: { min: 10, max: 20 }
+  battery: { 
+    min: 10, 
+    max: 28, // Rebate eligibility limit
+    absoluteMax: 48 // System maximum before no additional rebates
+  }
 };
 
 export function checkEligibility(input: CalculationInput, hasApprovedProducts: boolean = true): EligibilityResult {
@@ -50,14 +54,18 @@ export function checkEligibility(input: CalculationInput, hasApprovedProducts: b
   if (input.batteryKwh) {
     if (input.batteryKwh < sizeRecommendations.battery.min) {
       reasons.push(`Small battery (${input.batteryKwh}kWh) limits rebate programs`);
-      suggestions.push("Consider 13.5kWh battery");
+      suggestions.push("Consider 13.5kWh+ battery");
       if (status === "green") status = "yellow";
-    } else if (input.batteryKwh > sizeRecommendations.battery.max * 1.5) {
-      reasons.push(`Large battery (${input.batteryKwh}kWh) exceeds most program caps`);
-      suggestions.push("Check if oversized for rebates");
+    } else if (input.batteryKwh > sizeRecommendations.battery.absoluteMax) {
+      reasons.push(`Battery (${input.batteryKwh}kWh) exceeds 48kWh rebate cap - no additional rebates`);
+      suggestions.push("Consider 48kWh max for rebates");
+      status = "red";
+    } else if (input.batteryKwh > sizeRecommendations.battery.max) {
+      reasons.push(`Battery (${input.batteryKwh}kWh) exceeds 28kWh eligibility limit - reduced rebates`);
+      suggestions.push("28kWh is rebate eligibility limit");
       if (status === "green") status = "yellow";
     } else {
-      reasons.push(`Battery size (${input.batteryKwh}kWh) eligible for rebates ✓`);
+      reasons.push(`Battery size (${input.batteryKwh}kWh) eligible for full rebates ✓`);
     }
   }
 
