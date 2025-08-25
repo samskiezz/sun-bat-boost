@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
           
           batteries.push({
             brand: brand,
-            model: `${brand.replace(/\s+/g, '')}-${capacity}${modelSuffix}`,
+            model: `${brand.replace(/\s+/g, '')}-${capacity}${modelSuffix}-${i}`, // Add unique suffix
             chemistry: chemistries[i % 3],
             certificate: 'AS/NZS 5139:2019',
             approval_status: 'approved',

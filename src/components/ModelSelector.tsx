@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Zap, Battery, Plus, Minus, Search, Star } from 'lucide-react';
-import { SOLAR_PANELS, PANEL_BRANDS, getPanelsByBrand, type PanelSpec } from '@/data/panelData';
-import { BATTERY_SYSTEMS, BATTERY_BRANDS, getBatteriesByBrand, type BatterySpec } from '@/data/batteryData';
+import { useCECData } from '@/hooks/useCECData';
 
 interface SelectedPanel {
   panelId: string;
@@ -37,6 +36,7 @@ export default function ModelSelector({
   initialPanels = [], 
   initialBatteries = [] 
 }: ModelSelectorProps) {
+  const { panels, batteries, loading } = useCECData();
   const [selectedPanels, setSelectedPanels] = useState<SelectedPanel[]>(initialPanels);
   const [selectedBatteries, setSelectedBatteries] = useState<SelectedBattery[]>(initialBatteries);
   const [panelSearch, setPanelSearch] = useState('');
@@ -44,8 +44,19 @@ export default function ModelSelector({
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [selectedBatteryBrand, setSelectedBatteryBrand] = useState<string>('all');
 
+  // Get unique brands
+  const panelBrands = useMemo(() => {
+    const brands = new Set(panels.map(panel => panel.brand));
+    return Array.from(brands).sort();
+  }, [panels]);
+
+  const batteryBrands = useMemo(() => {
+    const brands = new Set(batteries.map(battery => battery.brand));
+    return Array.from(brands).sort();
+  }, [batteries]);
+
   // Filter panels
-  const filteredPanels = Object.values(SOLAR_PANELS).filter(panel => {
+  const filteredPanels = panels.filter(panel => {
     const matchesSearch = panelSearch === '' || 
       panel.brand.toLowerCase().includes(panelSearch.toLowerCase()) ||
       panel.model.toLowerCase().includes(panelSearch.toLowerCase());
@@ -54,7 +65,7 @@ export default function ModelSelector({
   });
 
   // Filter batteries
-  const filteredBatteries = Object.values(BATTERY_SYSTEMS).filter(battery => {
+  const filteredBatteries = batteries.filter(battery => {
     const matchesSearch = batterySearch === '' || 
       battery.brand.toLowerCase().includes(batterySearch.toLowerCase()) ||
       battery.model.toLowerCase().includes(batterySearch.toLowerCase());
@@ -62,28 +73,39 @@ export default function ModelSelector({
     return matchesSearch && matchesBrand;
   });
 
+  // Create combobox options
+  const panelBrandOptions: ComboboxOption[] = [
+    { value: 'all', label: 'All Brands' },
+    ...panelBrands.map(brand => ({ value: brand, label: brand }))
+  ];
+
+  const batteryBrandOptions: ComboboxOption[] = [
+    { value: 'all', label: 'All Brands' },
+    ...batteryBrands.map(brand => ({ value: brand, label: brand }))
+  ];
+
   // Calculate totals
   const totalPvSize = selectedPanels.reduce((total, panel) => {
-    const panelSpec = SOLAR_PANELS[panel.panelId];
-    return total + (panelSpec ? panelSpec.power_watts * panel.quantity / 1000 : 0);
+    const panelSpec = panels.find(p => p.id.toString() === panel.panelId);
+    return total + (panelSpec ? panelSpec.power_rating * panel.quantity / 1000 : 0);
   }, 0);
 
   const totalBatteryCapacity = selectedBatteries.reduce((total, battery) => {
-    const batterySpec = BATTERY_SYSTEMS[battery.batteryId];
+    const batterySpec = batteries.find(b => b.id.toString() === battery.batteryId);
     return total + (batterySpec ? batterySpec.capacity_kwh * battery.quantity : 0);
   }, 0);
 
   // Update parent component
-  const updateSelection = (panels: SelectedPanel[], batteries: SelectedBattery[]) => {
+  const updateSelection = (selectedPanels: SelectedPanel[], selectedBatteries: SelectedBattery[]) => {
     onSelectionChange({
-      panels,
-      batteries,
-      totalPvSize: panels.reduce((total, panel) => {
-        const panelSpec = SOLAR_PANELS[panel.panelId];
-        return total + (panelSpec ? panelSpec.power_watts * panel.quantity / 1000 : 0);
+      panels: selectedPanels,
+      batteries: selectedBatteries,
+      totalPvSize: selectedPanels.reduce((total, panel) => {
+        const panelSpec = panels.find(p => p.id.toString() === panel.panelId);
+        return total + (panelSpec ? panelSpec.power_rating * panel.quantity / 1000 : 0);
       }, 0),
-      totalBatteryCapacity: batteries.reduce((total, battery) => {
-        const batterySpec = BATTERY_SYSTEMS[battery.batteryId];
+      totalBatteryCapacity: selectedBatteries.reduce((total, battery) => {
+        const batterySpec = batteries.find(b => b.id.toString() === battery.batteryId);
         return total + (batterySpec ? batterySpec.capacity_kwh * battery.quantity : 0);
       }, 0)
     });
@@ -214,17 +236,14 @@ export default function ModelSelector({
               </div>
               <div>
                 <Label htmlFor="panel-brand">Brand</Label>
-                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Brands</SelectItem>
-                    {PANEL_BRANDS.map(brand => (
-                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={panelBrandOptions}
+                  value={selectedBrand}
+                  onValueChange={setSelectedBrand}
+                  placeholder="All Brands"
+                  searchPlaceholder="Search brands..."
+                  className="w-40"
+                />
               </div>
             </div>
 
@@ -233,19 +252,19 @@ export default function ModelSelector({
               <div className="p-4 bg-gradient-solar/10 rounded-lg">
                 <h4 className="font-semibold mb-2">Selected Panels</h4>
                 <div className="space-y-2">
-                  {selectedPanels.map(panel => {
-                    const spec = SOLAR_PANELS[panel.panelId];
-                    return spec ? (
-                      <div key={panel.panelId} className="flex items-center justify-between">
-                        <span className="text-sm">
-                          {panel.quantity}× {spec.brand} {spec.model} ({spec.power_watts}W)
-                        </span>
-                        <Badge variant="secondary">
-                          {(spec.power_watts * panel.quantity / 1000).toFixed(1)}kW
-                        </Badge>
-                      </div>
-                    ) : null;
-                  })}
+                   {selectedPanels.map(panel => {
+                     const spec = panels.find(p => p.id.toString() === panel.panelId);
+                     return spec ? (
+                       <div key={panel.panelId} className="flex items-center justify-between">
+                         <span className="text-sm">
+                           {panel.quantity}× {spec.brand} {spec.model} ({spec.power_rating}W)
+                         </span>
+                         <Badge variant="secondary">
+                           {(spec.power_rating * panel.quantity / 1000).toFixed(1)}kW
+                         </Badge>
+                       </div>
+                     ) : null;
+                   })}
                   <Separator />
                   <div className="flex items-center justify-between font-semibold">
                     <span>Total System Size</span>
@@ -259,61 +278,71 @@ export default function ModelSelector({
 
             {/* Panel Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-              {filteredPanels.map(panel => {
-                const quantity = getSelectedQuantity(panel.id, 'panel');
-                return (
-                  <div key={panel.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold text-sm">{panel.brand}</h4>
-                        <p className="text-sm text-muted-foreground">{panel.model}</p>
+              {loading ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  Loading panels...
+                </div>
+              ) : filteredPanels.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No panels found matching your search
+                </div>
+              ) : (
+                filteredPanels.map(panel => {
+                  const quantity = getSelectedQuantity(panel.id.toString(), 'panel');
+                  return (
+                    <div key={panel.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-sm">{panel.brand}</h4>
+                          <p className="text-sm text-muted-foreground">{panel.model}</p>
+                        </div>
+                        <Badge variant="secondary">
+                          CEC Approved
+                        </Badge>
                       </div>
-                      <Badge variant={panel.tier === 1 ? "default" : panel.tier === 2 ? "secondary" : "outline"}>
-                        Tier {panel.tier}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Power:</span>
-                        <br />
-                        <span className="font-medium">{panel.power_watts}W</span>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Power:</span>
+                          <br />
+                          <span className="font-medium">{panel.power_rating}W</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Technology:</span>
+                          <br />
+                          <span className="font-medium">{panel.technology || 'N/A'}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Efficiency:</span>
-                        <br />
-                        <span className="font-medium">{panel.efficiency}%</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        ~${panel.price_estimate_aud.toLocaleString()}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removePanel(panel.id)}
-                          disabled={quantity === 0}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-8 text-center text-sm font-medium">
-                          {quantity}
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {panel.certificate || 'CEC Listed'}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addPanel(panel.id)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => removePanel(panel.id.toString())}
+                            disabled={quantity === 0}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium">
+                            {quantity}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addPanel(panel.id.toString())}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </TabsContent>
 
@@ -336,17 +365,14 @@ export default function ModelSelector({
               </div>
               <div>
                 <Label htmlFor="battery-brand">Brand</Label>
-                <Select value={selectedBatteryBrand} onValueChange={setSelectedBatteryBrand}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Brands</SelectItem>
-                    {BATTERY_BRANDS.map(brand => (
-                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={batteryBrandOptions}
+                  value={selectedBatteryBrand}
+                  onValueChange={setSelectedBatteryBrand}
+                  placeholder="All Brands"
+                  searchPlaceholder="Search brands..."
+                  className="w-40"
+                />
               </div>
             </div>
 
@@ -355,19 +381,19 @@ export default function ModelSelector({
               <div className="p-4 bg-gradient-vpp/10 rounded-lg">
                 <h4 className="font-semibold mb-2">Selected Batteries</h4>
                 <div className="space-y-2">
-                  {selectedBatteries.map(battery => {
-                    const spec = BATTERY_SYSTEMS[battery.batteryId];
-                    return spec ? (
-                      <div key={battery.batteryId} className="flex items-center justify-between">
-                        <span className="text-sm">
-                          {battery.quantity}× {spec.brand} {spec.model} ({spec.capacity_kwh}kWh)
-                        </span>
-                        <Badge variant="secondary">
-                          {(spec.capacity_kwh * battery.quantity).toFixed(1)}kWh
-                        </Badge>
-                      </div>
-                    ) : null;
-                  })}
+                   {selectedBatteries.map(battery => {
+                     const spec = batteries.find(b => b.id.toString() === battery.batteryId);
+                     return spec ? (
+                       <div key={battery.batteryId} className="flex items-center justify-between">
+                         <span className="text-sm">
+                           {battery.quantity}× {spec.brand} {spec.model} ({spec.capacity_kwh}kWh)
+                         </span>
+                         <Badge variant="secondary">
+                           {(spec.capacity_kwh * battery.quantity).toFixed(1)}kWh
+                         </Badge>
+                       </div>
+                     ) : null;
+                   })}
                   <Separator />
                   <div className="flex items-center justify-between font-semibold">
                     <span>Total Battery Capacity</span>
@@ -381,72 +407,77 @@ export default function ModelSelector({
 
             {/* Battery Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-              {filteredBatteries.map(battery => {
-                const quantity = getSelectedQuantity(battery.id, 'battery');
-                return (
-                  <div key={battery.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold text-sm">{battery.brand}</h4>
-                        <p className="text-sm text-muted-foreground">{battery.model}</p>
+              {loading ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  Loading batteries...
+                </div>
+              ) : filteredBatteries.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No batteries found matching your search
+                </div>
+              ) : (
+                filteredBatteries.map(battery => {
+                  const quantity = getSelectedQuantity(battery.id.toString(), 'battery');
+                  return (
+                    <div key={battery.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-sm">{battery.brand}</h4>
+                          <p className="text-sm text-muted-foreground">{battery.model}</p>
+                        </div>
+                        <Badge variant={battery.vpp_capable ? "default" : "secondary"}>
+                          {battery.vpp_capable ? 'VPP Ready' : 'CEC Approved'}
+                        </Badge>
                       </div>
-                      <Badge variant={battery.tier === 1 ? "default" : battery.tier === 2 ? "secondary" : "outline"}>
-                        Tier {battery.tier}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Capacity:</span>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Capacity:</span>
+                          <br />
+                          <span className="font-medium">{battery.capacity_kwh}kWh</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Chemistry:</span>
+                          <br />
+                          <span className="font-medium">{battery.chemistry || 'Li-Ion'}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Units:</span>
                         <br />
-                        <span className="font-medium">{battery.capacity_kwh}kWh</span>
+                        <span className="font-medium">{battery.units || 1} unit(s)</span>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Chemistry:</span>
-                        <br />
-                        <span className="font-medium">{battery.chemistry}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="text-xs">
-                      <span className="text-muted-foreground">VPP Compatible:</span>
-                      <br />
-                      <span className="font-medium">
-                        {battery.vpp_compatible.length > 0 
-                          ? `${battery.vpp_compatible.length} providers`
-                          : 'None'
-                        }
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        ~${battery.price_estimate_aud.toLocaleString()}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removeBattery(battery.id)}
-                          disabled={quantity === 0}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-8 text-center text-sm font-medium">
-                          {quantity}
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {battery.certificate || 'CEC Listed'}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addBattery(battery.id)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => removeBattery(battery.id.toString())}
+                            disabled={quantity === 0}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium">
+                            {quantity}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addBattery(battery.id.toString())}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </TabsContent>
         </Tabs>
