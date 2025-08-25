@@ -13,6 +13,9 @@ export interface CECPanel {
   source_url: string;
   hash?: string;
   scraped_at: string;
+  power_rating?: number;
+  image_url?: string;
+  description?: string;
 }
 
 export interface CECBattery {
@@ -27,6 +30,13 @@ export interface CECBattery {
   source_url: string;
   hash?: string;
   scraped_at: string;
+  capacity_kwh?: number;
+  vpp_capable?: boolean;
+  image_url?: string;
+  description?: string;
+  nominal_capacity?: number;
+  usable_capacity?: number;
+  units?: number;
 }
 
 export interface VPPProvider {

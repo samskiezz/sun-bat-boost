@@ -29,9 +29,9 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const selectedPanel = formData.panelId ? panels.find(p => p.id === formData.panelId) : undefined;
   const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => b.id === formData.batteryId);
   
-  // Calculate system size based on panel selection - assume 400W average for new CEC panels
+  // Calculate system size based on panel selection using actual power rating
   const systemKw = selectedPanel && formData.panelQty 
-    ? (400 * parseInt(formData.panelQty)) / 1000  // Assume 400W average panel
+    ? ((selectedPanel.power_rating || 400) * parseInt(formData.panelQty)) / 1000
     : 0;
 
   // Get compatible VPP providers for selected battery
@@ -173,10 +173,18 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 ) : (
                   panels.filter(panel => panel.id).map(panel => (
                     <SelectItem key={panel.id} value={panel.id}>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500" />
-                        {panel.brand} {panel.model}
-                        {panel.technology && <span className="text-xs text-muted-foreground">- {panel.technology}</span>}
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <Check className="w-4 h-4 text-green-500" />
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{panel.brand} {panel.model}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {panel.power_rating && <span>{panel.power_rating}W</span>}
+                              {panel.technology && <span>• {panel.technology}</span>}
+                              {panel.certificate && <span>• {panel.certificate}</span>}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </SelectItem>
                   ))
@@ -185,22 +193,47 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </Select>
             
             {selectedPanel && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="panelQty">Quantity</Label>
-                  <Input
-                    id="panelQty"
-                    type="number"
-                    placeholder="e.g. 22"
-                    value={formData.panelQty}
-                    onChange={(e) => setFormData({...formData, panelQty: e.target.value})}
-                    required
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="panelQty">Quantity</Label>
+                    <Input
+                      id="panelQty"
+                      type="number"
+                      placeholder="e.g. 22"
+                      value={formData.panelQty}
+                      onChange={(e) => setFormData({...formData, panelQty: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>System Size</Label>
+                    <div className="h-10 px-3 py-2 border border-input rounded-md bg-muted">
+                      {systemKw.toFixed(1)} kW
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>System Size</Label>
-                  <div className="h-10 px-3 py-2 border border-input rounded-md bg-muted">
-                    {systemKw.toFixed(1)} kW
+                
+                {/* Enhanced Panel Details */}
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <h4 className="font-medium mb-2">Panel Details</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>Brand: <span className="font-medium">{selectedPanel.brand}</span></div>
+                    <div>Model: <span className="font-medium">{selectedPanel.model}</span></div>
+                    {selectedPanel.power_rating && (
+                      <div>Power: <span className="font-medium">{selectedPanel.power_rating}W</span></div>
+                    )}
+                    {selectedPanel.technology && (
+                      <div>Technology: <span className="font-medium">{selectedPanel.technology}</span></div>
+                    )}
+                    {selectedPanel.certificate && (
+                      <div>Certificate: <span className="font-medium">{selectedPanel.certificate}</span></div>
+                    )}
+                    {selectedPanel.description && (
+                      <div className="col-span-2 mt-2">
+                        <span className="text-muted-foreground">{selectedPanel.description}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -224,10 +257,18 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 ) : (
                   batteries.filter(battery => battery.id).map(battery => (
                     <SelectItem key={battery.id} value={battery.id}>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500" />
-                        {battery.brand} {battery.model}
-                        {battery.chemistry && <span className="text-xs text-muted-foreground">- {battery.chemistry}</span>}
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <Check className="w-4 h-4 text-green-500" />
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{battery.brand} {battery.model}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {battery.capacity_kwh && <span>{battery.capacity_kwh} kWh</span>}
+                              {battery.chemistry && <span>• {battery.chemistry}</span>}
+                              {battery.vpp_capable && <span>• VPP Capable</span>}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </SelectItem>
                   ))
@@ -235,6 +276,42 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Enhanced Battery Details */}
+          {selectedBattery && (
+            <div className="p-4 border rounded-lg bg-muted/50">
+              <h4 className="font-medium mb-2">Battery Details</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>Brand: <span className="font-medium">{selectedBattery.brand}</span></div>
+                <div>Model: <span className="font-medium">{selectedBattery.model}</span></div>
+                {selectedBattery.capacity_kwh && (
+                  <>
+                    <div>Capacity: <span className="font-medium">{selectedBattery.capacity_kwh} kWh</span></div>
+                    <div>Usable: <span className="font-medium">{(selectedBattery.capacity_kwh * 0.9).toFixed(1)} kWh</span></div>
+                  </>
+                )}
+                {selectedBattery.chemistry && (
+                  <div>Chemistry: <span className="font-medium">{selectedBattery.chemistry}</span></div>
+                )}
+                {selectedBattery.units && selectedBattery.units > 1 && (
+                  <div>Units: <span className="font-medium">{selectedBattery.units}</span></div>
+                )}
+                <div className="flex items-center gap-2">
+                  VPP Capable: 
+                  {selectedBattery.vpp_capable ? (
+                    <Badge variant="default" className="text-xs">✓ Yes</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">✗ No</Badge>
+                  )}
+                </div>
+                {selectedBattery.description && (
+                  <div className="col-span-2 mt-2">
+                    <span className="text-muted-foreground">{selectedBattery.description}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* VPP Provider with Compatibility */}
           <div className="space-y-2">
