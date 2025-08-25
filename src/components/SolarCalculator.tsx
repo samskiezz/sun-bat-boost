@@ -10,6 +10,8 @@ import { calculateSolarRebates, type CalculatorInputs, type CalculatorResults } 
 import { VPP_INCENTIVES } from '@/data/solarData';
 
 export default function SolarCalculator() {
+  console.log('SolarCalculator component rendering');
+  
   const [inputs, setInputs] = useState<CalculatorInputs>({
     install_date: new Date().toISOString().split('T')[0],
     postcode: '',
