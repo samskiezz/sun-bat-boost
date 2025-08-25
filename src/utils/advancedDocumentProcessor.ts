@@ -320,88 +320,128 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     installer: undefined
   };
   
-  // Enhanced pattern recognition with context awareness
+  // NASA-GRADE PATTERN RECOGNITION - Ultra-flexible matching
   const panelCandidates: Array<{description: string, context: string, line: string}> = [];
   const batteryCandidates: Array<{description: string, context: string, line: string}> = [];
+  
+  // First pass: Identify ALL potential equipment lines
+  const potentialEquipmentLines: string[] = [];
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lowerLine = line.toLowerCase();
     
-    console.log(`Processing line ${i}: "${line}"`);
+    console.log(`🔍 Scanning line ${i}: "${line}"`);
     
-    // Skip non-equipment lines
+    // Skip obvious non-equipment content
     if (lowerLine.includes('app') || 
         lowerLine.includes('monitoring') || 
         lowerLine.includes('visibility') ||
-        lowerLine.includes('control') ||
         lowerLine.includes('designed to give') ||
         lowerLine.includes('real-time') ||
-        lowerLine.includes('features')) {
-      console.log('  -> Skipped (app/monitoring content)');
+        lowerLine.includes('features') ||
+        lowerLine.includes('control system') ||
+        lowerLine.includes('mobile app')) {
+      console.log('  ❌ Skipped (app/monitoring content)');
       continue;
     }
     
-    // Extract solar panels with enhanced patterns
-    const panelPatterns = [
-      // Tiger Neo specific pattern
-      /(Tiger\s+Neo\s+N-type\s+[A-Z0-9\-]+)/gi,
-      // JKM series with model numbers
-      /(JKM\d{3,}[A-Z]*[-_]?\d*[A-Z]*[-_]?[A-Z0-9]*)/gi,
-      // Quantity x Model patterns  
-      /(\d+)\s*[x×]\s*([A-Z]{2,}[0-9]{3,}[A-Z]*[-_]?[0-9]*[A-Z]*)/gi,
-      // Wattage with panels
-      /(\d{3,})\s*[Ww]att\s*panels?/gi,
-      // Brand + model combinations
-      /((?:jinko|trina|canadian|lg|rec|sunpower)\s*[A-Z0-9\s\-\.]+)/gi
+    // Include lines that might contain equipment
+    if (line.length > 5 && (
+        // Contains numbers and letters (model codes)
+        /[A-Z]{2,}.*\d{2,}|JKM.*\d+|Tiger.*Neo|\d+.*kwh|Battery|Solar|Panel|Sigen/i.test(line) ||
+        // Contains capacity indicators
+        /\d+(?:\.\d+)?\s*kwh/i.test(line) ||
+        // Contains wattage
+        /\d{3,}\s*[Ww]att/i.test(line) ||
+        // Contains equipment brands
+        /(jinko|trina|canadian|lg|rec|sunpower|sigen|tesla)/i.test(line)
+    )) {
+      potentialEquipmentLines.push(line);
+      console.log(`  ✅ Added as potential equipment line`);
+    }
+  }
+  
+  console.log(`📋 Found ${potentialEquipmentLines.length} potential equipment lines`);
+  
+  // Second pass: Extract equipment from potential lines
+  for (const line of potentialEquipmentLines) {
+    console.log(`\n🔬 Deep analyzing: "${line}"`);
+    
+    // SOLAR PANEL EXTRACTION - Ultra flexible patterns
+    const panelIndicators = [
+      // Direct model matches - JKM series
+      /JKM\d{3,}[A-Z0-9\s\-\.]*(?:Tiger.*Neo|N.*type)?[A-Z0-9\s\-\.]*/gi,
+      // Tiger Neo patterns
+      /Tiger\s*Neo[A-Z0-9\s\-\.]*/gi,
+      // Wattage patterns
+      /\d{3,}\s*[Ww]att?\s*(?:panels?|solar)?/gi,
+      // Brand + model number combinations  
+      /(jinko|trina|canadian|lg|rec|sunpower)\s*[A-Z0-9\s\-\.]*/gi,
+      // Any alphanumeric model that looks like solar equipment
+      /[A-Z]{2,}\d{3,}[A-Z0-9\-\.]*(?:[A-Z]+\d*[A-Z]*)?/gi,
+      // Quantity x something patterns
+      /\d+\s*[x×]\s*[A-Z0-9\s\-\.]+/gi
     ];
     
-    for (const pattern of panelPatterns) {
+    let foundPanel = false;
+    for (const pattern of panelIndicators) {
       const matches = [...line.matchAll(pattern)];
       for (const match of matches) {
-        if (match[0].length > 5) {
+        const candidate = match[0].trim();
+        if (candidate.length >= 6 && 
+            !candidate.toLowerCase().includes('inverter') &&
+            !candidate.toLowerCase().includes('battery') &&
+            !candidate.toLowerCase().includes('storage')) {
+          
           panelCandidates.push({
-            description: match[0].trim(),
+            description: candidate,
             context: 'solar_panel',
             line: line
           });
-          console.log(`  -> Found panel candidate: "${match[0].trim()}"`);
+          console.log(`  🔋 PANEL candidate: "${candidate}"`);
+          foundPanel = true;
         }
       }
     }
     
-    // Extract batteries with enhanced patterns (exclude inverters explicitly)
-    if (!lowerLine.includes('inverter') && 
-        !lowerLine.includes('sma') && 
-        !lowerLine.includes('fronius') &&
-        !lowerLine.includes('enphase') &&
-        !lowerLine.includes('solaredge')) {
+    // BATTERY EXTRACTION - Ultra flexible patterns
+    const batteryIndicators = [
+      // Direct capacity mentions
+      /\d+(?:\.\d+)?\s*kwh/gi,
+      // Sigen/Sigenergy variations
+      /Sigen(?:ergy)?\s*[A-Z0-9\s\-\.]*/gi,
+      // SigenStor models
+      /SigenStor[A-Z0-9\s\-\.]*/gi,
+      // Battery storage mentions
+      /(?:\d+(?:\.\d+)?\s*kwh\s*)?(?:Battery|Storage)[A-Z0-9\s\-\.]*/gi,
+      // BAT models
+      /BAT\s*\d+(?:\.\d+)?[A-Z0-9\s\-\.]*/gi,
+      // Tesla Powerwall
+      /Powerwall[A-Z0-9\s\-\.]*/gi,
+      // Any line with battery brands and capacity
+      /(?:tesla|lg|sigen).*\d+(?:\.\d+)?\s*kwh/gi
+    ];
+    
+    // Only process if not already identified as panel and doesn't contain inverter terms
+    if (!foundPanel && 
+        !line.toLowerCase().includes('inverter') && 
+        !line.toLowerCase().includes('sma') && 
+        !line.toLowerCase().includes('fronius') &&
+        !line.toLowerCase().includes('enphase') &&
+        !line.toLowerCase().includes('solaredge')) {
       
-      const batteryPatterns = [
-        // Sigen Battery with capacity
-        /(Sigen\s+Battery[\s\S]*?(\d+(?:\.\d+)?)\s*kwh)/gi,
-        // SigenStor models
-        /(SigenStor\s+[A-Z0-9\s\-\.]+)/gi,
-        // Capacity with "of Battery Storage"
-        /(\d+(?:\.\d+)?)\s*kwh\s*of\s*Battery\s*Storage/gi,
-        // Battery with capacity
-        /(\d+(?:\.\d+)?)\s*kwh\s*(?:battery|storage)/gi,
-        // Sigenergy brand
-        /(Sigenergy[\s\S]*?(?:\d+(?:\.\d+)?)\s*kwh)/gi,
-        // BAT models
-        /(BAT\s*\d+(?:\.\d+)?)/gi
-      ];
-      
-      for (const pattern of batteryPatterns) {
+      for (const pattern of batteryIndicators) {
         const matches = [...line.matchAll(pattern)];
         for (const match of matches) {
-          if (match[0].length > 5) {
+          const candidate = match[0].trim();
+          if (candidate.length >= 4) {
             batteryCandidates.push({
-              description: match[0].trim(),
+              description: candidate,
               context: 'battery_storage', 
               line: line
             });
-            console.log(`  -> Found battery candidate: "${match[0].trim()}"`);
+            console.log(`  🔋 BATTERY candidate: "${candidate}"`);
           }
         }
       }
