@@ -16,6 +16,19 @@ interface ProductPickerFormProps {
 export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const { panels, batteries, vppProviders, loading, getCompatibleVPPs, refreshData } = useCECData();
   const { toast } = useToast();
+  
+  // Debug: Log panels data
+  useEffect(() => {
+    if (panels.length > 0) {
+      console.log(`ProductPickerForm: Loaded ${panels.length} panels`);
+      const trinaPanels = panels.filter(p => p.brand.toLowerCase().includes('trina'));
+      console.log(`ProductPickerForm: Found ${trinaPanels.length} Trina panels:`, trinaPanels.slice(0, 3));
+      
+      const brands = [...new Set(panels.map(p => p.brand))].sort();
+      console.log(`ProductPickerForm: ${brands.length} unique brands:`, brands.filter(b => b.toLowerCase().includes('trina')));
+    }
+  }, [panels]);
+  
   const [formData, setFormData] = useState({
     postcode: "",
     installDate: new Date().toISOString().split('T')[0],
@@ -35,7 +48,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const filteredPanels = useMemo(() => {
     if (!panelSearch.trim()) return [];
     const searchTerm = panelSearch.toLowerCase().trim();
-    console.log('Searching panels for:', searchTerm);
+    console.log('Searching panels for:', searchTerm, 'in', panels.length, 'total panels');
     
     const results = panels.filter(panel => {
       const brandMatch = panel.brand.toLowerCase().includes(searchTerm);
@@ -46,8 +59,12 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     }).slice(0, 100); // Show top 100 matches
     
     console.log(`Found ${results.length} panels matching "${searchTerm}"`);
+    
+    // Special debug for Trina
     if (searchTerm.includes('trina')) {
-      console.log('Trina matches:', results.filter(p => p.brand.toLowerCase().includes('trina')));
+      const allTrinaPanels = panels.filter(p => p.brand.toLowerCase().includes('trina'));
+      console.log('All Trina panels in database:', allTrinaPanels.length, allTrinaPanels.slice(0, 5));
+      console.log('Trina matches in results:', results.filter(p => p.brand.toLowerCase().includes('trina')));
     }
     
     return results;

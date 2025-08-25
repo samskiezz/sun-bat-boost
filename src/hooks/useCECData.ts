@@ -102,6 +102,15 @@ export const useCECData = () => {
         changesError: changesResult.error
       });
 
+      // Debug: Check for Trina Solar specifically
+      if (pvResult.data) {
+        const trinaPanels = pvResult.data.filter((p: any) => p.brand.toLowerCase().includes('trina'));
+        console.log(`Found ${trinaPanels.length} Trina Solar panels:`, trinaPanels.slice(0, 5));
+        
+        const allBrands = [...new Set(pvResult.data.map((p: any) => p.brand))].sort();
+        console.log('All panel brands loaded:', allBrands.length, allBrands.slice(0, 10));
+      }
+
       if (pvResult.error) {
         console.error('PV modules error:', pvResult.error);
         // Don't throw, just log the error
