@@ -65,14 +65,16 @@ export default {
 				}
 			},
 			backgroundImage: {
-				'gradient-solar': 'var(--gradient-solar)',
-				'gradient-sky': 'var(--gradient-sky)',
-				'gradient-subtle': 'var(--gradient-subtle)'
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-glass': 'var(--gradient-glass)',
+				'gradient-subtle': 'var(--gradient-subtle)',
+				'gradient-vpp': 'var(--gradient-vpp)'
 			},
 			boxShadow: {
-				'solar': 'var(--shadow-solar)',
+				'glass': 'var(--shadow-glass)',
 				'glow': 'var(--shadow-glow)',
-				'elegant': 'var(--shadow-elegant)'
+				'elegant': 'var(--shadow-elegant)',
+				'vpp': 'var(--shadow-vpp)'
 			},
 			transitionProperty: {
 				'smooth': 'var(--transition-smooth)'

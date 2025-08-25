@@ -16,10 +16,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 20%;
 
-    /* Solar orange primary */
-    --primary: 25 95% 53%;
+    /* Purple primary (as requested) */
+    --primary: 270 91% 65%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 35 100% 65%;
+    --primary-glow: 280 100% 75%;
 
     /* Sky blue secondary */
     --secondary: 205 100% 96%;
@@ -28,27 +28,27 @@
     --muted: 210 20% 95%;
     --muted-foreground: 220 15% 45%;
 
-    --accent: 35 100% 95%;
-    --accent-foreground: 25 95% 53%;
+    --accent: 280 100% 95%;
+    --accent-foreground: 270 91% 65%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 15% 88%;
     --input: 220 15% 92%;
-    --ring: 25 95% 53%;
+    --ring: 270 91% 65%;
 
     --radius: 0.5rem;
 
-    /* Solar gradients */
-    --gradient-solar: linear-gradient(135deg, hsl(25 95% 53%), hsl(35 100% 65%));
-    --gradient-sky: linear-gradient(135deg, hsl(205 100% 50%), hsl(220 100% 60%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 20% 98%), hsl(210 20% 95%));
+    /* Purple/White/Black gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(280 100% 75%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 98%), hsl(0 0% 95%));
     --gradient-vpp: linear-gradient(135deg, hsl(260 100% 65%), hsl(280 80% 70%));
     
-    /* Shadows with solar glow */
-    --shadow-solar: 0 10px 30px -10px hsl(25 95% 53% / 0.3);
-    --shadow-glow: 0 0 40px hsl(35 100% 65% / 0.4);
+    /* Glass and elegant shadows */
+    --shadow-glass: 0 8px 32px rgba(0,0,0,0.12);
+    --shadow-glow: 0 0 40px hsl(270 91% 65% / 0.3);
     --shadow-elegant: 0 4px 20px -2px hsl(220 15% 20% / 0.1);
     --shadow-vpp: 0 10px 30px -10px hsl(260 100% 65% / 0.3);
 
