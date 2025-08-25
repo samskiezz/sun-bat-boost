@@ -5,6 +5,7 @@ import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
 import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
+import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
@@ -27,8 +28,23 @@ const SolarCalculator = () => {
         mode: formData.mode
       };
 
-      // Calculate rebates using the new logic
-      let rebateResults = null;
+      // Calculate solar rebates (STCs for panels)
+      let solarResults = null;
+      if (formData.solarKw && formData.solarKw > 0) {
+        const solarInputs: CalculatorInputs = {
+          install_date: formData.installDate,
+          postcode: formData.postcode.toString(),
+          pv_dc_size_kw: formData.solarKw,
+          stc_price_aud: formData.stcPrice,
+          battery_capacity_kwh: formData.batteryKwh || 0,
+          vpp_provider: formData.vppProvider && formData.vppProvider !== "None" ? formData.vppProvider : null
+        };
+        
+        solarResults = calculateSolarRebates(solarInputs);
+      }
+
+      // Calculate battery rebates using the new logic
+      let batteryResults = null;
       if (formData.batteryKwh && formData.batteryKwh > 0) {
         const state = getStateFromPostcode(parseInt(formData.postcode));
         const rebateInputs: RebateInputs = {
@@ -44,20 +60,25 @@ const SolarCalculator = () => {
           joins_vpp: formData.vppProvider && formData.vppProvider !== "None"
         };
         
-        rebateResults = calculateBatteryRebates(rebateInputs);
+        batteryResults = calculateBatteryRebates(rebateInputs);
       }
 
       const eligibilityResults = checkEligibility(input, true);
       
       // Enhanced results with rebate information
+      const solarSTCs = solarResults?.stc_value_aud || 0;
+      const batteryFederal = batteryResults?.federal_discount || 0;
+      const totalFederal = solarSTCs + batteryFederal;
+      
       const calculationResults = {
         totals: {
-          today: rebateResults?.total_cash_incentive || 0,
-          federal: rebateResults?.federal_discount || 0,
-          state: rebateResults?.state_rebate || 0,
-          vpp: rebateResults?.vpp_bonus || 0
+          today: (solarResults?.total_rebate_aud || 0) + (batteryResults?.total_cash_incentive || 0),
+          federal: totalFederal,
+          state: (batteryResults?.state_rebate || 0) + (solarResults?.battery_program?.battery_rebate_aud || 0),
+          vpp: (batteryResults?.vpp_bonus || 0) + (solarResults?.vpp?.vpp_incentive_aud || 0)
         },
-        rebates: rebateResults,
+        solarRebates: solarResults,
+        batteryRebates: batteryResults,
         input: input
       };
 
@@ -66,9 +87,7 @@ const SolarCalculator = () => {
 
       toast({
         title: "Calculation complete",
-        description: rebateResults 
-          ? `Total rebates available: $${rebateResults.total_cash_incentive.toLocaleString()}`
-          : "Solar system calculation complete"
+        description: `Total rebates available: $${calculationResults.totals.today.toLocaleString()}`
       });
     } catch (error) {
       toast({

@@ -12,7 +12,20 @@ interface CalculationResult {
     state: number;
     vpp: number;
   };
-  rebates?: {
+  solarRebates?: {
+    stc_value_aud: number;
+    stcs: number;
+    total_rebate_aud: number;
+    battery_program: {
+      name: string;
+      battery_rebate_aud: number;
+    };
+    vpp: {
+      provider: string;
+      vpp_incentive_aud: number;
+    };
+  };
+  batteryRebates?: {
     federal_discount: number;
     state_rebate: number;
     vpp_bonus: number;
@@ -45,18 +58,39 @@ interface ResultCardsProps {
 export const ResultCards = ({ results }: ResultCardsProps) => {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
-  if (!results.rebates) {
+  if (!results.solarRebates && !results.batteryRebates) {
     return (
       <Card>
         <CardContent className="pt-6">
           <div className="text-center text-muted-foreground">
             <p>No rebate information available</p>
-            <p className="text-sm">Enter battery details to see rebate calculations</p>
+            <p className="text-sm">Enter system details to see rebate calculations</p>
           </div>
         </CardContent>
       </Card>
     );
   }
+
+  const getSolarSTCDetails = () => {
+    if (!results.solarRebates) return [];
+    return [
+      `Solar panel STCs: ${results.solarRebates.stcs || 0} certificates`,
+      `STC value: $${results.solarRebates.stc_value_aud?.toLocaleString() || 0}`,
+      `Solar capacity: ${results.input?.solarKw || 0}kW`
+    ];
+  };
+
+  const getBatterySTCDetails = () => {
+    if (!results.batteryRebates) return [];
+    const federalNotes = results.batteryRebates.eligibility_notes.filter(note => 
+      note.includes('Federal STC') || note.includes('STCs')
+    );
+    return [
+      `Battery STC discount: $${results.batteryRebates.federal_discount?.toLocaleString() || 0}`,
+      `Battery capacity: ${results.input?.batteryKwh || 0}kWh`,
+      ...federalNotes
+    ];
+  };
 
   const cards = [
     {
@@ -66,11 +100,10 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
       icon: Zap,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-      description: "Small-scale Technology Certificates",
+      description: "Solar Panel & Battery STCs",
       details: [
-        `Battery capacity: ${results.input?.batteryKwh || 0}kWh`,
-        `STC price: $${results.input?.stcPrice || 40}`,
-        `Install date: ${results.input?.installDate || 'Not set'}`
+        ...getSolarSTCDetails(),
+        ...getBatterySTCDetails()
       ]
     },
     {
@@ -81,9 +114,9 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
       color: "text-green-600", 
       bgColor: "bg-green-50",
       description: "State and territory incentives",
-      details: results.rebates.eligibility_notes.filter(note => 
+      details: results.batteryRebates?.eligibility_notes.filter(note => 
         note.includes('rebate') || note.includes('grant')
-      )
+      ) || []
     },
     {
       id: "vpp",
@@ -93,9 +126,9 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
       color: "text-purple-600",
       bgColor: "bg-purple-50", 
       description: "Virtual Power Plant signup incentives",
-      details: results.rebates.eligibility_notes.filter(note => 
+      details: results.batteryRebates?.eligibility_notes.filter(note => 
         note.includes('VPP') || note.includes('Virtual Power Plant')
-      )
+      ) || []
     },
     {
       id: "total",
@@ -106,10 +139,10 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
       bgColor: "bg-orange-50",
       description: "Total upfront cash incentives",
       details: [
-        `Federal: $${results.totals.federal.toLocaleString()}`,
-        `State: $${results.totals.state.toLocaleString()}`,
-        `VPP: $${results.totals.vpp.toLocaleString()}`,
-        ...(results.rebates.nt_grant > 0 ? [`NT Grant: $${results.rebates.nt_grant.toLocaleString()}`] : [])
+        `Federal STCs: $${results.totals.federal.toLocaleString()}`,
+        `State Rebates: $${results.totals.state.toLocaleString()}`,
+        `VPP Bonuses: $${results.totals.vpp.toLocaleString()}`,
+        ...(results.batteryRebates?.nt_grant && results.batteryRebates.nt_grant > 0 ? [`NT Grant: $${results.batteryRebates.nt_grant.toLocaleString()}`] : [])
       ]
     }
   ];
@@ -172,7 +205,7 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
       </div>
       
       {/* Financing Options */}
-      {results.rebates.financing_options && results.rebates.financing_options.length > 0 && (
+      {results.batteryRebates?.financing_options && results.batteryRebates.financing_options.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -182,7 +215,7 @@ export const ResultCards = ({ results }: ResultCardsProps) => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
-              {results.rebates.financing_options.map((option, index) => (
+              {results.batteryRebates.financing_options.map((option, index) => (
                 <div key={index} className="p-4 border rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-medium">{option.provider}</span>

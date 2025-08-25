@@ -79,7 +79,7 @@ export const useCECData = () => {
   const [autoRefreshAttempts, setAutoRefreshAttempts] = useState(0);
   const [dataComplete, setDataComplete] = useState(false);
 
-  // Fetch all data without any limits
+  // Fetch all data without any limits - for initial load
   const fetchAllDataComplete = useCallback(async (skipLoadingState = false) => {
     try {
       if (!skipLoadingState) {
@@ -198,7 +198,7 @@ export const useCECData = () => {
     }
   }, []);
 
-  // Main refresh function
+  // Main refresh function - only used when user manually clicks refresh
   const refreshData = useCallback(async () => {
     try {
       setAutoRefreshing(true);
