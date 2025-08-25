@@ -78,40 +78,13 @@ export const STATE_DEFAULT_ZONES: Record<string, number> = {
   NT: 1,
 };
 
-// Battery rebate rules by state
+// Battery rebate rules by state - Updated for 2025 (most state programs have ended)
 export const BATTERY_REBATES: Record<string, BatteryRebateRule> = {
-  NSW: {
-    type: "per_kwh",
-    amount: 400,
-    min_kwh: 2,
-    max_kwh_cap: 28,
-    program_name: "NSW Home Battery Guide",
-    effective_from: "2024-01-01",
-    expires_on: "2024-12-31",
-  },
-  VIC: {
-    type: "flat",
-    amount: 4174,
-    program_name: "Solar Battery Rebate",
-    effective_from: "2024-01-01",
-    expires_on: "2024-12-31",
-  },
-  QLD: {
-    type: "per_kwh",
-    amount: 1000,
-    max_kwh_cap: 5,
-    program_name: "Battery Booster",
-    effective_from: "2024-01-01",
-    expires_on: "2024-12-31",
-  },
-  SA: {
-    type: "per_kwh",
-    amount: 600,
-    max_kwh_cap: 30,
-    program_name: "Home Battery Scheme",
-    effective_from: "2024-01-01",
-    expires_on: "2024-12-31",
-  },
+  // NSW: PDRS battery discount ended June 30, 2025 - no longer available
+  // VIC: State rebate program ended December 31, 2024 - now uses federal program only  
+  // QLD: Battery Booster program closed May 8, 2024 - now uses federal program only
+  // SA: Home Battery Scheme ended December 31, 2024 - no current state rebate
+  // Most states now rely on the federal STC program starting July 1, 2025
 };
 
 // VPP incentives with battery compatibility requirements
