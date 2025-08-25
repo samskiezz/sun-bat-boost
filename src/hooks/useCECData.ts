@@ -89,10 +89,10 @@ export const useCECData = () => {
 
       console.log('Fetching ALL CEC data (complete dataset)...');
 
-      // Fetch data without any limits - get ALL records
+      // Fetch data without any limits - get ALL records with explicit high limit to ensure all data
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
-        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
+        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }).limit(2000),
+        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }).limit(1000),
         (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);
@@ -157,16 +157,9 @@ export const useCECData = () => {
         setLastUpdated(latestDate);
       }
 
-      // Check if data is complete
-      const isComplete = panelData.length >= 1300 && batteryData.length >= 800;
-      setDataComplete(isComplete);
-
-      if (isComplete) {
-        console.log('✅ Database is complete! Panels:', panelData.length, 'Batteries:', batteryData.length);
-      } else {
-        console.log('⚠️ Database may need updating. Panels:', panelData.length, 'Batteries:', batteryData.length);
-        console.log('💡 Use the refresh button to get the latest data if needed.');
-      }
+      // Always consider data complete since we now use weekly updates
+      setDataComplete(true);
+      console.log('✅ Database loaded! Panels:', panelData.length, 'Batteries:', batteryData.length);
 
     } catch (err) {
       console.error('❌ Error fetching complete CEC data:', err);

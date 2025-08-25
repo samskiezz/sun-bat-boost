@@ -19,11 +19,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     batteries, 
     vppProviders, 
     loading, 
-    getCompatibleVPPs, 
-    refreshData,
-    autoRefreshing,
-    autoRefreshAttempts,
-    dataComplete
+    getCompatibleVPPs
   } = useCECData();
   const { toast } = useToast();
   
@@ -179,62 +175,17 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </div>
           </div>
 
-          {/* Debug info with refresh */}
-          <div className="text-xs text-muted-foreground mb-4 p-2 bg-black/10 rounded flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             {loading ? (
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm text-gray-600 flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
                 Loading CEC data...
               </span>
             ) : (
-              <span>
-                Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
-                {autoRefreshing ? (
-                  <span className="text-blue-600 ml-2 flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    Auto-refreshing database (attempt {autoRefreshAttempts}/10)...
-                  </span>
-                ) : dataComplete ? (
-                  <span className="text-green-600 ml-2 flex items-center gap-1">
-                    ✅ Database complete - {panels.length} panels, {batteries.length} batteries loaded
-                  </span>
-                ) : (
-                  <span className="text-yellow-600 ml-2 flex items-center gap-1">
-                    ⚠️ Auto-refreshing to get complete database...
-                    <div className="w-3 h-3 border border-yellow-600 border-t-transparent rounded-full animate-spin ml-1"></div>
-                  </span>
-                )}
+              <span className="text-green-600 flex items-center gap-1">
+                ✅ Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
               </span>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                toast({
-                  title: "Refreshing CEC Data",
-                  description: "Loading CEC-approved products from official sources..."
-                });
-                try {
-                  await refreshData();
-                  toast({
-                    title: "CEC Data Updated",
-                    description: "Successfully loaded latest CEC products"
-                  });
-                } catch (error) {
-                  toast({
-                    title: "Refresh Failed",
-                    description: "Could not update CEC data",
-                    variant: "destructive"
-                  });
-                }
-              }}
-              className="ml-2"
-              disabled={autoRefreshing}
-            >
-              <RefreshCw className={`w-3 h-3 mr-1 ${autoRefreshing ? 'animate-spin' : ''}`} />
-              {autoRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
           </div>
 
           {/* Solar Panels - Search Interface */}
