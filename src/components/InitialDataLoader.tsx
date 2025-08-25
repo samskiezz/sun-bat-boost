@@ -21,9 +21,10 @@ export const InitialDataLoader = () => {
 
         console.log('Initializing CEC data...');
         
-        // Call the new edge function to populate initial data
-        const { data, error } = await supabase.functions.invoke('cec-scrape', {
-          body: JSON.stringify({ mode: 'run' })
+        // Call the CEC battery scraper to get the 750+ batteries
+        console.log('Calling CEC battery scraper...');
+        const { data, error } = await supabase.functions.invoke('cec-battery-scraper', {
+          body: JSON.stringify({})
         });
 
         if (error) {
