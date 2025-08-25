@@ -7,16 +7,16 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { FileText, Upload, Camera, AlertTriangle, CheckCircle, Zap, Battery } from 'lucide-react';
-import { processQuoteImage, validateExtractedData, type OCRResult } from '@/utils/ocrProcessor';
+import { processDocument, validateExtractedData, type ProcessorResult } from '@/utils/documentProcessor';
 
 interface OCRScannerProps {
-  onDataExtracted: (data: OCRResult['extractedData']) => void;
+  onDataExtracted: (data: ProcessorResult['extractedData']) => void;
 }
 
 export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<OCRResult | null>(null);
+  const [result, setResult] = useState<ProcessorResult | null>(null);
   const [validationResult, setValidationResult] = useState<ReturnType<typeof validateExtractedData> | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -34,7 +34,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
         setProgress(prev => Math.min(prev + 10, 85));
       }, 200);
 
-      const ocrResult = await processQuoteImage(file);
+      const ocrResult = await processDocument(file);
       
       clearInterval(progressInterval);
       setProgress(100);
@@ -50,7 +50,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
       console.error('OCR processing failed:', error);
       setResult({
         success: false,
-        error: 'Failed to process the quote image'
+        error: 'Failed to process the document'
       });
     } finally {
       setIsProcessing(false);
@@ -60,7 +60,10 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.pdf']
+      'image/*': ['.png', '.jpg', '.jpeg'],
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
     maxFiles: 1,
     disabled: isProcessing
@@ -74,7 +77,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
           Quote Scanner
         </CardTitle>
         <CardDescription>
-          Upload your solar quote to automatically extract system details
+          Upload your solar quote, invoice, or proposal to automatically extract system details
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -109,9 +112,9 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                 <p className="text-lg font-medium">Drop your quote here</p>
               ) : (
                 <>
-                  <p className="text-lg font-medium">Drop your solar quote here</p>
+                  <p className="text-lg font-medium">Drop your solar document here</p>
                   <p className="text-sm text-muted-foreground">
-                    Supports JPG, PNG, and PDF files
+                    Supports JPG, PNG, PDF, DOCX, and XLSX files
                   </p>
                 </>
               )}
@@ -130,7 +133,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
           <div className="space-y-2">
             <Progress value={progress} className="w-full" />
             <p className="text-sm text-muted-foreground text-center">
-              Extracting system details from your quote...
+              Extracting system details from your document...
             </p>
           </div>
         )}
@@ -151,7 +154,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                       )}
                       <AlertDescription>
                         {validationResult.isValid 
-                          ? "Quote processed successfully! System details extracted."
+                          ? "Document processed successfully! System details extracted."
                           : `${validationResult.warnings.length} issues found. Please review extracted data.`
                         }
                       </AlertDescription>
@@ -266,7 +269,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
               <Alert variant="destructive">
                 <AlertTriangle className="w-4 h-4" />
                 <AlertDescription>
-                  {result.error || 'Failed to extract data from the quote'}
+                  {result.error || 'Failed to extract data from the document'}
                 </AlertDescription>
               </Alert>
             )}
