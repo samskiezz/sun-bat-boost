@@ -22,6 +22,9 @@ export interface VppIncentiveRule {
   state_limits?: string[];
   effective_from: string;
   expires_on: string;
+  battery_required: boolean;
+  compatible_batteries: string[];
+  min_battery_kwh: number;
 }
 
 // STC Zone multipliers (annual kWh/kW)
@@ -111,15 +114,18 @@ export const BATTERY_REBATES: Record<string, BatteryRebateRule> = {
   },
 };
 
-// VPP incentives
+// VPP incentives with battery compatibility requirements
 export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
   tesla: {
     provider: "Tesla Energy Plan",
     amount_aud: 400,
-    conditions: "Must join Tesla VPP",
+    conditions: "Must join Tesla VPP with Powerwall",
     state_limits: ["NSW", "VIC", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "tesla-powerwall-3"],
+    min_battery_kwh: 13.5,
   },
   origin: {
     provider: "Origin Loop",
@@ -128,6 +134,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "sonnen-eco-10", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
   agl: {
     provider: "AGL VPP",
@@ -136,6 +145,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "sonnen-eco-10", "lg-resu-10h", "byd-hvm-11", "redback-smart-hybrid-10"],
+    min_battery_kwh: 6.0,
   },
   energyaustralia: {
     provider: "EnergyAustralia VPP",
@@ -144,6 +156,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "tesla-powerwall-3", "sonnen-evo", "lg-resu-10h", "redback-smart-hybrid-10"],
+    min_battery_kwh: 9.0,
   },
   redback: {
     provider: "Redback Technologies VPP",
@@ -152,6 +167,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA", "WA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["redback-smart-hybrid-10", "redback-smart-hybrid-13"],
+    min_battery_kwh: 10.0,
   },
   sonnen: {
     provider: "sonnenFlat",
@@ -160,6 +178,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["sonnen-eco-10", "sonnen-evo"],
+    min_battery_kwh: 10.0,
   },
   amber: {
     provider: "Amber Electric VPP",
@@ -168,6 +189,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: false,
+    compatible_batteries: [], // Compatible with most batteries
+    min_battery_kwh: 0,
   },
   powershop: {
     provider: "Powershop VPP",
@@ -176,6 +200,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
   diamond: {
     provider: "Diamond Energy VPP",
@@ -184,6 +211,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
   simply: {
     provider: "Simply Energy VPP",
@@ -192,6 +222,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "SA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
   alinta: {
     provider: "Alinta Energy VPP",
@@ -200,6 +233,9 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD", "SA", "WA"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
   shellcove: {
     provider: "ShellCove Energy VPP",
@@ -208,6 +244,109 @@ export const VPP_INCENTIVES: Record<string, VppIncentiveRule> = {
     state_limits: ["NSW", "VIC", "QLD"],
     effective_from: "2024-01-01",
     expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  // New VPP providers
+  reposit: {
+    provider: "Reposit Power",
+    amount_aud: 400,
+    conditions: "Must install Reposit GridCredits controller",
+    state_limits: ["NSW", "VIC", "QLD", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11", "pylontech-us5000"],
+    min_battery_kwh: 5.0,
+  },
+  arena: {
+    provider: "Arena Energy VPP",
+    amount_aud: 280,
+    conditions: "Must join Arena VPP program",
+    state_limits: ["NSW", "VIC", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  mojo: {
+    provider: "Mojo Power VPP",
+    amount_aud: 320,
+    conditions: "Must join Mojo Power VPP",
+    state_limits: ["NSW", "VIC", "QLD"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "enphase-iq-battery-5p"],
+    min_battery_kwh: 5.0,
+  },
+  powerclub: {
+    provider: "Power Club VPP",
+    amount_aud: 190,
+    conditions: "Must join Power Club VPP program",
+    state_limits: ["NSW", "VIC"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  yurika: {
+    provider: "Yurika Energy VPP",
+    amount_aud: 240,
+    conditions: "Must join Yurika VPP program",
+    state_limits: ["NSW", "VIC", "QLD", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  nectr: {
+    provider: "Nectr VPP",
+    amount_aud: 210,
+    conditions: "Must join Nectr VPP program",
+    state_limits: ["NSW", "VIC", "QLD", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  ovo: {
+    provider: "OVO Energy VPP",
+    amount_aud: 290,
+    conditions: "Must join OVO Energy VPP program",
+    state_limits: ["NSW", "VIC", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  kogan: {
+    provider: "Kogan Energy VPP",
+    amount_aud: 160,
+    conditions: "Must join Kogan Energy VPP program",
+    state_limits: ["NSW", "VIC", "QLD", "SA"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
+  },
+  "first-energy": {
+    provider: "1st Energy VPP",
+    amount_aud: 230,
+    conditions: "Must join 1st Energy VPP program",
+    state_limits: ["NSW", "VIC", "QLD"],
+    effective_from: "2024-01-01",
+    expires_on: "2024-12-31",
+    battery_required: true,
+    compatible_batteries: ["tesla-powerwall-2", "lg-resu-10h", "byd-hvm-11"],
+    min_battery_kwh: 6.0,
   },
 };
 
