@@ -14,7 +14,16 @@ interface ProductPickerFormProps {
 }
 
 export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
-  const { panels, batteries, vppProviders, loading, getCompatibleVPPs, refreshData } = useCECData();
+  const { 
+    panels, 
+    batteries, 
+    vppProviders, 
+    loading, 
+    getCompatibleVPPs, 
+    refreshData,
+    autoRefreshing,
+    autoRefreshAttempts
+  } = useCECData();
   const { toast } = useToast();
   
   // Debug: Log panels data
@@ -179,8 +188,15 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
                 {refreshSuccess ? (
                   <span className="text-green-600 ml-2">✅ Database updated successfully</span>
-                ) : (panels.length < 1500 || batteries.length < 800) && (
-                  <span className="text-yellow-600 ml-2">⚠️ Refreshing database - click refresh if counts seem low</span>
+                ) : autoRefreshing ? (
+                  <span className="text-blue-600 ml-2 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Auto-refreshing database (attempt {autoRefreshAttempts}/5)...
+                  </span>
+                ) : (panels.length >= 1500 && batteries.length >= 800) ? (
+                  <span className="text-green-600 ml-2">✅ Database complete</span>
+                ) : (
+                  <span className="text-yellow-600 ml-2">⚠️ Low product count - auto-refreshing...</span>
                 )}
               </span>
             )}
@@ -213,9 +229,10 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 }
               }}
               className="ml-2"
+              disabled={autoRefreshing}
             >
-              <RefreshCw className="w-3 h-3 mr-1" />
-              Refresh
+              <RefreshCw className={`w-3 h-3 mr-1 ${autoRefreshing ? 'animate-spin' : ''}`} />
+              {autoRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
 

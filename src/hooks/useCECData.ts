@@ -75,6 +75,8 @@ export const useCECData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const [autoRefreshAttempts, setAutoRefreshAttempts] = useState(0);
 
   const fetchData = async () => {
     try {
@@ -186,6 +188,36 @@ export const useCECData = () => {
     }
   };
 
+  // Auto-refresh logic to ensure sufficient data
+  const checkAndAutoRefresh = async () => {
+    const hasInsufficientData = panels.length < 1500 || batteries.length < 800;
+    const shouldAutoRefresh = hasInsufficientData && autoRefreshAttempts < 5 && !autoRefreshing && !loading;
+    
+    if (shouldAutoRefresh) {
+      console.log(`Auto-refreshing data: panels=${panels.length}, batteries=${batteries.length}, attempt=${autoRefreshAttempts + 1}`);
+      setAutoRefreshing(true);
+      setAutoRefreshAttempts(prev => prev + 1);
+      
+      try {
+        await refreshData();
+        // Wait for the refresh to complete before checking again
+        setTimeout(() => {
+          setAutoRefreshing(false);
+        }, 10000); // Wait 10 seconds after refresh before checking again
+      } catch (error) {
+        console.error('Auto-refresh failed:', error);
+        setAutoRefreshing(false);
+      }
+    }
+  };
+
+  // Check for auto-refresh after data changes
+  useEffect(() => {
+    if (!loading && panels.length > 0 && batteries.length > 0) {
+      checkAndAutoRefresh();
+    }
+  }, [panels.length, batteries.length, loading, autoRefreshAttempts, autoRefreshing]);
+
   // Helper functions for VPP compatibility
   const getCompatibleVPPs = (batteryBrand: string): VPPProvider[] => {
     return vppProviders.filter(vpp => {
@@ -225,6 +257,8 @@ export const useCECData = () => {
     loading,
     error,
     lastUpdated,
+    autoRefreshing,
+    autoRefreshAttempts,
     refreshData,
     getCompatibleVPPs,
     getBestVPPForBattery,
