@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Upload, Check, AlertCircle, Edit3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { processDocument, validateExtractedData } from "@/utils/documentProcessor";
+import { processAdvancedDocument, validateAdvancedExtractedData } from "@/utils/advancedDocumentProcessor";
 
 interface QuoteOCRFormProps {
   onSubmit: (data: any) => void;
@@ -44,9 +44,9 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
     setProgress(0);
 
     try {
-      // Process document with real OCR/parsing
+      // Process document with advanced OCR/parsing
       setProgress(25);
-      const result = await processDocument(file);
+      const result = await processAdvancedDocument(file);
       
       setProgress(75);
       
@@ -57,7 +57,7 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
         const mockData: ExtractedData = {
           postcode: data.postcode?.value,
           solarKw: data.systemSize?.value,
-          batteryKwh: data.batteries?.[0]?.suggestedMatch?.capacity_kwh,
+          batteryKwh: data.batteries?.[0]?.capacity_kwh,
           inverter: undefined, // Inverters not currently processed
           panel: data.panels?.[0] ? { 
             make: data.panels[0].suggestedMatch?.brand || 'Unknown', 

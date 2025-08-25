@@ -7,17 +7,17 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { FileText, Upload, Camera, AlertTriangle, CheckCircle, Zap, Battery } from 'lucide-react';
-import { processDocument, validateExtractedData, type ProcessorResult } from '@/utils/documentProcessor';
+import { processAdvancedDocument, validateAdvancedExtractedData, type AdvancedProcessorResult } from '@/utils/advancedDocumentProcessor';
 
 interface OCRScannerProps {
-  onDataExtracted: (data: ProcessorResult['extractedData']) => void;
+  onDataExtracted: (data: AdvancedProcessorResult['extractedData']) => void;
 }
 
 export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<ProcessorResult | null>(null);
-  const [validationResult, setValidationResult] = useState<ReturnType<typeof validateExtractedData> | null>(null);
+  const [result, setResult] = useState<AdvancedProcessorResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ReturnType<typeof validateAdvancedExtractedData> | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -34,14 +34,14 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
         setProgress(prev => Math.min(prev + 10, 85));
       }, 200);
 
-      const ocrResult = await processDocument(file);
+      const ocrResult = await processAdvancedDocument(file);
       
       clearInterval(progressInterval);
       setProgress(100);
       setResult(ocrResult);
 
       if (ocrResult.success && ocrResult.extractedData) {
-        const validation = validateExtractedData(ocrResult.extractedData);
+        const validation = validateAdvancedExtractedData(ocrResult.extractedData);
         setValidationResult(validation);
         onDataExtracted(ocrResult.extractedData);
       }
@@ -174,7 +174,9 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                           <div>
                             <p className="font-medium">{panel.suggestedMatch?.model || panel.description}</p>
                             <p className="text-sm text-muted-foreground">
-                              {panel.suggestedMatch?.watts && `${panel.suggestedMatch.watts}W`}
+                              {panel.suggestedMatch?.brand && `${panel.suggestedMatch.brand} • `}
+                              {panel.watts && `${panel.watts}W`}
+                              {panel.quantity && ` • Qty: ${panel.quantity}`}
                               {panel.cecId && ` • CEC: ${panel.cecId}`}
                             </p>
                           </div>
@@ -202,7 +204,8 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                           <div>
                             <p className="font-medium">{battery.suggestedMatch?.model || battery.description}</p>
                             <p className="text-sm text-muted-foreground">
-                              {battery.suggestedMatch?.capacity_kwh && `${battery.suggestedMatch.capacity_kwh}kWh`}
+                              {battery.suggestedMatch?.brand && `${battery.suggestedMatch.brand} • `}
+                              {battery.capacity_kwh && `${battery.capacity_kwh}kWh`}
                               {battery.cecId && ` • CEC: ${battery.cecId}`}
                             </p>
                           </div>
