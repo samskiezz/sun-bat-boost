@@ -1,9 +1,11 @@
 import { createWorker, PSM } from 'tesseract.js';
-import * as pdfParse from 'pdf-parse';
-import * as mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
 import { fuzzyMatch } from './fuzzyMatch';
 import { supabase } from '@/integrations/supabase/client';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface ProcessorResult {
   success: boolean;
@@ -161,31 +163,46 @@ const processImageFile = async (file: File): Promise<string> => {
   }
 };
 
-// Process PDF files
+// Process PDF files using PDF.js
 const processPDFFile = async (file: File): Promise<string> => {
   try {
     console.log('Processing PDF file...');
     const arrayBuffer = await file.arrayBuffer();
-    const result = await pdfParse(Buffer.from(arrayBuffer));
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Combine text items with proper spacing
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n';
+    }
+    
     console.log('PDF processing completed');
-    return result.text || '';
+    return fullText;
   } catch (error) {
     console.error('PDF processing error:', error);
     throw new Error(`PDF processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
-// Process Word documents
+// Process Word documents - simplified text extraction
 const processWordFile = async (file: File): Promise<string> => {
   try {
     console.log('Processing Word document...');
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    console.log('Word document processing completed');
-    return result.value || '';
+    // For now, we'll throw an informative error since mammoth doesn't work in browsers
+    // In a production app, you'd want to use a server-side API for Word document processing
+    throw new Error('Word document processing is not supported in the browser. Please convert your document to PDF format or use the text extraction features.');
   } catch (error) {
     console.error('Word processing error:', error);
-    throw new Error(`Word document processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Word document processing failed: ${error instanceof Error ? error.message : 'Please convert to PDF format'}`);
   }
 };
 
@@ -232,15 +249,15 @@ export const processDocument = async (file: File): Promise<ProcessorResult> => {
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
       text = await processPDFFile(file);
     } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
-      text = await processWordFile(file);
+      throw new Error('Word documents are not supported in the browser. Please convert to PDF format for processing.');
     } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
-      throw new Error('Legacy .doc files are not supported. Please convert to .docx format.');
+      throw new Error('Word documents are not supported in the browser. Please convert to PDF format for processing.');
     } else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || fileName.endsWith('.xlsx')) {
       text = await processExcelFile(file);
     } else if (fileType === 'application/vnd.ms-excel' || fileName.endsWith('.xls')) {
       throw new Error('Legacy .xls files are not supported. Please convert to .xlsx format.');
     } else {
-      throw new Error(`Unsupported file type: ${fileType || 'unknown'}. Supported formats: JPG, PNG, PDF, DOCX, XLSX`);
+      throw new Error(`Unsupported file type: ${fileType || 'unknown'}. Supported formats: JPG, PNG, PDF, XLSX`);
     }
     
     if (!text || text.trim().length === 0) {

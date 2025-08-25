@@ -62,7 +62,6 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg'],
       'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
     maxFiles: 1,
@@ -114,7 +113,7 @@ export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
                 <>
                   <p className="text-lg font-medium">Drop your solar document here</p>
                   <p className="text-sm text-muted-foreground">
-                    Supports JPG, PNG, PDF, DOCX, and XLSX files
+                    Supports JPG, PNG, PDF, and XLSX files
                   </p>
                 </>
               )}
