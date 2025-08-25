@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,31 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     stcPrice: "38",
     vppProvider: ""
   });
+
+  const [panelSearch, setPanelSearch] = useState("");
+  const [batterySearch, setBatterySearch] = useState("");
+  const [showPanelResults, setShowPanelResults] = useState(false);
+  const [showBatteryResults, setShowBatteryResults] = useState(false);
+
+  // Filter panels for search
+  const filteredPanels = useMemo(() => {
+    if (!panelSearch.trim()) return [];
+    return panels.filter(panel =>
+      panel.brand.toLowerCase().includes(panelSearch.toLowerCase()) ||
+      panel.model.toLowerCase().includes(panelSearch.toLowerCase()) ||
+      panel.technology?.toLowerCase().includes(panelSearch.toLowerCase())
+    ).slice(0, 100); // Show top 100 matches
+  }, [panels, panelSearch]);
+
+  // Filter batteries for search  
+  const filteredBatteries = useMemo(() => {
+    if (!batterySearch.trim()) return [];
+    return batteries.filter(battery =>
+      battery.brand.toLowerCase().includes(batterySearch.toLowerCase()) ||
+      battery.model.toLowerCase().includes(batterySearch.toLowerCase()) ||
+      battery.chemistry?.toLowerCase().includes(batterySearch.toLowerCase())
+    ).slice(0, 100); // Show top 100 matches
+  }, [batteries, batterySearch]);
 
   const selectedPanel = formData.panelId ? panels.find(p => p.id === formData.panelId) : undefined;
   const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => b.id === formData.batteryId);
@@ -122,8 +147,8 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             ) : (
               <span>
                 Loaded: {panels.length} panels, {batteries.length} batteries, {vppProviders.length} VPPs
-                {(panels.length < 50 || batteries.length < 50) && (
-                  <span className="text-yellow-600 ml-2">⚠️ Limited data - click refresh to load full CEC database</span>
+                {(panels.length < 500 || batteries.length < 500) && (
+                  <span className="text-yellow-600 ml-2">⚠️ Refreshing database - click refresh if counts seem low</span>
                 )}
               </span>
             )}
@@ -157,40 +182,63 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </Button>
           </div>
 
-          {/* Solar Panels */}
+          {/* Solar Panels - Search Interface */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
               Solar Panel
             </Label>
-            <Select value={formData.panelId} onValueChange={(value) => setFormData({...formData, panelId: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select CEC-approved panel" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border border-border z-50">
-                {panels.length === 0 ? (
-                  <SelectItem value="no-panels" disabled>No panels loaded - try refreshing</SelectItem>
-                ) : (
-                  panels.filter(panel => panel.id).map(panel => (
-                    <SelectItem key={panel.id} value={panel.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-500" />
-                          <div className="flex flex-col items-start">
-                            <span className="font-medium">{panel.brand} {panel.model}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {panel.power_rating && <span>{panel.power_rating}W</span>}
-                              {panel.technology && <span>• {panel.technology}</span>}
-                              {panel.certificate && <span>• {panel.certificate}</span>}
-                            </div>
-                          </div>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search CEC-approved panels by brand, model, or technology..."
+                value={panelSearch}
+                onChange={(e) => {
+                  setPanelSearch(e.target.value);
+                  setShowPanelResults(e.target.value.length > 0);
+                }}
+                onFocus={() => panelSearch && setShowPanelResults(true)}
+                className="pl-10"
+              />
+            </div>
+
+            {showPanelResults && filteredPanels.length > 0 && (
+              <div className="border rounded-lg bg-card max-h-60 overflow-y-auto">
+                <div className="p-2 text-xs text-muted-foreground border-b">
+                  Showing {filteredPanels.length} panels matching "{panelSearch}"
+                </div>
+                {filteredPanels.map(panel => (
+                  <div
+                    key={panel.id}
+                    className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                    onClick={() => {
+                      setFormData({...formData, panelId: panel.id});
+                      setPanelSearch(`${panel.brand} ${panel.model}`);
+                      setShowPanelResults(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-500" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{panel.brand} {panel.model}</span>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {panel.power_rating && <span>{panel.power_rating}W</span>}
+                          {panel.technology && <span>• {panel.technology}</span>}
+                          {panel.certificate && <span>• {panel.certificate}</span>}
                         </div>
                       </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {panelSearch && filteredPanels.length === 0 && showPanelResults && (
+              <div className="text-sm text-muted-foreground p-3 border rounded-lg">
+                No panels found matching "{panelSearch}". Try searching by brand (e.g., "JinkoSolar", "Canadian Solar") or technology (e.g., "PERC", "TOPCon").
+              </div>
+            )}
             
             {selectedPanel && (
               <div className="space-y-4">
@@ -240,41 +288,72 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             )}
           </div>
 
-          {/* Battery */}
-          <div className="space-y-2">
+          {/* Battery - Search Interface */}
+          <div className="space-y-4">
             <Label className="flex items-center gap-2">
               <Battery className="w-4 h-4" />
               Battery (Optional)
             </Label>
-            <Select value={formData.batteryId} onValueChange={(value) => setFormData({...formData, batteryId: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select CEC-approved battery (optional)" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border border-border z-50">
-                <SelectItem value="none">No battery</SelectItem>
-                {batteries.length === 0 ? (
-                  <SelectItem value="no-batteries" disabled>No batteries loaded - try refreshing</SelectItem>
-                ) : (
-                  batteries.filter(battery => battery.id).map(battery => (
-                    <SelectItem key={battery.id} value={battery.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-500" />
-                          <div className="flex flex-col items-start">
-                            <span className="font-medium">{battery.brand} {battery.model}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {battery.capacity_kwh && <span>{battery.capacity_kwh} kWh</span>}
-                              {battery.chemistry && <span>• {battery.chemistry}</span>}
-                              {battery.vpp_capable && <span>• VPP Capable</span>}
-                            </div>
-                          </div>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search CEC-approved batteries by brand, model, or chemistry... (or leave empty for no battery)"
+                value={batterySearch}
+                onChange={(e) => {
+                  setBatterySearch(e.target.value);
+                  setShowBatteryResults(e.target.value.length > 0);
+                  if (e.target.value === "") {
+                    setFormData({...formData, batteryId: "none"});
+                  }
+                }}
+                onFocus={() => batterySearch && setShowBatteryResults(true)}
+                className="pl-10"
+              />
+            </div>
+
+            {showBatteryResults && filteredBatteries.length > 0 && (
+              <div className="border rounded-lg bg-card max-h-60 overflow-y-auto">
+                <div className="p-2 text-xs text-muted-foreground border-b">
+                  Showing {filteredBatteries.length} batteries matching "{batterySearch}"
+                </div>
+                {filteredBatteries.map(battery => (
+                  <div
+                    key={battery.id}
+                    className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                    onClick={() => {
+                      setFormData({...formData, batteryId: battery.id});
+                      setBatterySearch(`${battery.brand} ${battery.model}`);
+                      setShowBatteryResults(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-500" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{battery.brand} {battery.model}</span>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {battery.capacity_kwh && <span>{battery.capacity_kwh} kWh</span>}
+                          {battery.chemistry && <span>• {battery.chemistry}</span>}
+                          {battery.vpp_capable && <span>• VPP Capable</span>}
                         </div>
                       </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {batterySearch && filteredBatteries.length === 0 && showBatteryResults && (
+              <div className="text-sm text-muted-foreground p-3 border rounded-lg">
+                No batteries found matching "{batterySearch}". Try searching by brand (e.g., "Tesla", "Enphase", "Sigenergy") or capacity (e.g., "13.5kWh").
+              </div>
+            )}
+
+            {!batterySearch && (
+              <div className="text-sm text-muted-foreground">
+                Leave empty for no battery, or search for CEC-approved battery systems above.
+              </div>
+            )}
           </div>
 
           {/* Enhanced Battery Details */}
