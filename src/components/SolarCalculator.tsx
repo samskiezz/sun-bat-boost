@@ -142,14 +142,14 @@ export default function SolarCalculator() {
                     VPP Provider
                   </Label>
                   <Select 
-                    value={inputs.vpp_provider || ''} 
-                    onValueChange={(value) => handleInputChange('vpp_provider', value || null)}
+                    value={inputs.vpp_provider || 'none'} 
+                    onValueChange={(value) => handleInputChange('vpp_provider', value === 'none' ? null : value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select VPP (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {Object.keys(VPP_INCENTIVES).map((provider) => (
                         <SelectItem key={provider} value={provider}>
                           {VPP_INCENTIVES[provider].provider}
