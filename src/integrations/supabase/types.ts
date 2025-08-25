@@ -263,7 +263,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      refresh_battery_data: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
