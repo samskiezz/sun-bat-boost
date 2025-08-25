@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Upload, Check, AlertCircle, Edit3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { processDocument, validateExtractedData } from "@/utils/documentProcessor";
 
 interface QuoteOCRFormProps {
   onSubmit: (data: any) => void;
@@ -43,44 +44,55 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
     setProgress(0);
 
     try {
-      // Simulate OCR processing
+      // Process document with real OCR/parsing
       setProgress(25);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setProgress(50);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await processDocument(file);
       
       setProgress(75);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Mock extracted data
-      const mockData: ExtractedData = {
-        postcode: "2000",
-        solarKw: 6.6,
-        batteryKwh: 13.5,
-        inverter: { make: "Fronius", model: "Primo 5.0-1", confidence: 0.85 },
-        panel: { make: "Canadian Solar", model: "CS3K-300MS", confidence: 0.92 },
-        battery: { make: "Tesla", model: "Powerwall 2", confidence: 0.78 },
-        priceAud: 12500
-      };
-      
-      setExtractedData(mockData);
-      setManualData({
-        postcode: mockData.postcode || "",
-        solarKw: mockData.solarKw?.toString() || "",
-        batteryKwh: mockData.batteryKwh?.toString() || "",
-        stcPrice: "38"
-      });
-      
-      setProgress(100);
-      toast({
-        title: "Quote processed successfully",
-        description: "Review the extracted data and make any corrections needed."
-      });
+      if (result.success && result.extractedData) {
+        const data = result.extractedData;
+        
+        // Convert to expected format
+        const mockData: ExtractedData = {
+          postcode: data.postcode?.value,
+          solarKw: data.systemSize?.value,
+          batteryKwh: data.batteries?.[0]?.suggestedMatch?.capacity_kwh,
+          inverter: undefined, // Inverters not currently processed
+          panel: data.panels?.[0] ? { 
+            make: data.panels[0].suggestedMatch?.brand || 'Unknown', 
+            model: data.panels[0].suggestedMatch?.model || 'Unknown', 
+            confidence: data.panels[0].confidence 
+          } : undefined,
+          battery: data.batteries?.[0] ? { 
+            make: data.batteries[0].suggestedMatch?.brand || 'Unknown', 
+            model: data.batteries[0].suggestedMatch?.model || 'Unknown', 
+            confidence: data.batteries[0].confidence 
+          } : undefined,
+          priceAud: data.totalCost?.value
+        };
+        
+        setExtractedData(mockData);
+        setManualData({
+          postcode: mockData.postcode || "",
+          solarKw: mockData.solarKw?.toString() || "",
+          batteryKwh: mockData.batteryKwh?.toString() || "",
+          stcPrice: "38"
+        });
+        
+        setProgress(100);
+        toast({
+          title: "Document processed successfully",
+          description: "Review the extracted data and make any corrections needed."
+        });
+      } else {
+        throw new Error(result.error || 'Failed to extract data');
+      }
     } catch (error) {
+      console.error('Document processing error:', error);
       toast({
         title: "Processing failed",
-        description: "Could not extract data from the quote. Please try again or enter manually.",
+        description: error instanceof Error ? error.message : "Could not extract data from the document. Please try again or enter manually.",
         variant: "destructive"
       });
     } finally {
@@ -92,7 +104,8 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg']
+      'image/*': ['.png', '.jpg', '.jpeg'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
     multiple: false
   });
@@ -141,7 +154,7 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
               {isDragActive ? 'Drop your quote here' : 'Drag & drop your quote'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Supports PDF, JPG, PNG files
+              Supports PDF, JPG, PNG, XLSX files
             </p>
           </div>
         )}
