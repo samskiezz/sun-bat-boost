@@ -89,10 +89,10 @@ export const useCECData = () => {
 
       console.log('Fetching ALL CEC data (complete dataset)...');
 
-      // Fetch data without any limits - get ALL records with explicit high limit to ensure all data
+      // Fetch ALL data without any limits - complete dataset
       const [pvResult, batteryResult, vppResult, changesResult] = await Promise.all([
-        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }).limit(2000),
-        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }).limit(1000),
+        (supabase as any).from('pv_modules').select('*').order('brand', { ascending: true }),
+        (supabase as any).from('batteries').select('*').order('brand', { ascending: true }),
         (supabase as any).from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }),
         (supabase as any).from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100)
       ]);

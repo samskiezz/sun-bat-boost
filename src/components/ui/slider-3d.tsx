@@ -37,44 +37,37 @@ export const Slider3D: React.FC<Slider3DProps> = ({
     const percentage = x / rect.width;
     const newValue = min + (max - min) * percentage;
     const steppedValue = Math.round(newValue / step) * step;
+    const clampedValue = Math.max(min, Math.min(max, steppedValue));
     
-    onChange(Math.max(min, Math.min(max, steppedValue)));
+    onChange(clampedValue);
   }, [min, max, step, onChange]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
     updateValue(e);
-  };
-
-  const handleTrackClick = (e: React.MouseEvent) => {
-    if (!isDragging) {
-      updateValue(e);
-    }
-  };
-
-  useEffect(() => {
+    
     const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        e.preventDefault();
-        updateValue(e);
-      }
+      e.preventDefault();
+      updateValue(e);
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
 
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, updateValue]);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [updateValue]);
+
+  const handleTrackClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    updateValue(e);
+  }, [updateValue]);
+
+  // Remove the useEffect for mouse handlers since we handle them in handleMouseDown
 
   // Generate preset marks - fewer marks for cleaner look
   const numPresets = Math.min(5, Math.ceil((max - min) / (step * 4)));
