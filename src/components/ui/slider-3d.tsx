@@ -31,6 +31,7 @@ export const Slider3D: React.FC<Slider3DProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     updateValue(e);
   };
@@ -51,24 +52,29 @@ export const Slider3D: React.FC<Slider3DProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         e.preventDefault();
+        e.stopPropagation();
         updateValue(e);
       }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
+      if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+      }
     };
 
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove, { passive: false });
       document.addEventListener('mouseup', handleMouseUp, { passive: false });
+      
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, min, max, step, onChange]);
+  }, [isDragging]);
 
   // Generate preset marks - fewer marks for cleaner look
   const numPresets = Math.min(5, Math.ceil((max - min) / (step * 4)));
