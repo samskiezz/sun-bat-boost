@@ -219,16 +219,16 @@ export const useCECData = () => {
     }
   }, [forceCompleteScrape, fetchAllDataComplete]);
 
-  // Auto-refresh logic
+  // Auto-refresh logic - much less aggressive
   const autoRefresh = useCallback(async () => {
-    if (dataComplete || autoRefreshing || loading || autoRefreshAttempts >= 10) {
+    if (dataComplete || autoRefreshing || loading || autoRefreshAttempts >= 3) {
       return;
     }
 
     const needsRefresh = panels.length < 1300 || batteries.length < 800;
     
-    if (needsRefresh) {
-      console.log(`🔄 Auto-refresh needed: panels=${panels.length}, batteries=${batteries.length}, attempt=${autoRefreshAttempts + 1}`);
+    if (needsRefresh && panels.length > 0) {
+      console.log(`🔄 Auto-refresh attempt ${autoRefreshAttempts + 1}/3: panels=${panels.length}, batteries=${batteries.length}`);
       setAutoRefreshAttempts(prev => prev + 1);
       
       try {
@@ -240,13 +240,13 @@ export const useCECData = () => {
     }
   }, [panels.length, batteries.length, dataComplete, autoRefreshing, loading, autoRefreshAttempts, refreshData]);
 
-  // Auto-refresh effect
+  // Auto-refresh effect - only runs once after initial load, then waits longer
   useEffect(() => {
-    if (!loading && !dataComplete && panels.length > 0) {
-      const timer = setTimeout(autoRefresh, 3000);
+    if (!loading && !dataComplete && panels.length > 0 && !autoRefreshing && autoRefreshAttempts < 3) {
+      const timer = setTimeout(autoRefresh, 10000); // Wait 10 seconds instead of 3
       return () => clearTimeout(timer);
     }
-  }, [loading, dataComplete, panels.length, batteries.length, autoRefresh]);
+  }, [loading, dataComplete, panels.length, batteries.length, autoRefresh, autoRefreshing, autoRefreshAttempts]);
 
   // Helper functions for VPP compatibility
   const getCompatibleVPPs = useCallback((batteryBrand: string): VPPProvider[] => {
