@@ -75,6 +75,7 @@ export const useCECData = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching CEC data...');
       
       // Fetch all data in parallel
       const [panelsResponse, batteriesResponse, invertersResponse, vppResponse, compatibilityResponse, logResponse] = await Promise.all([
@@ -83,8 +84,19 @@ export const useCECData = () => {
         supabase.from('cec_inverters').select('*').eq('is_active', true).order('brand, model'),
         supabase.from('vpp_providers').select('*').eq('is_active', true).order('name'),
         supabase.from('battery_vpp_compatibility').select('*'),
-        supabase.from('cec_data_refresh_log').select('completed_at').eq('status', 'success').order('completed_at', { ascending: false }).limit(1)
+        supabase.from('refresh_log').select('fetched_at').eq('status', 'ok').order('fetched_at', { ascending: false }).limit(1)
       ]);
+
+      console.log('Fetched data:', {
+        panels: panelsResponse.data?.length || 0,
+        batteries: batteriesResponse.data?.length || 0,
+        inverters: invertersResponse.data?.length || 0,
+        vppProviders: vppResponse.data?.length || 0,
+        panelsError: panelsResponse.error,
+        batteriesError: batteriesResponse.error,
+        invertersError: invertersResponse.error,
+        vppError: vppResponse.error
+      });
 
       if (panelsResponse.error) throw panelsResponse.error;
       if (batteriesResponse.error) throw batteriesResponse.error;
@@ -99,7 +111,7 @@ export const useCECData = () => {
       setCompatibility(compatibilityResponse.data || []);
       
       if (logResponse.data && logResponse.data.length > 0) {
-        setLastUpdated(logResponse.data[0].completed_at);
+        setLastUpdated(logResponse.data[0].fetched_at);
       }
 
       setError(null);
