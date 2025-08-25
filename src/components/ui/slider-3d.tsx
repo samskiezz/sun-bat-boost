@@ -30,6 +30,7 @@ export const Slider3D: React.FC<Slider3DProps> = ({
   const percentage = ((value - min) / (max - min)) * 100;
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     updateValue(e);
   };
@@ -47,22 +48,24 @@ export const Slider3D: React.FC<Slider3DProps> = ({
   };
 
   useEffect(() => {
-    const handleMouseMoveEvent = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
+        e.preventDefault();
         updateValue(e);
       }
     };
 
-    const handleMouseUpEvent = () => {
+    const handleMouseUp = (e: MouseEvent) => {
+      e.preventDefault();
       setIsDragging(false);
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMoveEvent);
-      document.addEventListener('mouseup', handleMouseUpEvent);
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: false });
       return () => {
-        document.removeEventListener('mousemove', handleMouseMoveEvent);
-        document.removeEventListener('mouseup', handleMouseUpEvent);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
       };
     }
   }, [isDragging, min, max, step, onChange]);

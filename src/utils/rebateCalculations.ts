@@ -54,17 +54,23 @@ const zoneMultipliers: Record<number, number> = {
   4: 1.185  // Zone 4 (lowest)
 };
 
-// Battery rebate programs by postcode/state
+// Updated battery rebate programs with correct 2024/2025 rates and limits
 const batteryPrograms = {
   nsw: [
-    { name: "NSW Peak Demand Reduction Scheme", rate: 372, minKwh: 2, maxKwh: 28 },
-    { name: "NSW Home Battery Guide Program", rate: 400, minKwh: 10, maxKwh: 20 }
+    { name: "NSW Peak Demand Reduction Scheme", rate: 400, minKwh: 2, maxKwh: 28, maxRebate: 9000 },
+    { name: "NSW Empowering Homes Program", rate: 1600, minKwh: 2, maxKwh: 28, maxRebate: 9400 }
   ],
   vic: [
-    { name: "VIC Solar Battery Rebate", rate: 4174, minKwh: 8.8, maxKwh: 13.5 }
+    { name: "VIC Solar Battery Rebate", rate: 4174, minKwh: 6.5, maxKwh: 13.5, maxRebate: 4174 }
   ],
   sa: [
-    { name: "SA Home Battery Scheme", rate: 600, minKwh: 1, maxKwh: 30 }
+    { name: "SA Home Battery Scheme", rate: 600, minKwh: 1, maxKwh: 30, maxRebate: 6000 }
+  ],
+  qld: [
+    { name: "QLD Battery Booster Program", rate: 1000, minKwh: 6.5, maxKwh: 100, maxRebate: 3000 }
+  ],
+  wa: [
+    { name: "WA Distributed Energy Buyback Scheme", rate: 400, minKwh: 5, maxKwh: 100, maxRebate: 20000 }
   ]
 };
 
@@ -112,11 +118,15 @@ export function calculateBatteryRebates(batteryKwh: number, state: string): Arra
   
   return programs
     .filter(program => batteryKwh >= program.minKwh && batteryKwh <= program.maxKwh)
-    .map(program => ({
-      name: program.name,
-      value: Math.min(program.rate * batteryKwh, program.rate * program.maxKwh),
-      description: `$${program.rate}/kWh (${program.minKwh}-${program.maxKwh}kWh eligible)`
-    }));
+    .map(program => {
+      const calculatedValue = program.rate * batteryKwh;
+      const finalValue = Math.min(calculatedValue, program.maxRebate);
+      return {
+        name: program.name,
+        value: finalValue,
+        description: `$${program.rate}/kWh (${program.minKwh}-${program.maxKwh}kWh eligible, max $${program.maxRebate})`
+      };
+    });
 }
 
 export function calculateRebates(input: CalculationInput): CalculationResult {

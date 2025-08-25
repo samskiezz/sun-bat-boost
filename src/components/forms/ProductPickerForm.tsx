@@ -118,6 +118,17 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
             </div>
           </div>
 
+          {/* Debug info */}
+          <div className="text-xs text-muted-foreground mb-4 p-2 bg-black/10 rounded">
+            {loading ? (
+              <span>Loading CEC data...</span>
+            ) : (
+              <span>
+                Loaded: {panels.length} panels, {batteries.length} batteries, {inverters.length} inverters, {vppProviders.length} VPPs
+              </span>
+            )}
+          </div>
+
           {/* Solar Panels */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
@@ -129,15 +140,19 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 <SelectValue placeholder="Select CEC-approved panel" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                {panels.filter(panel => panel.id && panel.id.trim() !== '').map(panel => (
-                  <SelectItem key={panel.id} value={panel.id}>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />
-                      {panel.brand} {panel.model} ({panel.watts}W)
-                      {panel.efficiency && <span className="text-xs text-muted-foreground">- {panel.efficiency}%</span>}
-                    </div>
-                  </SelectItem>
-                ))}
+                {panels.length === 0 ? (
+                  <SelectItem value="no-panels" disabled>No panels loaded</SelectItem>
+                ) : (
+                  panels.filter(panel => panel.id && panel.id.trim() !== '').map(panel => (
+                    <SelectItem key={panel.id} value={panel.id}>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        {panel.brand} {panel.model} ({panel.watts}W)
+                        {panel.efficiency && <span className="text-xs text-muted-foreground">- {panel.efficiency}%</span>}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             
@@ -172,15 +187,19 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
                 <SelectValue placeholder="Select CEC-approved inverter" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                {inverters.filter(inverter => inverter.id && inverter.id.trim() !== '').map(inverter => (
-                  <SelectItem key={inverter.id} value={inverter.id}>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />
-                      {inverter.brand} {inverter.model} ({inverter.ac_output_kw}kW)
-                      {inverter.efficiency && <span className="text-xs text-muted-foreground">- {inverter.efficiency}%</span>}
-                    </div>
-                  </SelectItem>
-                ))}
+                {inverters.length === 0 ? (
+                  <SelectItem value="no-inverters" disabled>No inverters loaded</SelectItem>
+                ) : (
+                  inverters.filter(inverter => inverter.id && inverter.id.trim() !== '').map(inverter => (
+                    <SelectItem key={inverter.id} value={inverter.id}>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        {inverter.brand} {inverter.model} ({inverter.ac_output_kw}kW)
+                        {inverter.efficiency && <span className="text-xs text-muted-foreground">- {inverter.efficiency}%</span>}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -197,15 +216,19 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="none">No battery</SelectItem>
-                {batteries.filter(battery => battery.id && battery.id.trim() !== '').map(battery => (
-                  <SelectItem key={battery.id} value={battery.id}>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />
-                      {battery.brand} {battery.model} ({battery.capacity_kwh}kWh)
-                      {battery.chemistry && <span className="text-xs text-muted-foreground">- {battery.chemistry}</span>}
-                    </div>
-                  </SelectItem>
-                ))}
+                {batteries.length === 0 ? (
+                  <SelectItem value="no-batteries" disabled>No batteries loaded</SelectItem>
+                ) : (
+                  batteries.filter(battery => battery.id && battery.id.trim() !== '').map(battery => (
+                    <SelectItem key={battery.id} value={battery.id}>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        {battery.brand} {battery.model} ({battery.capacity_kwh}kWh)
+                        {battery.chemistry && <span className="text-xs text-muted-foreground">- {battery.chemistry}</span>}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
