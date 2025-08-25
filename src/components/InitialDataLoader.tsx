@@ -8,18 +8,18 @@ export const InitialDataLoader = () => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Check if data already exists
-        const { data: panelsCheck } = await (supabase as any)
-          .from('pv_modules')
-          .select('id')
+        // Check if we have enough batteries (should be 750+)
+        const { data: batteryCheck, count } = await supabase
+          .from('batteries')
+          .select('id', { count: 'exact' })
           .limit(1);
 
-        if (panelsCheck && panelsCheck.length > 0) {
-          console.log('CEC data already exists');
+        if (count && count >= 500) {
+          console.log(`CEC data already exists (${count} batteries)`);
           return;
         }
 
-        console.log('Initializing CEC data...');
+        console.log(`Initializing CEC battery data... (current: ${count || 0} batteries, target: 750+)`);
         
         // Call the CEC battery scraper to get the 750+ batteries
         console.log('Calling CEC battery scraper...');
