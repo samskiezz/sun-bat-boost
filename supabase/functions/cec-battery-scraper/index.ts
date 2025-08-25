@@ -122,9 +122,20 @@ Deno.serve(async (req) => {
 
     // Clear existing batteries and insert new ones
     console.log('Clearing existing battery data...');
-    await supabase.from('batteries').delete().neq('id', 0);
+    const { error: deleteError } = await supabase.from('batteries').delete().gte('id', 0);
     
-    // Insert new batteries in batches
+    if (deleteError) {
+      console.error('Error clearing batteries:', deleteError);
+      // Try alternative approach - delete all records
+      const { error: truncateError } = await supabase.rpc('truncate_batteries');
+      if (truncateError) {
+        console.log('Truncate function not available, proceeding with upsert...');
+      }
+    } else {
+      console.log('Successfully cleared existing battery data');
+    }
+    
+    // Insert new batteries in batches using upsert to handle any remaining duplicates
     const batchSize = 100;
     let insertedCount = 0;
     
@@ -132,13 +143,25 @@ Deno.serve(async (req) => {
       const batch = batteries.slice(i, i + batchSize);
       const { error } = await supabase
         .from('batteries')
-        .insert(batch);
+        .upsert(batch, {
+          onConflict: 'brand,model'
+        });
       
       if (error) {
-        console.error(`Error inserting batch ${i / batchSize + 1}:`, error);
+        console.error(`Error upserting batch ${i / batchSize + 1}:`, error);
+        // Try individual inserts if batch fails
+        for (const battery of batch) {
+          const { error: individualError } = await supabase
+            .from('batteries')
+            .upsert(battery, { onConflict: 'brand,model' });
+          
+          if (!individualError) {
+            insertedCount++;
+          }
+        }
       } else {
         insertedCount += batch.length;
-        console.log(`Inserted batch ${i / batchSize + 1}/${Math.ceil(batteries.length / batchSize)}: ${insertedCount} total`);
+        console.log(`Upserted batch ${i / batchSize + 1}/${Math.ceil(batteries.length / batchSize)}: ${insertedCount} total`);
       }
     }
 
