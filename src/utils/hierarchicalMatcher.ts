@@ -25,19 +25,172 @@ export interface HierarchicalMatch {
   position: number;
 }
 
+// Enhanced brand-specific regex patterns for ALL major brands
+const BRAND_SPECIFIC_PATTERNS: Record<string, { panel?: RegExp; battery?: RegExp; inverter?: RegExp }> = {
+  // PANELS - Detailed patterns for every brand
+  JINKO: {
+    panel: /\bJKM[-\s]?\d{3,4}[A-Z]{1,2}[-\s]?\d{2}[A-Z]{2,4}[-\s]?[A-Z0-9]*\b/gi
+  },
+  "JINKO SOLAR": {
+    panel: /\bJKM[-\s]?\d{3,4}[A-Z]{1,2}[-\s]?\d{2}[A-Z]{2,4}[-\s]?[A-Z0-9]*\b/gi
+  },
+  TRINA: {
+    panel: /\bTSM[-\s]?\d{3,4}[A-Z]{2,4}\d?[A-Z]?(?:\.?\d{2})?\b/gi
+  },
+  "TRINA SOLAR": {
+    panel: /\bTSM[-\s]?\d{3,4}[A-Z]{2,4}\d?[A-Z]?(?:\.?\d{2})?\b/gi
+  },
+  LONGI: {
+    panel: /\bLR\d[-\s]?\d{2}[A-Z]{2,4}[-\s]?\d{3,4}[A-Z]?\b/gi
+  },
+  "LONGI SOLAR": {
+    panel: /\bLR\d[-\s]?\d{2}[A-Z]{2,4}[-\s]?\d{3,4}[A-Z]?\b/gi
+  },
+  "JA SOLAR": {
+    panel: /\bJAM\d{2}[A-Z]\d{2}[-\s]?\d{3,4}\/[A-Z]{2}\b/gi
+  },
+  "CANADIAN SOLAR": {
+    panel: /\bCS\d[A-Z]?[-\s]?\d{3,4}[A-Z]{2}\b/gi
+  },
+  QCELLS: {
+    panel: /\bQ\.(?:PEAK|MAXX)[-\s]?[A-Z]{2,4}[-\s]?\d{3,4}\b/gi
+  },
+  "HANWHA Q CELLS": {
+    panel: /\bQ\.(?:PEAK|MAXX)[-\s]?[A-Z]{2,4}[-\s]?\d{3,4}\b/gi
+  },
+  REC: {
+    panel: /\bREC\d{3}[A-Z]{2}[-\s]?\d{3,4}[A-Z]?\b/gi
+  },
+  "REC SOLAR": {
+    panel: /\bREC\d{3}[A-Z]{2}[-\s]?\d{3,4}[A-Z]?\b/gi
+  },
+  MAXEON: {
+    panel: /\bSPR[-\s]?[A-Z]?\d{3,4}[-\s]?[A-Z]{2,4}\b/gi
+  },
+  SUNPOWER: {
+    panel: /\bSPR[-\s]?[A-Z]?\d{3,4}[-\s]?[A-Z]{2,4}\b/gi
+  },
+  EGING: {
+    panel: /\bEG[-\s]?\d{3,4}[A-Z]{2,6}[-\s]?(?:HL|BL|BF|DG|MG)(?:[-/\s]?[A-Z]{2})*\b/gi
+  },
+  "EGING PV": {
+    panel: /\bEG[-\s]?\d{3,4}[A-Z]{2,6}[-\s]?(?:HL|BL|BF|DG|MG)(?:[-/\s]?[A-Z]{2})*\b/gi
+  },
+
+  // BATTERIES - Detailed patterns for every brand
+  TESLA: {
+    battery: /\b(?:TESLA\s+)?POWERWALL\s*(?:2|3|\+)?\s*(?:\d{1,2}(?:\.\d)?\s*kWh?)?\b/gi
+  },
+  BYD: {
+    battery: /\bBYD\s+(?:BATTERY[-\s]?BOX\s+)?(?:PREMIUM\s+)?(?:HVM|HVS)\s*\d{1,2}(?:\.\d)?\b/gi
+  },
+  GOODWE_BATTERY: {
+    battery: /\b(?:LX|LYNX)[-\s]?F[-\s]?\d{1,2}(?:\.\d)?[-\s]?H[-\s]?\d{2}\b/gi
+  },
+  SUNGROW_BATTERY: {
+    battery: /\bSBR\s*\d{3}(?:\s*\d{1,2}(?:\.\d)?\s*kWh?)?\b/gi
+  },
+  ALPHAESS: {
+    battery: /\b(?:ALPHA\s+)?SMILE[-\s]?[A-Z0-9+]+\s*(?:\d{1,2}(?:\.\d)?\s*kWh?)?\b/gi
+  },
+  PYLONTECH: {
+    battery: /\bUS\d{4}[A-Z]?\s*(?:\d{1,2}(?:\.\d)?\s*kWh?)?\b/gi
+  },
+  SOLAREDGE_BATTERY: {
+    battery: /\b(?:SOLAREDGE\s+)?(?:ENERGY\s+BANK|HOME\s+BATTERY)\s*\d{1,2}(?:\.\d)?\s*kWh?\b/gi
+  },
+  ENPHASE: {
+    battery: /\bIQ\s+BATTERY\s+\d{1,2}[A-Z]?\s*(?:\d{1,2}(?:\.\d)?\s*kWh?)?\b/gi
+  },
+
+  // INVERTERS - Detailed patterns for every brand  
+  GOODWE_INVERTER: {
+    inverter: /\bGW[-\s]?\d{4,5}K?[-\s]?(?:EH|ET|ES|MS|NS|XS|DNS|EMS|EMT|XSA|XNA|DT)\b/gi
+  },
+  SUNGROW_INVERTER: {
+    inverter: /\bS[GH][-\s]?\d{1,2}(?:\.\d)?[A-Z]{1,3}\b/gi
+  },
+  SOLAREDGE_INVERTER: {
+    inverter: /\bSE\d{4,5}[A-Z]?\b/gi
+  },
+  FRONIUS: {
+    inverter: /\b(?:PRIMO|SYMO)\s+\d{1,2}(?:\.\d)?[-\s]?[13](?:[-\s]?[A-Z])?\b/gi
+  },
+  SMA: {
+    inverter: /\bSB\s?\d{1,2}(?:\.\d)?[-\s]?[A-Z0-9]{2,4}\b/gi
+  },
+  GROWATT: {
+    inverter: /\b(?:MIN|MAX|MID|MOD)[-\s]?\d{3,5}[A-Z]{1,3}\b/gi
+  }
+};
+
 export class HierarchicalMatcher {
   private allProducts: Product[];
 
   constructor(products: Product[]) {
     this.allProducts = products;
-    // Removed verbose logging - keep it clean for users
   }
 
   /**
-   * Main matching function - processes text hierarchically for ALL products
+   * Main matching function - uses brand-specific patterns + hierarchical fallback
    */
   match(text: string): HierarchicalMatch[] {
     const normalizedText = text.toUpperCase();
+    const results: HierarchicalMatch[] = [];
+    
+    // STEP 1: Use brand-specific patterns (like Eging has)
+    results.push(...this.matchWithBrandSpecificPatterns(normalizedText));
+    
+    // STEP 2: Use general hierarchical patterns for missed items
+    results.push(...this.matchWithGeneralPatterns(normalizedText));
+    
+    // Remove duplicates and sort by confidence
+    const uniqueResults = this.deduplicateMatches(results);
+    return uniqueResults.sort((a, b) => b.confidence - a.confidence);
+  }
+
+  /**
+   * Use detailed brand-specific regex patterns (gives Jinko same treatment as Eging)
+   */
+  private matchWithBrandSpecificPatterns(text: string): HierarchicalMatch[] {
+    const results: HierarchicalMatch[] = [];
+    
+    for (const [brandKey, patterns] of Object.entries(BRAND_SPECIFIC_PATTERNS)) {
+      for (const [type, pattern] of Object.entries(patterns)) {
+        if (!pattern) continue;
+        
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          const fullMatch = match[0];
+          
+          // Find products for this brand and type
+          const normalizedBrand = brandKey.replace(/_BATTERY|_INVERTER|_PANEL/g, '');
+          const brandProducts = this.allProducts.filter(p => 
+            (p.brand.toUpperCase() === normalizedBrand || 
+             p.brand.toUpperCase().includes(normalizedBrand) ||
+             normalizedBrand.includes(p.brand.toUpperCase())) &&
+            p.type === type
+          );
+          
+          if (brandProducts.length > 0) {
+            const contextWindow = this.getContext(text, match.index!);
+            const bestMatch = this.findBestModel(brandProducts, contextWindow, fullMatch);
+            bestMatch.position = match.index!;
+            bestMatch.confidence = Math.min(0.95, bestMatch.confidence + 0.15); // Boost for specific pattern match
+            
+            results.push(bestMatch);
+          }
+        }
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * General hierarchical patterns (fallback for brands without specific patterns)
+   */
+  private matchWithGeneralPatterns(text: string): HierarchicalMatch[] {
     const results: HierarchicalMatch[] = [];
     
     // Extract ALL possible brand+spec combinations
@@ -45,45 +198,131 @@ export class HierarchicalMatcher {
     
     for (const pattern of patterns) {
       let match;
-      while ((match = pattern.regex.exec(normalizedText)) !== null) {
-        const brandRaw = match[1] || 'UNKNOWN'; // Handle cases where brand might be missing
-        const specRaw = match[2] || match[0]; // Use full match if no spec group
+      while ((match = pattern.regex.exec(text)) !== null) {
+        const brandRaw = match[1] || 'UNKNOWN';
+        const specRaw = match[2] || match[0];
         const fullMatch = match[0];
         
-        // Skip if we got a meaningless match
         if (!brandRaw || brandRaw === 'UNKNOWN') continue;
         
-        // Step 1: Get exact brand+spec matches using strict filter
+        // Get exact brand+spec matches using strict filter
         const searchQuery = this.buildSearchQuery(brandRaw, specRaw, pattern.type);
         const strictResult = brandStrictFilter.filterProducts(this.allProducts, searchQuery);
         
         if (strictResult.filteredProducts.length > 0) {
-          // Step 2: Try to find specific model within exact matches
-          const contextWindow = this.getContext(normalizedText, match.index!);
+          const contextWindow = this.getContext(text, match.index!);
           const bestMatch = this.findBestModel(strictResult.filteredProducts, contextWindow, fullMatch);
           bestMatch.position = match.index!;
           
           results.push(bestMatch);
-        } else {
-          // Fallback: Try just brand matching for batteries with model names
-          if (pattern.type === 'battery') {
-            const brandOnlyResult = brandStrictFilter.filterProducts(this.allProducts, brandRaw);
-            if (brandOnlyResult.filteredProducts.length > 0) {
-              const contextWindow = this.getContext(normalizedText, match.index!);
-              const bestMatch = this.findBestModel(brandOnlyResult.filteredProducts, contextWindow, fullMatch);
-              bestMatch.confidence = Math.max(0.5, bestMatch.confidence - 0.1); // Lower confidence for brand-only
-              bestMatch.position = match.index!;
-              
-              results.push(bestMatch);
-            }
+        } else if (pattern.type === 'battery') {
+          // Enhanced battery fallback with capacity extraction
+          const brandOnlyResult = brandStrictFilter.filterProducts(this.allProducts, brandRaw);
+          if (brandOnlyResult.filteredProducts.length > 0) {
+            const contextWindow = this.getContext(text, match.index!);
+            const bestMatch = this.findBestModelWithCapacity(brandOnlyResult.filteredProducts, contextWindow, fullMatch);
+            bestMatch.confidence = Math.max(0.5, bestMatch.confidence - 0.1);
+            bestMatch.position = match.index!;
+            
+            results.push(bestMatch);
           }
         }
       }
     }
     
-    // Remove duplicates and sort by confidence
-    const uniqueResults = this.deduplicateMatches(results);
-    return uniqueResults.sort((a, b) => b.confidence - a.confidence);
+    return results;
+  }
+
+  /**
+   * Enhanced battery model finder with accurate capacity extraction
+   */
+  private findBestModelWithCapacity(candidates: Product[], context: string, rawMatch: string): HierarchicalMatch {
+    // Extract capacity from context more accurately
+    const capacityPatterns = [
+      /(\d{1,2}(?:\.\d)?)\s*kWh/i,
+      /(\d{1,2}(?:\.\d)?)\s*kwh/i,
+      /(\d{1,2}(?:\.\d)?)\s*KWH/i,
+      /LYNX[-\s]?F[-\s]?(\d{1,2}(?:\.\d)?)/i,  // Goodwe Lynx F12.8
+      /SBR(\d{2,3})/i,  // Sungrow SBR096 → 9.6kWh
+      /HVM[-\s]?(\d{1,2}(?:\.\d)?)/i,  // BYD HVM 16.6
+      /HVS[-\s]?(\d{1,2}(?:\.\d)?)/i,  // BYD HVS 10.2
+      /POWERWALL[-\s]?(\d)/i  // Tesla Powerwall 2/3
+    ];
+    
+    let extractedCapacity: number | undefined;
+    
+    for (const pattern of capacityPatterns) {
+      const match = pattern.exec(context);
+      if (match) {
+        const value = parseFloat(match[1]);
+        if (pattern.source.includes('SBR')) {
+          // Sungrow SBR pattern: 096 → 9.6kWh
+          extractedCapacity = value / 10;
+        } else if (pattern.source.includes('POWERWALL')) {
+          // Tesla Powerwall: 2 → 13.5kWh, 3 → 13.5kWh
+          extractedCapacity = value === 2 ? 13.5 : value === 3 ? 13.5 : 13.5;
+        } else {
+          extractedCapacity = value;
+        }
+        break;
+      }
+    }
+    
+    // Find best matching product by capacity
+    let bestProduct = candidates[0];
+    let bestConfidence = 0.6;
+    let modelFound = false;
+    
+    if (extractedCapacity) {
+      for (const product of candidates) {
+        const productCapacity = product.capacity_kwh || product.specs?.usable_kWh || 0;
+        
+        if (Math.abs(productCapacity - extractedCapacity) < 0.2) {
+          bestProduct = product;
+          bestConfidence = 0.85; // High confidence for capacity match
+          modelFound = true;
+          break;
+        }
+      }
+    }
+    
+    // Model name matching as fallback
+    if (!modelFound) {
+      const modelTokens = this.extractModelTokens(rawMatch);
+      for (const product of candidates) {
+        const productTokens = this.extractModelTokens(product.model);
+        let matches = 0;
+        
+        for (const token of modelTokens) {
+          if (productTokens.some(pToken => pToken.toUpperCase().includes(token.toUpperCase()))) {
+            matches++;
+          }
+        }
+        
+        if (matches > 0) {
+          const confidence = 0.6 + (matches * 0.1);
+          if (confidence > bestConfidence) {
+            bestProduct = product;
+            bestConfidence = confidence;
+            modelFound = true;
+          }
+        }
+      }
+    }
+    
+    return {
+      product: bestProduct,
+      confidence: bestConfidence,
+      matchType: modelFound && bestConfidence >= 0.8 ? 'exact_brand_spec_model' : 'exact_brand_spec',
+      evidence: {
+        brandMatch: true,
+        specMatch: !!extractedCapacity,
+        modelMatch: modelFound,
+        contextBonus: Math.max(0, bestConfidence - 0.6)
+      },
+      raw: rawMatch,
+      position: 0
+    };
   }
 
   /**
