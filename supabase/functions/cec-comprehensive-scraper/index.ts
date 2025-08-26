@@ -10,7 +10,7 @@ const corsHeaders = {
 const TARGETS = {
   PANEL: 1348,
   BATTERY_MODULE: 513,
-  INVERTER: 200
+  INVERTER: 2411
 };
 
 serve(async (req) => {
