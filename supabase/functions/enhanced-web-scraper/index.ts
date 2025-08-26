@@ -156,7 +156,7 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
             content: `Extract technical specifications for solar equipment. Return ONLY a valid JSON array, no markdown blocks.
             Each spec should be: {"key": "spec_name", "value": "spec_value", "unit": "unit_if_applicable"}
             Focus on: ${categorySpecs[product.category as keyof typeof categorySpecs]}
-            CRITICAL: Return ONLY the JSON array, no ```json``` blocks, no explanations.`
+            CRITICAL: Return ONLY the JSON array, no code blocks, no explanations.`
           },
           {
             role: 'user',
