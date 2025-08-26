@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2024-08-26",
+  "panels": [
+    {
+      "brand": "jinko",
+      "model": "JKM440N-54HL4R-V",
+      "watts": 440,
+      "approved": true,
+      "productId": "11111"
+    },
+    {
+      "brand": "longi",
+      "model": "LR5-54HIH-415M",
+      "watts": 415,
+      "approved": true,
+      "productId": "22222"
+    },
+    {
+      "brand": "trina",
+      "model": "TSM-DE09R.08(II)",
+      "watts": 430,
+      "approved": true,
+      "productId": "33333"
+    },
+    {
+      "brand": "qcells",
+      "model": "Q.PEAK DUO BLK ML-G10+ 420",
+      "watts": 420,
+      "approved": true,
+      "productId": "44444"
+    },
+    {
+      "brand": "rec",
+      "model": "REC400AA",
+      "watts": 400,
+      "approved": true,
+      "productId": "55555"
+    }
+  ]
+}

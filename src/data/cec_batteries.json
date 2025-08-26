@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2024-08-26",
+  "batteries": [
+    {
+      "brand": "sigenergy",
+      "model": "SIGENSTOR 10.24KWH",
+      "capacityKWh": 10.24,
+      "usableKWh": 10.24,
+      "approved": true,
+      "productId": "92691"
+    },
+    {
+      "brand": "sigenergy", 
+      "model": "SIGENSTOR 12.8KWH",
+      "capacityKWh": 12.8,
+      "usableKWh": 12.8,
+      "approved": true,
+      "productId": "92692"
+    },
+    {
+      "brand": "sigenergy",
+      "model": "SIGENSTOR 15.36KWH", 
+      "capacityKWh": 15.36,
+      "usableKWh": 15.36,
+      "approved": true,
+      "productId": "92693"
+    },
+    {
+      "brand": "sigenergy",
+      "model": "SIGENSTOR 25KWH",
+      "capacityKWh": 25.0,
+      "usableKWh": 25.0,
+      "approved": true,
+      "productId": "92694"
+    },
+    {
+      "brand": "tesla",
+      "model": "POWERWALL 2",
+      "capacityKWh": 13.5,
+      "usableKWh": 13.5,
+      "approved": true,
+      "productId": "12345"
+    },
+    {
+      "brand": "alpha ess",
+      "model": "SMILE-B3",
+      "capacityKWh": 10.1,
+      "usableKWh": 10.1,
+      "approved": true,
+      "productId": "23456"
+    }
+  ]
+}

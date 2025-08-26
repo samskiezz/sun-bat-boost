@@ -138,8 +138,13 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
     return filterResult.filteredProducts.slice(0, 100); // Limit results
   }, [batteries, batterySearch]);
 
-  const selectedPanel = formData.panelId ? panels.find(p => p.id === parseInt(formData.panelId)) : undefined;
-  const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => b.id === parseInt(formData.batteryId));
+  const safeId = (value: unknown): string => {
+    if (value == null) return '';
+    return String(value).trim();
+  };
+
+  const selectedPanel = formData.panelId ? panels.find(p => safeId(p.id) === formData.panelId) : undefined;
+  const selectedBattery = formData.batteryId === "none" || !formData.batteryId ? null : batteries.find(b => safeId(b.id) === formData.batteryId);
   
   // Calculate system size based on panel selection using actual power rating
   const systemKw = useMemo(() => {

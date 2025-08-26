@@ -6,18 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { masterOCRPipeline, OCRResult } from '@/utils/masterOCRPipeline';
+import { extractFromOcr, ExtractResult } from '@/ocr/extract';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface UniversalOCRScannerProps {
-  onDataExtracted?: (data: OCRResult) => void;
+  onDataExtracted?: (data: ExtractResult) => void;
 }
 
 export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRScannerProps) {
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<OCRResult | null>(null);
+  const [result, setResult] = useState<ExtractResult | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -46,7 +46,11 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
         setProgress(prev => Math.min(prev + Math.random() * 15, 90));
       }, 500);
 
-      const extractedResult = await masterOCRPipeline.process(file);
+      // Extract text from PDF first (simplified - you may need to implement PDF text extraction)
+      const text = await extractTextFromPDF(file);
+      const pages = [{ page: 1, text }];
+      
+      const extractedResult = extractFromOcr(pages);
       
       clearInterval(progressInterval);
       setProgress(100);
@@ -54,7 +58,7 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
       setResult(extractedResult);
       onDataExtracted?.(extractedResult);
       
-      const totalFound = extractedResult.panels.length + extractedResult.batteries.length + extractedResult.inverters.length;
+      const totalFound = extractedResult.panels.candidates.length + extractedResult.battery.candidates.length + (extractedResult.inverter.value ? 1 : 0);
       
       toast({
         title: "Extraction Complete",
@@ -133,14 +137,14 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Zap className="h-4 w-4" />
-                Solar Panels ({result.panels.length})
+                Solar Panels ({result.panels.candidates.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {result.panels.length === 0 ? (
+              {result.panels.candidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No panels detected</p>
               ) : (
-                result.panels.map((panel, idx) => {
+                result.panels.candidates.map((panel, idx) => {
                   const ConfidenceIcon = getConfidenceIcon(panel.confidence);
                   return (
                     <div key={idx} className="space-y-2 rounded-lg border p-3">
@@ -148,22 +152,22 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                         <div className="space-y-1">
                           <h4 className="text-sm font-medium">{panel.brand} {panel.model}</h4>
                           <p className="text-xs text-muted-foreground">
-                            {panel.specs.watts}W • ID: {panel.productId}
+                            {panel.wattage}W • {panel.count}x • {panel.arrayKwDc?.toFixed(1)}kW
                           </p>
                         </div>
-                        <ConfidenceIcon className={`h-4 w-4 ${panel.confidence >= 0.85 ? 'text-green-500' : 'text-yellow-500'}`} />
+                        <ConfidenceIcon className={`h-4 w-4 ${panel.score >= 8 ? 'text-green-500' : 'text-yellow-500'}`} />
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(panel.confidence)}`} 
-                             style={{ width: `${panel.confidence * 100}%` }} />
-                        <span className="text-xs font-mono">{Math.round(panel.confidence * 100)}%</span>
+                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(panel.score / 10)}`} 
+                             style={{ width: `${Math.min(panel.score * 10, 100)}%` }} />
+                        <span className="text-xs font-mono">Score: {panel.score}</span>
                       </div>
 
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm" className="w-full">
-                            View Evidence ({panel.evidence.length})
+                            View Evidence ({panel.evidences.length})
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl">
@@ -172,22 +176,19 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                           </DialogHeader>
                           <ScrollArea className="max-h-96">
                             <div className="space-y-3">
-                              {panel.evidence.map((evidence, evidenceIdx) => (
+                              {panel.evidences.map((evidence, evidenceIdx) => (
                                 <div key={evidenceIdx} className="rounded-lg border p-3">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant={evidence.matchType === 'regex' ? 'default' : 'secondary'}>
-                                      {evidence.matchType}
+                                    <Badge variant="default">
+                                      {evidence.context}
                                     </Badge>
-                                    <span className="text-sm font-mono">Score: {evidence.score.toFixed(2)}</span>
-                                    {evidence.sectionBoost && (
-                                      <Badge variant="outline">Section Boost</Badge>
-                                    )}
+                                    <span className="text-sm font-mono">Weight: {evidence.weight}</span>
                                   </div>
                                   <p className="text-sm bg-muted p-2 rounded">
-                                    "{evidence.snippet}"
+                                    "{evidence.text}"
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    Context: ...{evidence.context.substring(0, 100)}...
+                                    Page: {evidence.page}
                                   </p>
                                 </div>
                               ))}
@@ -207,14 +208,14 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Battery className="h-4 w-4" />
-                Batteries ({result.batteries.length})
+                Batteries ({result.battery.candidates.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {result.batteries.length === 0 ? (
+              {result.battery.candidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No batteries detected</p>
               ) : (
-                result.batteries.map((battery, idx) => {
+                result.battery.candidates.map((battery, idx) => {
                   const ConfidenceIcon = getConfidenceIcon(battery.confidence);
                   return (
                     <div key={idx} className="space-y-2 rounded-lg border p-3">
@@ -222,22 +223,22 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                         <div className="space-y-1">
                           <h4 className="text-sm font-medium">{battery.brand} {battery.model}</h4>
                           <p className="text-xs text-muted-foreground">
-                            {battery.specs.kWh}kWh • ID: {battery.productId}
+                            {battery.usableKWh}kWh • Score: {battery.score}
                           </p>
                         </div>
-                        <ConfidenceIcon className={`h-4 w-4 ${battery.confidence >= 0.85 ? 'text-green-500' : 'text-yellow-500'}`} />
+                        <ConfidenceIcon className={`h-4 w-4 ${battery.score >= 8 ? 'text-green-500' : 'text-yellow-500'}`} />
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(battery.confidence)}`} 
-                             style={{ width: `${battery.confidence * 100}%` }} />
-                        <span className="text-xs font-mono">{Math.round(battery.confidence * 100)}%</span>
+                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(battery.score / 10)}`} 
+                             style={{ width: `${Math.min(battery.score * 10, 100)}%` }} />
+                        <span className="text-xs font-mono">Score: {battery.score}</span>
                       </div>
 
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm" className="w-full">
-                            View Evidence ({battery.evidence.length})
+                            View Evidence ({battery.evidences.length})
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl">
@@ -246,22 +247,19 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                           </DialogHeader>
                           <ScrollArea className="max-h-96">
                             <div className="space-y-3">
-                              {battery.evidence.map((evidence, evidenceIdx) => (
+                              {battery.evidences.map((evidence, evidenceIdx) => (
                                 <div key={evidenceIdx} className="rounded-lg border p-3">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant={evidence.matchType === 'regex' ? 'default' : 'secondary'}>
-                                      {evidence.matchType}
+                                    <Badge variant="default">
+                                      {evidence.context}
                                     </Badge>
-                                    <span className="text-sm font-mono">Score: {evidence.score.toFixed(2)}</span>
-                                    {evidence.sectionBoost && (
-                                      <Badge variant="outline">Section Boost</Badge>
-                                    )}
+                                    <span className="text-sm font-mono">Weight: {evidence.weight}</span>
                                   </div>
                                   <p className="text-sm bg-muted p-2 rounded">
-                                    "{evidence.snippet}"
+                                    "{evidence.text}"
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    Context: ...{evidence.context.substring(0, 100)}...
+                                    Page: {evidence.page}
                                   </p>
                                 </div>
                               ))}
@@ -281,69 +279,60 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Gauge className="h-4 w-4" />
-                Inverters ({result.inverters.length})
+                Inverters ({result.inverter.value ? 1 : 0})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {result.inverters.length === 0 ? (
+              {!result.inverter.value ? (
                 <p className="text-sm text-muted-foreground">No inverters detected</p>
               ) : (
-                result.inverters.map((inverter, idx) => {
-                  const ConfidenceIcon = getConfidenceIcon(inverter.confidence);
-                  return (
-                    <div key={idx} className="space-y-2 rounded-lg border p-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-medium">{inverter.brand} {inverter.model}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {inverter.specs.kW}kW • No DB Match
-                          </p>
-                        </div>
-                        <ConfidenceIcon className={`h-4 w-4 ${inverter.confidence >= 0.85 ? 'text-green-500' : 'text-yellow-500'}`} />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(inverter.confidence)}`} 
-                             style={{ width: `${inverter.confidence * 100}%` }} />
-                        <span className="text-xs font-mono">{Math.round(inverter.confidence * 100)}%</span>
-                      </div>
-
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full">
-                            View Evidence ({inverter.evidence.length})
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Evidence: {inverter.brand} {inverter.model}</DialogTitle>
-                          </DialogHeader>
-                          <ScrollArea className="max-h-96">
-                            <div className="space-y-3">
-                              {inverter.evidence.map((evidence, evidenceIdx) => (
-                                <div key={evidenceIdx} className="rounded-lg border p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="default">regex</Badge>
-                                    <span className="text-sm font-mono">Score: {evidence.score.toFixed(2)}</span>
-                                    {evidence.sectionBoost && (
-                                      <Badge variant="outline">Section Boost</Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm bg-muted p-2 rounded">
-                                    "{evidence.snippet}"
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Context: ...{evidence.context.substring(0, 100)}...
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </DialogContent>
-                      </Dialog>
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-medium">{result.inverter.value.brandRaw} {result.inverter.value.modelRaw}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {result.inverter.value.ratedKw}kW • No DB Match
+                      </p>
                     </div>
-                  );
-                })
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 flex-1 rounded-full bg-green-500" />
+                    <span className="text-xs font-mono">Raw Text</span>
+                  </div>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        View Evidence ({result.inverter.value.evidences.length})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Evidence: {result.inverter.value.brandRaw} {result.inverter.value.modelRaw}</DialogTitle>
+                      </DialogHeader>
+                      <ScrollArea className="max-h-96">
+                        <div className="space-y-3">
+                          {result.inverter.value.evidences.map((evidence, evidenceIdx) => (
+                            <div key={evidenceIdx} className="rounded-lg border p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="default">{evidence.context}</Badge>
+                                <span className="text-sm font-mono">Weight: {evidence.weight}</span>
+                              </div>
+                              <p className="text-sm bg-muted p-2 rounded">
+                                "{evidence.text}"
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Page: {evidence.page}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               )}
             </CardContent>
           </Card>
