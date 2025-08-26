@@ -634,22 +634,48 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     }
   }
   
-  // FILTER AND DEDUPLICATE BATTERIES - Keep only the highest confidence unique results
-  const uniqueBatteries = new Map<string, any>();
+  // INTELLIGENT BATTERY FILTERING - Priority to larger capacity batteries
+  console.log('🧠 Applying intelligent battery filtering...');
   
-  for (const result of finalBatteryResults) {
-    const key = `${result.suggestedMatch.brand}_${result.suggestedMatch.model}`;
+  // Sort by capacity (descending) and confidence (descending) 
+  finalBatteryResults.sort((a, b) => {
+    const capacityA = a.suggestedMatch.capacity_kwh || 0;
+    const capacityB = b.suggestedMatch.capacity_kwh || 0;
     
-    if (!uniqueBatteries.has(key) || uniqueBatteries.get(key).confidence < result.confidence) {
-      uniqueBatteries.set(key, result);
+    // First priority: larger capacity
+    if (Math.abs(capacityA - capacityB) > 1) {
+      return capacityB - capacityA;
+    }
+    
+    // Second priority: higher confidence
+    return b.confidence - a.confidence;
+  });
+  
+  // Filter logic: Keep main battery system only
+  let finalBatteries: any[] = [];
+  
+  if (finalBatteryResults.length > 0) {
+    const mainBattery = finalBatteryResults[0];
+    const mainCapacity = mainBattery.suggestedMatch.capacity_kwh || 0;
+    
+    // Only keep the main battery if it's significantly larger than others (20kWh+)
+    // or if it's the only high-confidence match
+    if (mainCapacity >= 20 || finalBatteryResults.length === 1) {
+      finalBatteries = [mainBattery];
+      console.log(`🎯 Selected main battery: ${mainBattery.suggestedMatch.brand} ${mainBattery.suggestedMatch.model} ${mainCapacity}kWh`);
+    } else {
+      // Filter for realistic residential battery sizes (5kWh - 100kWh range)
+      const realisticBatteries = finalBatteryResults.filter(b => {
+        const capacity = b.suggestedMatch.capacity_kwh || 0;
+        return capacity >= 5 && capacity <= 100 && b.confidence >= 0.7;
+      });
+      
+      if (realisticBatteries.length > 0) {
+        // Take the largest capacity, highest confidence battery
+        finalBatteries = [realisticBatteries[0]];
+      }
     }
   }
-  
-  // Only keep high confidence results (80%+) or if no high confidence, keep the best one
-  const highConfidenceBatteries = Array.from(uniqueBatteries.values()).filter(b => b.confidence >= 0.8);
-  const finalBatteries = highConfidenceBatteries.length > 0 
-    ? highConfidenceBatteries 
-    : Array.from(uniqueBatteries.values()).slice(0, 1); // Keep only the best if no high confidence
   
   extractedData.batteries = finalBatteries;
   console.log(`🎯 Final batteries after deduplication: ${finalBatteries.length}`);
