@@ -154,8 +154,49 @@ export const useCECData = () => {
 
       // Fetch all data using pagination
       const [allPanels, allBatteries, allVppProviders, allChanges] = await Promise.all([
-        fetchAllPanels(),
-        fetchAllBatteries(),
+        fetchAllPanels().catch(async (error) => {
+          console.warn('⚠️ pv_modules failed, falling back to products table:', error);
+          const { data } = await supabase
+            .from('products')
+            .select('*, manufacturers(name)')
+            .eq('category', 'PANEL')
+            .eq('status', 'active');
+          
+          // Map products to panel format
+          return (data || []).map(product => ({
+            id: product.id,
+            brand: product.manufacturers?.name || 'Unknown',
+            model: product.model,
+            power_rating: null,
+            technology: null,
+            datasheet_url: product.datasheet_url,
+            scraped_at: product.created_at,
+            approval_status: 'active',
+            source_url: product.product_url || ''
+          }));
+        }),
+        fetchAllBatteries().catch(async (error) => {
+          console.warn('⚠️ batteries failed, falling back to products table:', error);
+          const { data } = await supabase
+            .from('products')
+            .select('*, manufacturers(name)')
+            .eq('category', 'BATTERY_MODULE')
+            .eq('status', 'active');
+          
+          // Map products to battery format
+          return (data || []).map(product => ({
+            id: product.id,
+            brand: product.manufacturers?.name || 'Unknown',
+            model: product.model,
+            capacity_kwh: null,
+            chemistry: null,
+            datasheet_url: product.datasheet_url,
+            scraped_at: product.created_at,
+            approval_status: 'active',
+            vpp_capable: false,
+            source_url: product.product_url || ''
+          }));
+        }),
         supabase.from('vpp_providers').select('*').eq('is_active', true).order('name', { ascending: true }).then(r => r.data || []),
         supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100).then(r => r.data || [])
       ]);

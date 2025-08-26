@@ -86,55 +86,101 @@ export const RealSpecsExtractor = () => {
   };
 
   const handleRealExtraction = async () => {
+    if (isExtracting) return;
+    
     setIsExtracting(true);
     setProgress(0);
+    setCurrentProduct('Getting products needing specs...');
     setResult(null);
-    setCurrentProduct('Initializing...');
     
     try {
-      // Simulate progress tracking
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev < 85) return prev + Math.random() * 3;
-          return prev;
-        });
-      }, 800);
-
-      const result = await extractRealSpecsForProducts();
+      // Get products that need specs using our new RPC
+      console.log('🔍 Getting products needing specs...');
+      const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs');
       
-      clearInterval(progressInterval);
+      if (productsError) {
+        throw new Error(`Failed to get products: ${productsError.message}`);
+      }
+      
+      if (!products || products.length === 0) {
+        toast({
+          title: "All Products Complete",
+          description: "All products already have comprehensive specs (6+ specifications)",
+        });
+        setIsExtracting(false);
+        return;
+      }
+      
+      console.log(`📋 Found ${products.length} products needing specs`);
+      setCurrentProduct(`Processing ${products.length} products...`);
+      
+      // Process products in batches using the new enhance_list action
+      const batchSize = 20;
+      let totalProcessed = 0;
+      let totalSuccessful = 0;
+      let totalFailures = 0;
+      
+      const productIds = products.map(p => p.product_id);
+      
+      for (let i = 0; i < productIds.length; i += batchSize) {
+        const batch = productIds.slice(i, i + batchSize);
+        const batchProgress = ((i / productIds.length) * 90);
+        setProgress(batchProgress);
+        setCurrentProduct(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(productIds.length / batchSize)}...`);
+        
+        console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}: ${batch.length} products`);
+        
+        const response = await supabase.functions.invoke('specs-enhancer', {
+          body: { 
+            action: 'enhance_list', 
+            productIds: batch 
+          }
+        });
+        
+        if (response.error) {
+          console.error('Batch processing error:', response.error);
+          totalFailures += batch.length;
+        } else if (response.data) {
+          const batchResult = response.data;
+          totalProcessed += batchResult.processed || 0;
+          totalSuccessful += batchResult.successful || 0;
+          totalFailures += batchResult.failures || 0;
+          
+          console.log(`✅ Batch complete: ${batchResult.successful}/${batchResult.processed} successful`);
+        }
+      }
+      
       setProgress(100);
-      setCurrentProduct('Complete!');
+      setCurrentProduct('Updating progress...');
+      
+      const result = {
+        success: true,
+        processed: totalProcessed,
+        successful: totalSuccessful,
+        failures: totalFailures
+      };
+      
+      console.log('Real extraction result:', result);
       setResult(result);
       
-      if (result.success) {
-        // Trigger progress refresh after successful extraction
-        handleUpdateProgress();
-        
-        toast({
-          title: "Real Specs Extraction Successful!",
-          description: `Processed ${result.processed} products with ${result.successful} successful extractions`,
-          duration: 6000,
-        });
-      } else {
-        toast({
-          title: "Extraction Failed",
-          description: result.error || "Unknown error occurred",
-          variant: "destructive",
-          duration: 5000,
-        });
-      }
-    } catch (error) {
-      console.error('Error in real extraction:', error);
+      // Trigger progress refresh after successful extraction
+      await handleUpdateProgress();
+      
       toast({
-        title: "Error",
-        description: "Failed to run real specs extraction",
-        variant: "destructive",
-        duration: 5000,
+        title: "Real Specs Extraction Complete!",
+        description: `Processed ${result.processed} products with ${result.successful} successful extractions`,
       });
-      setResult({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      
+    } catch (error) {
+      console.error('Real extraction error:', error);
+      toast({
+        title: "Extraction Error",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setIsExtracting(false);
+      setProgress(0);
       setCurrentProduct('');
     }
   };

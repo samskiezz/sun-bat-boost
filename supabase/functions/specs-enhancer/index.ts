@@ -254,7 +254,8 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
             .select('*', { count: 'exact', head: true })
             .eq('product_id', product.id);
           
-          if (specCount > 0) {
+          // Skip products that already have comprehensive specs (6+) to avoid unnecessary work
+          if (specCount >= 6) {
             console.log(`⏭️ Skipping ${product.model} - already has ${specCount} specs`);
             return false;
           }
@@ -316,26 +317,94 @@ serve(async (req) => {
   }
 
   try {
-    const { action, batchSize = 100, offset = 0 } = await req.json();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const body = await req.json().catch(() => ({}));
+    const { action = 'enhance_specs', batchSize = 100, offset = 0, productId, productIds } = body;
+
     console.log(`🚀 Specs Enhancer Action: ${action}, batch: ${batchSize}, offset: ${offset}`);
 
-    if (action === 'enhance_specs' || action === 'full_enhancement') {
-      const result = await enhanceProductSpecs(batchSize, offset);
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    let result;
+    if (action === 'enhance_product' && productId) {
+      // Process single product
+      console.log(`🎯 Enhancing single product: ${productId}`);
+      const { data: product } = await supabase
+        .from('products')
+        .select('*, manufacturers(name)')
+        .eq('id', productId)
+        .single();
+        
+      if (!product) {
+        return new Response(JSON.stringify({ success: false, error: 'Product not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const specs = await extractSpecsWithAI(product);
+      result = { success: true, specsAdded: specs.length };
+    } else if (action === 'enhance_list' && productIds) {
+      // Process list of product IDs
+      console.log(`📋 Enhancing product list: ${productIds.length} products`);
+      const { data: products } = await supabase
+        .from('products')
+        .select('*, manufacturers(name)')
+        .in('id', productIds);
+        
+      if (!products || products.length === 0) {
+        return new Response(JSON.stringify({ success: false, processed: 0, successful: 0, failures: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      let successful = 0;
+      let failures = 0;
+      
+      // Process products in parallel batches of 10
+      const chunkSize = 10;
+      for (let i = 0; i < products.length; i += chunkSize) {
+        const chunk = products.slice(i, i + chunkSize);
+        const promises = chunk.map(async (product) => {
+          try {
+            const specs = await extractSpecsWithAI(product);
+            if (specs.length > 0) {
+              successful++;
+              return { success: true, specsAdded: specs.length };
+            } else {
+              failures++;
+              return { success: false, error: 'No specs extracted' };
+            }
+          } catch (error) {
+            failures++;
+            console.error(`❌ Failed to enhance product ${product.id}:`, error);
+            return { success: false, error: error.message };
+          }
+        });
+        
+        await Promise.all(promises);
+        console.log(`📊 Progress: ${Math.min(i + chunkSize, products.length)}/${products.length} processed`);
+      }
+      
+      result = { success: true, processed: products.length, successful, failures };
+    } else if (action === 'full_enhancement') {
+      console.log('🚀 Full specs enhancement starting...');
+      result = await enhanceProductSpecs();
+    } else {
+      console.log(`🚀 Fast specs enhancement: offset=${offset}, size=${batchSize}`);
+      result = await enhanceProductSpecs(batchSize, offset);
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
-      status: 400,
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
     console.error('❌ Error in specs-enhancer:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
+      success: false, 
+      error: error.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

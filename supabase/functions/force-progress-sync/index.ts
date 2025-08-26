@@ -70,7 +70,7 @@ serve(async (req) => {
     ];
     
     for (const gate of gateUpdates) {
-      await supabase
+      const { error } = await supabase
         .from('readiness_gates')
         .update({
           current_value: gate.value,
@@ -79,7 +79,11 @@ serve(async (req) => {
         })
         .eq('gate_name', gate.name);
       
-      console.log(`🎯 Updated gate ${gate.name}: ${gate.value}/${gate.required}`);
+      if (error) {
+        console.error(`❌ Failed to update gate ${gate.name}:`, error);
+      } else {
+        console.log(`🎯 Updated gate ${gate.name}: ${gate.value}/${gate.required}`);
+      }
     }
     
     // Mark completed job as completed
