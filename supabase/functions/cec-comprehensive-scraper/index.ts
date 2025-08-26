@@ -479,16 +479,16 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       .eq('category', category)
       .single();
 
-    if (!progress || progress.state === 'completed') {
-      return 0; // Already completed, no items processed
+    if (!progress || (progress.state === 'completed' && progress.specs_done >= progress.target)) {
+      return 0; // Already completed with specs, no items processed
     }
 
     const target = progress.target;
     const processed = progress.processed;
     const remaining = target - processed;
     
-    if (remaining <= 0) {
-      // Mark as completed
+    if (remaining <= 0 && progress.specs_done >= target) {
+      // Mark as completed only if both processing and specs extraction are done
       await supabase
         .from('scrape_job_progress')
         .update({ state: 'completed' })
