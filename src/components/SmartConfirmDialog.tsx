@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle, AlertCircle, Zap, Hash, MapPin, Target, Brain, Shield } from 'lucide-react';
 import { MatchHit, Product } from '@/utils/smartMatcher';
+import { brandStrictFilter } from '@/utils/brandStrictFilter';
 
 interface SmartConfirmDialogProps {
   isOpen: boolean;
@@ -182,10 +183,24 @@ const SmartConfirmDialog: React.FC<SmartConfirmDialogProps> = ({
               <CardContent className="p-4">
                 <h4 className="font-medium mb-3">Select the correct product:</h4>
                 <div className="max-h-60 overflow-y-auto space-y-2">
-                  {alternativeProducts
-                    .filter(p => p.type === topCandidate.product.type)
-                    .slice(0, 20) // Limit to prevent UI overload
-                    .map((product) => (
+                  {(() => {
+                    // First show products from the same brand and type with similar specs
+                    const sameBrandProducts = alternativeProducts.filter(p => 
+                      p.type === topCandidate.product.type && 
+                      p.brand === topCandidate.product.brand
+                    );
+                    
+                    // If no same-brand products, use strict brand filtering based on the raw match
+                    if (sameBrandProducts.length === 0) {
+                      const searchQuery = `${topCandidate.product.brand} ${topCandidate.raw}`;
+                      const strictResult = brandStrictFilter.filterProducts(alternativeProducts, searchQuery);
+                      return strictResult.filteredProducts
+                        .filter(p => p.type === topCandidate.product.type)
+                        .slice(0, 20);
+                    }
+                    
+                    return sameBrandProducts.slice(0, 20);
+                  })().map((product) => (
                     <div 
                       key={product.id}
                       className={`p-3 border rounded cursor-pointer transition-colors ${
