@@ -1,11 +1,14 @@
 // Regex patterns for OCR extraction
 
 export const patterns = {
-  // Brand patterns (case insensitive)
+  // Brand patterns - more specific to avoid OCR noise
   brands: {
-    solar: /(?:sigenergy|sigen|sigenpower|sungrow|tesla|alpha\s*ess|jinko|longi|trina|aiko|rec|ja\s*solar|canadian\s*solar|qcells|lg|panasonic|sunpower|solar\s*edge|fronius|sma|growatt|huawei|goodwe)/gi,
-    battery: /(?:sigenergy|sigen|tesla|alpha\s*ess|sonnen|byd|pylontech|powerwall|enphase|lg\s*chem|samsung|bmz)/gi,
-    inverter: /(?:sma|fronius|solar\s*edge|growatt|sungrow|huawei|goodwe|abb|schneider|delta|kostal|victron)/gi,
+    // Panel brands - only match when near panel context
+    solar: /(?:jinko(?:solar)?|trina|longi|canadian\s+solar|ja\s+solar|rec|aiko|qcells|lg|panasonic|sunpower|tier\s*1|monocrystalline|polycrystalline)/gi,
+    // Battery brands - only specific battery manufacturers
+    battery: /(?:sigenergy|sigen|tesla|powerwall|alpha\s*ess|sonnen|byd|pylontech|enphase|lg\s*chem|samsung|bmz)/gi,
+    // Inverter brands - avoid confusion with other components
+    inverter: /(?:sma|fronius|solar\s*edge|growatt|sungrow|huawei|goodwe|abb|schneider\s*electric|delta|kostal|victron)/gi,
   },
 
   // Battery patterns
@@ -22,23 +25,26 @@ export const patterns = {
 
   // Panel patterns
   panel: {
-    // Count x Watts: "24 x 440W", "18×415 watts"
-    countWatts: /(\d{1,3})\s*(?:x|×)\s*(\d{3,4})\s*w(?:att)?s?/gi,
+    // Count x Watts: "24 x 440W", "18×415 watts" - more specific
+    countWatts: /(\d{1,2})\s*(?:x|×)\s*(\d{3,4})\s*w(?:att)?s?(?:\s+(?:panel|module|solar))?/gi,
     
-    // Array size: "10.56 kW DC", "7.2kW array"
-    arraySize: /(?<!per\s)(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:dc|array)?/gi,
+    // Array size: "10.56 kW DC", "7.2kW array" - avoid picking up random kW
+    arraySize: /(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:dc|array|system|solar)/gi,
     
-    // Model patterns: allow letters, numbers, dashes
-    model: /([A-Z0-9][A-Z0-9\-\.]{2,})/g,
+    // Model patterns: more restrictive to avoid OCR noise
+    model: /\b([A-Z][A-Z0-9]{1,}(?:[-\.][A-Z0-9]+)*)\b/g,
+    
+    // Brand + model + watts: "Jinko JKM440M 440W"
+    brandModelWatts: /(jinko|trina|longi|canadian|ja\s+solar|rec|aiko|qcells|lg|panasonic)\s+([A-Z0-9][\w\-\.]+)\s+(\d{3,4})w/gi,
   },
 
-  // Inverter patterns
+  // Inverter patterns - much more specific
   inverter: {
-    // Brand + model + kW: "SMA 5kW", "Fronius Primo 8.2"
-    brandModelKw: /([A-Z][A-Za-z\s]*)\s+([A-Z0-9][A-Z0-9\-\.]{1,})\s*(\d{1,2}(?:\.\d+)?)\s*kw?/gi,
+    // Brand + model + kW: "SMA Sunny Boy 5kW", "Fronius Primo 8.2kW"
+    brandModelKw: /(sma|fronius|solar\s*edge|growatt|sungrow|huawei|goodwe|abb|schneider)\s+([\w\-\s]+?)\s+(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:inverter)?/gi,
     
-    // Just kW rating: "5kW inverter"
-    kwRating: /(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:inverter|inv)?/gi,
+    // Just kW rating with inverter context: "5kW inverter"
+    kwRating: /(\d{1,2}(?:\.\d+)?)\s*kw\s+(?:inverter|string\s+inverter|micro\s+inverter)/gi,
     
     // Phase info
     phases: /(single\s*phase|three\s*phase|1\s*phase|3\s*phase)/gi,
@@ -51,11 +57,12 @@ export const patterns = {
     watts: /w(?:att)?s?/gi,
   },
 
-  // Context detection
+  // Context detection - more specific
   context: {
     table: /\||\t|(?:\s{3,})/,
-    header: /^.{0,50}(?:solar|battery|inverter|system|proposal)/i,
-    footer: /(?:page\s*\d+|total|subtotal|©|copyright)/i,
+    header: /^.{0,100}(?:proposal|quote|system|solar|energy|for|prepared\s+by)/i,
+    footer: /(?:page\s*\d+|total|subtotal|©|copyright|phone|email|\.com|\.au)/i,
+    noise: /(?:proposal|quote|prepared\s+by|for\s+[A-Z\s]+|valid\s+until|sam@|\.com|phone|address)/i,
   },
 };
 
@@ -172,70 +179,98 @@ export const extractors = {
     const candidates = [];
     console.log('🔍 Panel extraction from text:', text.substring(0, 200));
     
-    // Find brand matches first
-    const brandMatches = [...text.matchAll(patterns.brands.solar)];
-    console.log('🏷️ Found panel brands:', brandMatches.map(m => m[0]));
+    // Skip header/footer noise
+    if (context === 'HEADER' || context === 'FOOTER' || patterns.context.noise.test(text)) {
+      console.log('⏭️ Skipping panel extraction from noise/header/footer');
+      return [];
+    }
     
-    // Count x Watts patterns with brand proximity
+    // Brand + Model + Watts patterns (most reliable)
+    const brandModelWattMatches = [...text.matchAll(patterns.panel.brandModelWatts)];
+    for (const match of brandModelWattMatches) {
+      const brand = match[1].trim();
+      const model = match[2].trim();
+      const wattage = parseInt(match[3]);
+      
+      candidates.push({
+        brand,
+        model,
+        wattage,
+        evidences: [{
+          page,
+          text: match[0],
+          context: context as any,
+          weight: context === 'TABLE' ? 6 : 5,
+        }],
+      });
+      
+      console.log('⚡ Brand+Model+Watts panel candidate:', { brand, model, wattage });
+    }
+    
+    // Count x Watts patterns with strict brand matching
     const countWattMatches = [...text.matchAll(patterns.panel.countWatts)];
     for (const match of countWattMatches) {
       const count = parseInt(match[1]);
       const wattage = parseInt(match[2]);
       const arrayKwDc = (count * wattage) / 1000;
       
-      // Find nearest brand and model
+      // Only consider reasonable counts and wattages
+      if (count < 1 || count > 100 || wattage < 250 || wattage > 700) continue;
+      
+      // Find nearest brand within reasonable distance
       const matchIndex = match.index || 0;
-      const nearbyText = text.substring(Math.max(0, matchIndex - 80), matchIndex + match[0].length + 80);
+      const nearbyText = text.substring(Math.max(0, matchIndex - 100), matchIndex + match[0].length + 100);
       const nearbyBrand = [...nearbyText.matchAll(patterns.brands.solar)][0];
-      const nearbyModel = [...nearbyText.matchAll(patterns.panel.model)].find(m => m[0].length >= 3);
       
-      candidates.push({
-        brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-        model: nearbyModel ? nearbyModel[0].trim() : undefined,
-        count,
-        wattage,
-        arrayKwDc,
-        evidences: [{
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 5 : 4,
-        }],
-      });
+      // Must have solar context or brand nearby
+      const solarContext = /solar|panel|pv|module|array/i.test(nearbyText);
       
-      console.log('⚡ Count×Watts panel candidate:', { brand: nearbyBrand?.[0], model: nearbyModel?.[0], count, wattage, arrayKwDc });
+      if (nearbyBrand || solarContext) {
+        candidates.push({
+          brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
+          count,
+          wattage,
+          arrayKwDc,
+          evidences: [{
+            page,
+            text: match[0],
+            context: context as any,
+            weight: (context === 'TABLE' ? 5 : 4) + (nearbyBrand ? 1 : 0),
+          }],
+        });
+        
+        console.log('⚡ Count×Watts panel candidate:', { brand: nearbyBrand?.[0], count, wattage, arrayKwDc });
+      }
     }
     
-    // Array size patterns with brand proximity
+    // Array size only as fallback
     const arraySizeMatches = [...text.matchAll(patterns.panel.arraySize)];
     for (const match of arraySizeMatches) {
       const arrayKwDc = parseFloat(match[1]);
       
-      // Only consider reasonable array sizes
-      if (arrayKwDc >= 1 && arrayKwDc <= 100) {
-        const matchIndex = match.index || 0;
-        const nearbyText = text.substring(Math.max(0, matchIndex - 80), matchIndex + match[0].length + 80);
-        const nearbyBrand = [...nearbyText.matchAll(patterns.brands.solar)][0];
-        const nearbyModel = [...nearbyText.matchAll(patterns.panel.model)].find(m => m[0].length >= 3);
+      // Only reasonable array sizes
+      if (arrayKwDc < 1 || arrayKwDc > 100) continue;
+      
+      const matchIndex = match.index || 0;
+      const nearbyText = text.substring(Math.max(0, matchIndex - 100), matchIndex + match[0].length + 100);
+      const nearbyBrand = [...nearbyText.matchAll(patterns.brands.solar)][0];
+      
+      // Must have strong solar context
+      const strongSolarContext = /(?:solar|pv)\s*(?:array|system|installation)/i.test(nearbyText);
+      
+      if (strongSolarContext && nearbyBrand) {
+        candidates.push({
+          brand: nearbyBrand[0].trim(),
+          arrayKwDc,
+          evidences: [{
+            page,
+            text: match[0],
+            context: context as any,
+            weight: context === 'TABLE' ? 3 : 2,
+          }],
+        });
         
-        // Check for solar/panel keywords nearby
-        const solarKeyword = /solar|panel|pv|array/i.test(nearbyText);
-        
-        if (nearbyBrand || solarKeyword) {
-          candidates.push({
-            brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-            model: nearbyModel ? nearbyModel[0].trim() : undefined,
-            arrayKwDc,
-            evidences: [{
-              page,
-              text: match[0],
-              context: context as any,
-              weight: (context === 'TABLE' ? 4 : 3) + (nearbyBrand ? 1 : 0),
-            }],
-          });
-          
-          console.log('⚡ Array size panel candidate:', { brand: nearbyBrand?.[0], model: nearbyModel?.[0], arrayKwDc, solarKeyword });
-        }
+        console.log('⚡ Array size panel candidate:', { brand: nearbyBrand[0], arrayKwDc });
       }
     }
     
@@ -247,6 +282,12 @@ export const extractors = {
   extractInverter: (text: string, page: number, context: string): any => {
     console.log('🔍 Inverter extraction from text:', text.substring(0, 200));
     
+    // Skip headers/footers/noise that often contain false inverter mentions
+    if (context === 'HEADER' || context === 'FOOTER' || patterns.context.noise.test(text)) {
+      console.log('⏭️ Skipping inverter extraction from noise/header/footer');
+      return null;
+    }
+    
     const brandModelMatches = [...text.matchAll(patterns.inverter.brandModelKw)];
     const kwMatches = [...text.matchAll(patterns.inverter.kwRating)];
     const phaseMatches = [...text.matchAll(patterns.inverter.phases)];
@@ -257,65 +298,78 @@ export const extractors = {
     
     let result: any = { evidences: [] };
     
+    // Brand + Model + kW (most reliable)
     if (brandModelMatches.length > 0) {
       const match = brandModelMatches[0];
-      result.brandRaw = match[1].trim();
-      result.modelRaw = match[2].trim();
-      result.ratedKw = parseFloat(match[3]);
-      result.evidences.push({
-        page,
-        text: match[0],
-        context: context as any,
-        weight: context === 'TABLE' ? 5 : 4,
-      });
-      console.log('🔌 Brand+Model+kW match:', { brand: result.brandRaw, model: result.modelRaw, kw: result.ratedKw });
-    }
-    
-    // If no complete match, try to combine brand + kW rating
-    if (!result.brandRaw && inverterBrandMatches.length > 0 && kwMatches.length > 0) {
-      const brand = inverterBrandMatches[0];
-      const kwMatch = kwMatches[0];
+      const brandRaw = match[1].trim();
+      const modelRaw = match[2].trim();
+      const ratedKw = parseFloat(match[3]);
       
-      // Check if they're reasonably close (within 100 chars)
-      const brandIndex = brand.index || 0;
-      const kwIndex = kwMatch.index || 0;
-      
-      if (Math.abs(brandIndex - kwIndex) < 100) {
-        result.brandRaw = brand[0].trim();
-        result.ratedKw = parseFloat(kwMatch[1]);
+      // Validate it's not OCR noise
+      if (brandRaw.length > 2 && modelRaw.length > 2 && ratedKw >= 1 && ratedKw <= 50) {
+        result.brandRaw = brandRaw;
+        result.modelRaw = modelRaw;
+        result.ratedKw = ratedKw;
         result.evidences.push({
           page,
-          text: `${brand[0]} ... ${kwMatch[0]}`,
+          text: match[0],
           context: context as any,
-          weight: context === 'TABLE' ? 4 : 3,
+          weight: context === 'TABLE' ? 6 : 5,
         });
-        console.log('🔌 Separate brand+kW match:', { brand: result.brandRaw, kw: result.ratedKw });
+        console.log('🔌 Brand+Model+kW match:', { brand: result.brandRaw, model: result.modelRaw, kw: result.ratedKw });
       }
     }
     
-    if (kwMatches.length > 0 && !result.ratedKw) {
-      const match = kwMatches[0];
-      const kw = parseFloat(match[1]);
+    // Brand + kW rating (separate matches)
+    if (!result.brandRaw && inverterBrandMatches.length > 0 && kwMatches.length > 0) {
+      const brand = inverterBrandMatches[0];
+      const kwMatch = kwMatches[0];
+      const kw = parseFloat(kwMatch[1]);
       
-      // Only consider reasonable inverter sizes and check for inverter keyword nearby
-      if (kw >= 1 && kw <= 50) {
-        const matchIndex = match.index || 0;
-        const nearbyText = text.substring(Math.max(0, matchIndex - 50), matchIndex + match[0].length + 50);
-        const inverterKeyword = /inverter|inv/i.test(nearbyText);
+      // Check proximity and validate values
+      const brandIndex = brand.index || 0;
+      const kwIndex = kwMatch.index || 0;
+      
+      if (Math.abs(brandIndex - kwIndex) < 80 && kw >= 1 && kw <= 50) {
+        // Ensure inverter context
+        const combinedText = text.substring(
+          Math.min(brandIndex, kwIndex) - 20, 
+          Math.max(brandIndex + brand[0].length, kwIndex + kwMatch[0].length) + 20
+        );
+        const hasInverterContext = /inverter|string|micro/i.test(combinedText);
         
-        if (inverterKeyword) {
+        if (hasInverterContext) {
+          result.brandRaw = brand[0].trim();
           result.ratedKw = kw;
           result.evidences.push({
             page,
-            text: match[0],
+            text: `${brand[0]} ... ${kwMatch[0]}`,
             context: context as any,
-            weight: context === 'TABLE' ? 3 : 2,
+            weight: context === 'TABLE' ? 4 : 3,
           });
-          console.log('🔌 kW-only inverter match:', { kw, inverterKeyword });
+          console.log('🔌 Separate brand+kW match:', { brand: result.brandRaw, kw: result.ratedKw });
         }
       }
     }
     
+    // kW with inverter keyword (fallback)
+    if (!result.ratedKw && kwMatches.length > 0) {
+      const match = kwMatches[0];
+      const kw = parseFloat(match[1]);
+      
+      if (kw >= 1 && kw <= 50) {
+        result.ratedKw = kw;
+        result.evidences.push({
+          page,
+          text: match[0],
+          context: context as any,
+          weight: context === 'TABLE' ? 3 : 2,
+        });
+        console.log('🔌 kW-only inverter match:', { kw });
+      }
+    }
+    
+    // Phase detection
     if (phaseMatches.length > 0) {
       const match = phaseMatches[0];
       result.phases = match[0].includes('3') || match[0].toLowerCase().includes('three') ? 'THREE' : 'SINGLE';

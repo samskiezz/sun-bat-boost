@@ -6,7 +6,7 @@ interface SmartOCRScannerProps {
 }
 
 const SmartOCRScanner: React.FC<SmartOCRScannerProps> = ({ onDataExtracted }) => {
-  return <UniversalOCRScanner onDataExtracted={onDataExtracted} />;
+  return <UniversalOCRScanner onExtractComplete={onDataExtracted} />;
 };
 
 export default SmartOCRScanner;

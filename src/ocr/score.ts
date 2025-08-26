@@ -1,4 +1,5 @@
 import { PanelCandidate, BatteryCandidate, Confidence } from './extract.types';
+import { createSyntheticPanel, createSyntheticBattery } from './synthetic';
 
 // Scoring weights
 const WEIGHTS = {
@@ -190,9 +191,31 @@ export const scoreCandidates = {
     // Sort by score
     scoredCandidates.sort((a, b) => b.score - a.score);
     
-    const best = scoredCandidates[0];
+    // Create synthetic product for the best candidate if it has good data
+    let best = scoredCandidates[0];
+    if (best && (best.brand || best.wattage || best.arrayKwDc)) {
+      const synthetic = createSyntheticPanel(
+        best.brand || 'Unknown Brand',
+        best.model,
+        best.wattage,
+        best.count,
+        best.arrayKwDc,
+        best.evidences
+      );
+      
+      best = {
+        ...best,
+        syntheticProduct: synthetic,
+      };
+    }
+    
     const confidence = getConfidence(best?.score || 0, scoredCandidates);
     const warnings = generateWarnings(scoredCandidates, 'panel');
+    
+    // Add synthetic warning
+    if (best?.syntheticProduct) {
+      warnings.push('Created synthetic panel from proposal data');
+    }
     
     return {
       best,
@@ -212,9 +235,30 @@ export const scoreCandidates = {
     // Sort by score
     scoredCandidates.sort((a, b) => b.score - a.score);
     
-    const best = scoredCandidates[0];
+    // Create synthetic product for the best candidate if it has good data
+    let best = scoredCandidates[0];
+    if (best && (best.brand || best.usableKWh)) {
+      const synthetic = createSyntheticBattery(
+        best.brand,
+        best.model,
+        best.usableKWh,
+        best.stack,
+        best.evidences
+      );
+      
+      best = {
+        ...best,
+        syntheticProduct: synthetic,
+      };
+    }
+    
     const confidence = getConfidence(best?.score || 0, scoredCandidates);
     const warnings = generateWarnings(scoredCandidates, 'battery');
+    
+    // Add synthetic warning
+    if (best?.syntheticProduct) {
+      warnings.push('Created synthetic battery from proposal data');
+    }
     
     return {
       best,

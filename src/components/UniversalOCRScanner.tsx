@@ -11,11 +11,13 @@ import { pdfExtractor } from '@/utils/pdfExtract';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
+import OCRResultDisplay from './OCRResultDisplay';
+
 interface UniversalOCRScannerProps {
-  onDataExtracted?: (data: ExtractResult) => void;
+  onExtractComplete?: (data: any) => void;
 }
 
-export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRScannerProps) {
+export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRScannerProps) {
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ExtractResult | null>(null);
@@ -57,7 +59,6 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
       setProgress(100);
       
       setResult(extractedResult);
-      onDataExtracted?.(extractedResult);
       
       const totalFound = extractedResult.panels.candidates.length + extractedResult.battery.candidates.length + (extractedResult.inverter.value ? 1 : 0);
       
@@ -131,214 +132,7 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
       )}
 
       {/* Results */}
-      {result && (
-        <div className="grid gap-4 md:grid-cols-3">
-          {/* Panels */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Zap className="h-4 w-4" />
-                Solar Panels ({result.panels.candidates.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {result.panels.candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No panels detected</p>
-              ) : (
-                result.panels.candidates.map((panel, idx) => {
-                  const ConfidenceIcon = getConfidenceIcon(panel.score / 10);
-                  return (
-                    <div key={idx} className="space-y-2 rounded-lg border p-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-medium">{panel.brand} {panel.model}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {panel.wattage}W • {panel.count}x • {panel.arrayKwDc?.toFixed(1)}kW
-                          </p>
-                        </div>
-                        <ConfidenceIcon className={`h-4 w-4 ${panel.score >= 8 ? 'text-green-500' : 'text-yellow-500'}`} />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(panel.score / 10)}`} 
-                             style={{ width: `${Math.min(panel.score * 10, 100)}%` }} />
-                        <span className="text-xs font-mono">Score: {panel.score}</span>
-                      </div>
-
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full">
-                            View Evidence ({panel.evidences.length})
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Evidence: {panel.brand} {panel.model}</DialogTitle>
-                          </DialogHeader>
-                          <ScrollArea className="max-h-96">
-                            <div className="space-y-3">
-                              {panel.evidences.map((evidence, evidenceIdx) => (
-                                <div key={evidenceIdx} className="rounded-lg border p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="default">
-                                      {evidence.context}
-                                    </Badge>
-                                    <span className="text-sm font-mono">Weight: {evidence.weight}</span>
-                                  </div>
-                                  <p className="text-sm bg-muted p-2 rounded">
-                                    "{evidence.text}"
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Page: {evidence.page}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Batteries */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Battery className="h-4 w-4" />
-                Batteries ({result.battery.candidates.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {result.battery.candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No batteries detected</p>
-              ) : (
-                result.battery.candidates.map((battery, idx) => {
-                  const ConfidenceIcon = getConfidenceIcon(battery.score / 10);
-                  return (
-                    <div key={idx} className="space-y-2 rounded-lg border p-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-medium">{battery.brand} {battery.model}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {battery.usableKWh}kWh • Score: {battery.score}
-                          </p>
-                        </div>
-                        <ConfidenceIcon className={`h-4 w-4 ${battery.score >= 8 ? 'text-green-500' : 'text-yellow-500'}`} />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2 flex-1 rounded-full ${getConfidenceColor(battery.score / 10)}`} 
-                             style={{ width: `${Math.min(battery.score * 10, 100)}%` }} />
-                        <span className="text-xs font-mono">Score: {battery.score}</span>
-                      </div>
-
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full">
-                            View Evidence ({battery.evidences.length})
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Evidence: {battery.brand} {battery.model}</DialogTitle>
-                          </DialogHeader>
-                          <ScrollArea className="max-h-96">
-                            <div className="space-y-3">
-                              {battery.evidences.map((evidence, evidenceIdx) => (
-                                <div key={evidenceIdx} className="rounded-lg border p-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="default">
-                                      {evidence.context}
-                                    </Badge>
-                                    <span className="text-sm font-mono">Weight: {evidence.weight}</span>
-                                  </div>
-                                  <p className="text-sm bg-muted p-2 rounded">
-                                    "{evidence.text}"
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Page: {evidence.page}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Inverters */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Gauge className="h-4 w-4" />
-                Inverters ({result.inverter.value ? 1 : 0})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!result.inverter.value ? (
-                <p className="text-sm text-muted-foreground">No inverters detected</p>
-              ) : (
-                <div className="space-y-2 rounded-lg border p-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-medium">{result.inverter.value.brandRaw} {result.inverter.value.modelRaw}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {result.inverter.value.ratedKw}kW • No DB Match
-                      </p>
-                    </div>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 rounded-full bg-green-500" />
-                    <span className="text-xs font-mono">Raw Text</span>
-                  </div>
-
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full">
-                        View Evidence ({result.inverter.value.evidences.length})
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Evidence: {result.inverter.value.brandRaw} {result.inverter.value.modelRaw}</DialogTitle>
-                      </DialogHeader>
-                      <ScrollArea className="max-h-96">
-                        <div className="space-y-3">
-                          {result.inverter.value.evidences.map((evidence, evidenceIdx) => (
-                            <div key={evidenceIdx} className="rounded-lg border p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="default">{evidence.context}</Badge>
-                                <span className="text-sm font-mono">Weight: {evidence.weight}</span>
-                              </div>
-                              <p className="text-sm bg-muted p-2 rounded">
-                                "{evidence.text}"
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Page: {evidence.page}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {result && <OCRResultDisplay result={result} onExtractComplete={onExtractComplete} />}
     </div>
   );
 }

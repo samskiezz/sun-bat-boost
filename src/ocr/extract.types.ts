@@ -22,6 +22,7 @@ export const PanelCandidateSchema = z.object({
   arrayKwDc: z.number().optional(),
   evidences: z.array(EvidenceSchema),
   score: z.number().default(0),
+  syntheticProduct: z.any().optional(),
 });
 
 export type PanelCandidate = z.infer<typeof PanelCandidateSchema>;
@@ -37,6 +38,7 @@ export const BatteryCandidateSchema = z.object({
   }).optional(),
   evidences: z.array(EvidenceSchema),
   score: z.number().default(0),
+  syntheticProduct: z.any().optional(),
 });
 
 export type BatteryCandidate = z.infer<typeof BatteryCandidateSchema>;
