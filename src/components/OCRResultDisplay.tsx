@@ -207,33 +207,8 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
         <div className="flex justify-center">
           <Button 
             onClick={() => {
-              try {
-                const configData = {
-                  panels: result?.panels?.best ? {
-                    brand: result.panels.best.brand || 'Unknown',
-                    model: result.panels.best.model || 'Unknown',
-                    watts: result.panels.best.wattage || 0,
-                    quantity: result.panels.best.count || 0,
-                    totalWatts: (result.panels.best.wattage || 0) * (result.panels.best.count || 0)
-                  } : null,
-                  battery: result?.battery?.best ? {
-                    brand: result.battery.best.brand || 'Unknown',
-                    model: result.battery.best.model || 'Unknown',
-                    usableKWh: result.battery.best.usableKWh || 0,
-                    totalKWh: result.battery.best.usableKWh || 0
-                  } : null,
-                  inverter: result?.inverter?.value ? {
-                    brand: result.inverter.value.brandRaw || 'Unknown',
-                    model: result.inverter.value.modelRaw || 'Unknown',
-                    power: result.inverter.value.ratedKw || 0
-                  } : null
-                };
-                
-                console.log('🔧 Sending config data:', configData);
-                onExtractComplete(configData);
-              } catch (error) {
-                console.error('❌ Error in Use Configuration:', error);
-              }
+              console.log('🔧 Sending full ExtractResult:', result);
+              onExtractComplete(result);
             }}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >

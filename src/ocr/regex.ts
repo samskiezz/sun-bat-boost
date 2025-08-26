@@ -85,22 +85,25 @@ const extractPanels = (text: string, page: number, context: string): PanelCandid
   // Look for comprehensive panel patterns
   const patterns = [
     // Brand + Model + Wattage (e.g., "JKM440N-54HL4R-BDB 440 Watt")
-    /(?:^|\\s)((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\\w\\s]*?)\\s+([A-Z]{2,4}\\d{3,4}[\\w\\-]*)\\s+(\\d{3,4})\\s*w(?:att)?s?/gi,
+    /(?:^|\s)((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\w\s]*?)\s+([A-Z]{2,4}\d{3,4}[\w\-]*)\s+(\d{3,4})\s*w(?:att)?s?/gi,
     
     // Quantity + Brand + Model (e.g., "30 x JKM440N-54HL4R-BDB")
-    /(\\d{1,3})\\s*(?:x|×|pieces?|panels?)\\s+((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\\w\\s]*?)\\s+([A-Z]{2,4}\\d{3,4}[\\w\\-]*)/gi,
+    /(\d{1,3})\s*(?:x|×|pieces?|panels?)\s+((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\w\s]*?)\s+([A-Z]{2,4}\d{3,4}[\w\-]*)/gi,
     
     // System size + "of Solar Power" (e.g., "13.200kW of Solar Power")
-    /(\\d{1,2}\\.?\\d{0,3})\\s*kw\\s+(?:of\\s+)?solar\\s+power/gi,
+    /(\d{1,2}\.?\d{0,3})\s*kw\s+(?:of\s+)?solar\s+power/gi,
+    
+    // System size alternatives (e.g., "13.2kW Solar System", "13.2 kW DC")
+    /(\d{1,2}\.?\d{0,3})\s*kw\s+(?:solar\s+system|dc|solar)/gi,
     
     // Model + Wattage patterns (e.g., "TSM-440NEG9R.28 Vertex S+")
-    /([A-Z]{2,4}[\\d\\-\\.]+[\\w\\-]*)\\s+(?:vertex|tiger|neon|alpha|twin|peak|mono|poly)[\\w\\s]*?\\s+(\\d{3,4})\\s*w(?:att)?s?/gi,
+    /([A-Z]{2,4}[\d\-\.]+[\w\-]*)\s+(?:vertex|tiger|neon|alpha|twin|peak|mono|poly)[\w\s]*?\s+(\d{3,4})\s*w(?:att)?s?/gi,
     
     // Direct wattage mentions near solar keywords
-    /(?:solar|panel|pv)[\\w\\s]*?(\\d{3,4})\\s*w(?:att)?s?/gi,
+    /(?:solar|panel|pv)[\w\s]*?(\d{3,4})\s*w(?:att)?s?/gi,
     
     // "X Watt panels" pattern
-    /(\\d{3,4})\\s*w(?:att)?\\s+panels?/gi
+    /(\d{3,4})\s*w(?:att)?\s+panels?/gi
   ];
   
   let foundBrands: string[] = [];
@@ -123,16 +126,32 @@ const extractPanels = (text: string, page: number, context: string): PanelCandid
         foundQuantities.push(parseInt(match[1]));
         foundBrands.push(match[2]);
         foundModels.push(match[3]);
-      } else if (index === 2) { // System size
+      } else if (index === 2) { // System size "of Solar Power"
         const systemKW = parseFloat(match[1]);
-        // Estimate panel count (assuming ~400W average)
-        foundQuantities.push(Math.round(systemKW * 1000 / 400));
-      } else if (index === 3) { // Model + Wattage
+        candidates.push({
+          brand: 'Unknown',
+          model: 'Unknown',
+          arrayKwDc: systemKW,
+          evidences: [{ page, text: `System size: ${systemKW}kW`, context: context as any, weight: 3 }],
+          score: 90,
+          syntheticProduct: true,
+        });
+      } else if (index === 3) { // System size alternatives
+        const systemKW = parseFloat(match[1]);
+        candidates.push({
+          brand: 'Unknown',
+          model: 'Unknown', 
+          arrayKwDc: systemKW,
+          evidences: [{ page, text: `Solar system: ${systemKW}kW`, context: context as any, weight: 2 }],
+          score: 85,
+          syntheticProduct: true,
+        });
+      } else if (index === 4) { // Model + Wattage
         foundModels.push(match[1]);
         foundWattages.push(parseInt(match[2]));
-      } else if (index === 4) { // Direct wattage
+      } else if (index === 5) { // Direct wattage
         foundWattages.push(parseInt(match[1]));
-      } else if (index === 5) { // "X Watt panels"
+      } else if (index === 6) { // "X Watt panels"
         foundWattages.push(parseInt(match[1]));
       }
     });
@@ -195,16 +214,16 @@ const extractBatteries = (text: string, page: number, context: string): BatteryC
   // Look for battery patterns with keyword context
   const patterns = [
     // "X.XkWh of Battery Storage"
-    /(\\d{1,2}(?:\\.\\d+)?)\\s*kwh\\s+(?:of\\s+)?battery\\s+storage/gi,
+    /(\d{1,2}(?:\.\d+)?)\s*kwh\s+(?:of\s+)?battery\s+storage/gi,
     
     // Brand + Model + Capacity (e.g., "SigenStor BAT 32.0")
-    /(sigen\\w*|tesla|lg|byd|sonnen|enphase|growatt|alpha|pylontech|redback|goodwe)\\s+([\\w\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)(?:\\s*kwh)?/gi,
+    /(sigen\w*|tesla|lg|byd|sonnen|enphase|growatt|alpha|pylontech|redback|goodwe)\s+([\w\s]+?)\s+(\d{1,2}(?:\.\d+)?)(?:\s*kwh)?/gi,
     
     // "1 x BrandModel Capacity"
-    /(\\d{1,2})\\s*x\\s+(\\w+)\\s+([\\w\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)(?:\\s*kwh)?/gi,
+    /(\d{1,2})\s*x\s+(\w+)\s+([\w\s]+?)\s+(\d{1,2}(?:\.\d+)?)(?:\s*kwh)?/gi,
     
     // Direct capacity with battery keyword
-    /(\\d{1,2}(?:\\.\\d+)?)\\s*kwh[\\w\\s]*?(?:battery|storage)/gi
+    /(\d{1,2}(?:\.\d+)?)\s*kwh[\w\s]*?(?:battery|storage)/gi
   ];
   
   let foundBrands: string[] = [];
@@ -297,13 +316,13 @@ const extractInverter = (text: string, page: number, context: string): InverterE
   // Look for inverter patterns
   const patterns = [
     // Brand + Model + Power (e.g., "GoodWe GW5000-NS 5kW")
-    /(fronius|sma|solar\\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)\\s+([\\w\\-\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)\\s*kw/gi,
+    /(fronius|sma|solar\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)\s+([\w\-\s]+?)\s+(\d{1,2}(?:\.\d+)?)\s*kw/gi,
     
     // "X kW Inverter"
-    /(\\d{1,2}(?:\\.\\d+)?)\\s*kw\\s+inverter/gi,
+    /(\d{1,2}(?:\.\d+)?)\s*kw\s+inverter/gi,
     
     // Brand mentions near power ratings
-    /(fronius|sma|solar\\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)/gi
+    /(fronius|sma|solar\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)/gi
   ];
   
   let foundBrands: string[] = [];

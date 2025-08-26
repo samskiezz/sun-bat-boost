@@ -42,17 +42,29 @@ export const InputModeTabs = ({ onCalculate, appMode = 'lite' }: InputModeTabsPr
 
       <TabsContent value="ocr">
         <OCRScanner onDataExtracted={(data) => {
+          console.log('🔋 Received OCR data:', data);
+          
+          // Calculate solarKw from various sources
+          let solarKw = 0;
+          if (data.panels?.best?.arrayKwDc) {
+            solarKw = data.panels.best.arrayKwDc;
+          } else if (data.panels?.best?.count && data.panels?.best?.wattage) {
+            solarKw = (data.panels.best.count * data.panels.best.wattage) / 1000;
+          }
+          
           // Transform OCR data to format expected by calculator
           const formData = {
             mode: "ocr",
             postcode: data.policyCalcInput?.postcode || "",
             installDate: data.policyCalcInput?.installDateISO || new Date().toISOString().split('T')[0],
-            solarKw: data.panels.best?.arrayKwDc || 0,
-            batteryKwh: data.battery.best?.usableKWh || 0,
+            solarKw,
+            batteryKwh: data.battery?.best?.usableKWh || 0,
             stcPrice: 38,
             vppProvider: "",
             extractedData: data
           };
+          
+          console.log('📊 Transformed form data:', formData);
           onCalculate(formData);
         }} />
       </TabsContent>

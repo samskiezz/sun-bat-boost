@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { extractFromOcr, ExtractResult } from '@/ocr/extract';
-import { pdfExtractor } from '@/utils/pdfExtract';
+import { extractTextFromFile } from '@/utils/pdfTextExtractor';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -24,7 +24,9 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
-      'application/pdf': ['.pdf']
+      'application/pdf': ['.pdf'],
+      'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.bmp'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
     multiple: false,
     onDrop: handleFileUpload
@@ -39,9 +41,12 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
     setResult(null);
 
     try {
+      const fileType = file.type || 'unknown';
+      const fileName = file.name || 'unknown';
+      
       toast({
         title: "Processing Document",
-        description: "Running universal OCR pipeline...",
+        description: `Extracting text from ${fileType.includes('pdf') ? 'PDF' : fileType.includes('image') ? 'image' : 'Excel'} file...`,
       });
 
       // Simulate progress updates
@@ -49,10 +54,17 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
         setProgress(prev => Math.min(prev + Math.random() * 15, 90));
       }, 500);
 
-      // Extract text from PDF
-      const extractedContent = await pdfExtractor.extractFromFile(file);
-      const pages = [{ page: 1, text: extractedContent.text }];
+      console.log('🚀 Processing file:', fileName, 'Type:', fileType);
+
+      // Extract text using universal extractor
+      const extractionResult = await extractTextFromFile(file);
+      console.log('📄 Extraction result:', {
+        method: extractionResult.method,
+        confidence: extractionResult.confidence,
+        textLength: extractionResult.text.length
+      });
       
+      const pages = [{ page: 1, text: extractionResult.text }];
       const extractedResult = extractFromOcr(pages);
       
       clearInterval(progressInterval);
@@ -63,8 +75,8 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
       const totalFound = extractedResult.panels.candidates.length + extractedResult.battery.candidates.length + (extractedResult.inverter.value ? 1 : 0);
       
       toast({
-        title: "Extraction Complete",
-        description: `Found ${totalFound} products with universal matching`,
+        title: "Extraction Complete", 
+        description: `Found ${totalFound} products using ${extractionResult.method} extraction (${Math.round(extractionResult.confidence * 100)}% confidence)`,
       });
 
     } catch (error) {
@@ -108,8 +120,8 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
             <h3 className="text-lg font-semibold mb-2">Upload Solar Proposal</h3>
             <p className="text-muted-foreground">
               {isDragActive 
-                ? 'Drop your PDF here...' 
-                : 'Drag & drop your PDF or click to browse'
+                ? 'Drop your file here...' 
+                : 'Drag & drop PDF, image, or Excel file or click to browse'
               }
             </p>
           </div>
