@@ -28,7 +28,7 @@ export async function checkReadinessGates(): Promise<ReadinessStatus> {
   }
   
   try {
-    const { data, error } = await supabase.functions.invoke('preboot-trainer', {
+    const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
       body: { action: 'check_readiness' }
     });
     
