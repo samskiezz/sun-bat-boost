@@ -274,16 +274,46 @@ async function checkReadiness(supabase: any) {
     const { data, error } = await supabase
       .rpc('check_readiness_gates');
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ RPC error:', error);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: error.message || 'Failed to check readiness gates',
+          allPassing: false,
+          gates: [],
+          message: 'Readiness check failed'
+        }),
+        { 
+          status: 200, // Return 200 so client can handle gracefully
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
-    console.log('✅ Readiness check completed');
+    console.log('✅ Readiness check completed:', data);
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify({
+        success: true,
+        ...data
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('❌ Readiness check error:', error);
-    throw error;
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'Internal error checking readiness',
+        allPassing: false,
+        gates: [],
+        message: 'Readiness check failed'
+      }),
+      { 
+        status: 200, // Return 200 so client can handle gracefully
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 }
 

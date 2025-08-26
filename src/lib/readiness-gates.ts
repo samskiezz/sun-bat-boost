@@ -32,15 +32,30 @@ export async function checkReadinessGates(): Promise<ReadinessStatus> {
       body: { action: 'check_readiness' }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw error;
+    }
+
+    // Handle both success and error responses from the function
+    if (data.success === false) {
+      console.error('Function returned error:', data.error);
+      // Return the error data structure that the function provides
+      readinessCache = {
+        allPassing: data.allPassing || false,
+        gates: data.gates || [],
+        message: data.message || 'Readiness check failed'
+      };
+    } else {
+      // Handle successful response
+      readinessCache = {
+        allPassing: data.allPassing || false,
+        gates: data.gates || [],
+        message: data.message || 'Readiness check completed'
+      };
+    }
     
-    readinessCache = {
-      allPassing: data.allPassing,
-      gates: data.gates,
-      message: data.message
-    };
     lastCheck = now;
-    
     return readinessCache;
     
   } catch (error) {
