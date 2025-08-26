@@ -174,7 +174,7 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
     specs.push({
       product_id: product.id,
       key: 'inverter_topology',
-      value: raw.type || raw.topology || 'String',
+      value: raw.inverter_type || raw.type || raw.topology || 'String',
       source: 'direct_extraction'
     });
   }
