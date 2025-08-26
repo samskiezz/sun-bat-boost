@@ -30,7 +30,7 @@ async function extractSpecsWithAI(product: any): Promise<any[]> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -51,8 +51,7 @@ CRITICAL: Extract EVERY specification you can find. Return specifications as sim
             content: `Model: ${product.model}\nBrand: ${product.manufacturer?.name || 'Unknown'}\nCategory: ${product.category}\n\nRaw Data: ${JSON.stringify(product.raw).substring(0, 1200)}\n\nDatasheet URL: ${product.datasheet_url || 'None'}\n\nExtract ALL specifications comprehensively.`
           }
         ],
-        max_completion_tokens: 400, // Increased for more comprehensive specs
-        temperature: 0.05 // Lower temperature for more consistency
+        max_completion_tokens: 400 // GPT-5 doesn't support temperature parameter
       }),
     });
 

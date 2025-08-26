@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useReadinessGates } from '@/lib/readiness-gates';
 import DataCollectionPanel from './DataCollectionPanel';
 import { RealSpecsExtractor } from './RealSpecsExtractor';
+import { ReliableSpecsExtractor } from './ReliableSpecsExtractor';
 import { SpecsExtractorTest } from './SpecsExtractorTest';
 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms";
@@ -627,9 +628,10 @@ export default function ComprehensiveCatalogManager() {
       {/* Real Specs Extraction */}
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
+          <ReliableSpecsExtractor />
           <RealSpecsExtractor />
-          <SpecsExtractorTest />
         </div>
+        <SpecsExtractorTest />
       </div>
     </div>
   );
