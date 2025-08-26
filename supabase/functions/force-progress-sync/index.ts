@@ -84,7 +84,7 @@ serve(async (req) => {
       console.log(`🔄 Updated ${category}: ${count}/${target} comprehensive specs (${isCompleted ? 'COMPLETED' : 'RUNNING'})`);
     }
     
-    // Update G3 readiness gates
+    // Force update G3 readiness gates - handle constraint conflicts properly
     const gateUpdates = [
       { name: 'G3_PANEL_SPECS', value: comprehensiveSpecs.PANEL, required: 1348 },
       { name: 'G3_BATTERY_SPECS', value: comprehensiveSpecs.BATTERY_MODULE, required: 513 },
@@ -92,21 +92,42 @@ serve(async (req) => {
     ];
     
     for (const gate of gateUpdates) {
-      const { error } = await supabase
+      // Try update first
+      const { error: updateError, count } = await supabase
         .from('readiness_gates')
-        .upsert({
-          gate_name: gate.name,
-          required_value: gate.required,
+        .update({
           current_value: gate.value,
           passing: gate.value >= gate.required,
           last_checked: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('gate_name', gate.name)
+        .select('*', { count: 'exact' });
       
-      if (error) {
-        console.error(`❌ Failed to update gate ${gate.name}:`, error);
+      if (updateError) {
+        console.error(`❌ Update error for gate ${gate.name}:`, updateError);
+      } else if (count === 0) {
+        // No rows updated, try insert
+        console.log(`🆕 Gate ${gate.name} not found, creating...`);
+        const { error: insertError } = await supabase
+          .from('readiness_gates')
+          .insert({
+            gate_name: gate.name,
+            required_value: gate.required,
+            current_value: gate.value,
+            passing: gate.value >= gate.required,
+            last_checked: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          });
+          
+        if (insertError) {
+          console.error(`❌ Insert error for gate ${gate.name}:`, insertError);
+        } else {
+          console.log(`✅ Created gate ${gate.name}: ${gate.value}/${gate.required}`);
+        }
       } else {
-        console.log(`🎯 Updated gate ${gate.name}: ${gate.value}/${gate.required}`);
+        console.log(`✅ Updated gate ${gate.name}: ${gate.value}/${gate.required} (${gate.value >= gate.required ? 'PASSING' : 'FAILING'})`);
       }
     }
     
