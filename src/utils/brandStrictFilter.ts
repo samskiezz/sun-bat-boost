@@ -237,10 +237,7 @@ export class BrandStrictFilter {
       return brandMatches || specialMatches;
     });
     
-    console.log(`🏭 Brand filtering: ${detectedBrand} → ${brandFiltered.length} products from ${products.length} total`);
-    
     if (brandFiltered.length === 0) {
-      console.log(`❌ No products found for brand: ${detectedBrand}`);
       return {
         brand: detectedBrand,
         wattage,
@@ -249,32 +246,29 @@ export class BrandStrictFilter {
       };
     }
     
-    // STEP 2: ZERO-TOLERANCE Wattage filtering (for panels)
-    if (wattage) {
-      const wattsFiltered = brandFiltered.filter(product => {
-        if (!product.power_rating) return false;
-        return product.power_rating === wattage; // EXACTLY equal - no tolerance
-      });
-      
-      console.log(`⚡ EXACT Watts filtering: ${wattage}W → ${wattsFiltered.length} products (zero tolerance)`);
-      
-      if (wattsFiltered.length > 0) {
+      // STEP 2: ZERO-TOLERANCE Wattage filtering (for panels)
+      if (wattage) {
+        const wattsFiltered = brandFiltered.filter(product => {
+          if (!product.power_rating) return false;
+          return product.power_rating === wattage; // EXACTLY equal - no tolerance
+        });
+        
+        if (wattsFiltered.length > 0) {
+          return {
+            brand: detectedBrand,
+            wattage,
+            filteredProducts: wattsFiltered.sort((a, b) => (a.model || '').localeCompare(b.model || '')),
+            confidence: 'exact'
+          };
+        }
+        
         return {
           brand: detectedBrand,
           wattage,
-          filteredProducts: wattsFiltered.sort((a, b) => (a.model || '').localeCompare(b.model || '')),
-          confidence: 'exact'
+          filteredProducts: brandFiltered,
+          confidence: 'partial'
         };
       }
-      
-      console.log(`⚠️ No exact ${wattage}W match found in ${detectedBrand} - showing all brand products for selection`);
-      return {
-        brand: detectedBrand,
-        wattage,
-        filteredProducts: brandFiltered,
-        confidence: 'partial'
-      };
-    }
     
     // STEP 3: ZERO-TOLERANCE Capacity filtering (for batteries)
     if (capacity) {
@@ -282,8 +276,6 @@ export class BrandStrictFilter {
         if (!product.capacity_kwh) return false;
         return Math.abs(product.capacity_kwh - capacity) < 0.1; // Very small tolerance for capacity
       });
-      
-      console.log(`🔋 Capacity filtering: ${capacity}kWh → ${capacityFiltered.length} products`);
       
       if (capacityFiltered.length > 0) {
         return {

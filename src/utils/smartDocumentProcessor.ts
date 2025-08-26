@@ -101,7 +101,6 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
     console.log(`📝 Extracted text using ${method} method (${text.length} characters)`);
     
     // Step 2: Load comprehensive product database
-    console.log('📊 Loading comprehensive product database...');
     let allProducts: Product[];
     
     try {
@@ -126,10 +125,7 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
           specs: b
         }))
       ];
-      
-      console.log(`📈 Loaded ${allProducts.length} products from database`);
     } catch (error) {
-      console.warn('⚠️ Database unavailable, using synthetic products');
       allProducts = await generateComprehensiveProducts();
     }
     
@@ -138,14 +134,9 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
     const smartMatcher = new SmartMatcher(allProducts); // Keep for fallback/learning
     await smartMatcher.init();
     
-    console.log(`🏭 Loaded ${allProducts.length} products for hierarchical matching`);
-    
     // Step 4: Run comprehensive hierarchical matching (Brand → Wattage/kWh → Model)
-    console.log('🎯 Processing ALL ~2000 products with hierarchical priority...');
     const hierarchicalMatches = hierarchicalMatcher.match(text);
     const hits = hierarchicalMatcher.convertToMatchHits(hierarchicalMatches);
-    
-    console.log(`🎯 Comprehensive hierarchical matcher found ${hits.length} matches across all products`);
     
     // Step 5: Process hits by type and determine what needs confirmation
     const extractedData = await processMatchHits(hits, text, smartMatcher);
@@ -227,41 +218,39 @@ async function processMatchHits(
   const batteryHits = hits.filter(h => h.product.type === 'battery');
   const inverterHits = hits.filter(h => h.product.type === 'inverter');
 
-  // Process panels
-  for (const hit of panelHits.slice(0, 3)) { // Top 3 panel matches
-    const threshold = await matcher.autoAcceptThreshold(hit.product.brand);
-    const needsConfirmation = hit.score < threshold;
-    
-    // Extract additional info from context
-    const contextWindow = fullText.substring(
-      Math.max(0, hit.at - 200), 
-      Math.min(fullText.length, hit.at + 200)
-    );
-    
-    const quantityMatch = contextWindow.match(/(\d+)\s*[x×]/i);
-    const wattsMatch = contextWindow.match(/(\d{3,4})\s*[Ww]/i);
-    
-    extractedData.panels!.push({
-      description: hit.raw,
-      confidence: hit.score,
-      quantity: quantityMatch ? parseInt(quantityMatch[1]) : undefined,
-      watts: wattsMatch ? parseInt(wattsMatch[1]) : hit.product.power_rating,
-      cecId: hit.product.specs?.certificate || 'CEC-LISTED',
-      needsConfirmation,
-      candidates: needsConfirmation ? [hit] : undefined,
-      suggestedMatch: {
-        id: hit.productId,
-        brand: hit.product.brand,
-        model: hit.product.model,
-        watts: hit.product.power_rating || 0,
-        cec_id: hit.product.specs?.certificate || 'CEC-LISTED',
+    // Process panels
+    for (const hit of panelHits.slice(0, 3)) { // Top 3 panel matches
+      const threshold = await matcher.autoAcceptThreshold(hit.product.brand);
+      const needsConfirmation = hit.score < threshold;
+      
+      // Extract additional info from context
+      const contextWindow = fullText.substring(
+        Math.max(0, hit.at - 200), 
+        Math.min(fullText.length, hit.at + 200)
+      );
+      
+      const quantityMatch = contextWindow.match(/(\d+)\s*[x×]/i);
+      const wattsMatch = contextWindow.match(/(\d{3,4})\s*[Ww]/i);
+      
+      extractedData.panels!.push({
+        description: hit.raw,
         confidence: hit.score,
-        matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'
-      }
-    });
-    
-    console.log(`🔆 Panel: ${hit.product.brand} ${hit.product.model} (${(hit.score * 100).toFixed(1)}%) ${needsConfirmation ? '⚠️ NEEDS CONFIRMATION' : '✅ AUTO-ACCEPTED'}`);
-  }
+        quantity: quantityMatch ? parseInt(quantityMatch[1]) : undefined,
+        watts: wattsMatch ? parseInt(wattsMatch[1]) : hit.product.power_rating,
+        cecId: hit.product.specs?.certificate || 'CEC-LISTED',
+        needsConfirmation,
+        candidates: needsConfirmation ? [hit] : undefined,
+        suggestedMatch: {
+          id: hit.productId,
+          brand: hit.product.brand,
+          model: hit.product.model,
+          watts: hit.product.power_rating || 0,
+          cec_id: hit.product.specs?.certificate || 'CEC-LISTED',
+          confidence: hit.score,
+          matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'
+        }
+      });
+    }
 
   // Process batteries
   for (const hit of batteryHits.slice(0, 2)) { // Top 2 battery matches
@@ -293,8 +282,6 @@ async function processMatchHits(
         matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'
       }
     });
-    
-    console.log(`🔋 Battery: ${hit.product.brand} ${hit.product.model} (${(hit.score * 100).toFixed(1)}%) ${needsConfirmation ? '⚠️ NEEDS CONFIRMATION' : '✅ AUTO-ACCEPTED'}`);
   }
 
   // Process inverters
@@ -324,14 +311,10 @@ async function processMatchHits(
         matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'
       }
     });
-    
-    console.log(`⚡ Inverter: ${hit.product.brand} ${hit.product.model} (${(hit.score * 100).toFixed(1)}%) ${needsConfirmation ? '⚠️ NEEDS CONFIRMATION' : '✅ AUTO-ACCEPTED'}`);
   }
 
   // Extract additional data using enhanced patterns
   await extractAdditionalData(extractedData, fullText);
-  
-  console.log(`📊 Smart extraction complete: ${extractedData.panels?.length || 0} panels, ${extractedData.batteries?.length || 0} batteries, ${extractedData.inverters?.length || 0} inverters`);
   
   return extractedData;
 }
@@ -359,7 +342,6 @@ async function extractAdditionalData(
           unit: 'kW',
           confidence: 0.9
         };
-        console.log(`✓ System size found: ${match[1]}kW`);
         break;
       }
     }
@@ -378,7 +360,6 @@ async function extractAdditionalData(
           value: postcode,
           confidence: 0.8
         };
-        console.log(`✓ Postcode found: ${postcode}`);
         break;
       }
     }

@@ -30,15 +30,13 @@ export class HierarchicalMatcher {
 
   constructor(products: Product[]) {
     this.allProducts = products;
-    console.log(`🏭 Hierarchical matcher initialized with ${products.length} products`);
+    // Removed verbose logging - keep it clean for users
   }
 
   /**
    * Main matching function - processes text hierarchically for ALL products
    */
   match(text: string): HierarchicalMatch[] {
-    console.log('🎯 Starting comprehensive hierarchical matching for all products...');
-    
     const normalizedText = text.toUpperCase();
     const results: HierarchicalMatch[] = [];
     
@@ -52,22 +50,16 @@ export class HierarchicalMatcher {
         const specRaw = match[2];
         const fullMatch = match[0];
         
-        console.log(`🔍 Found: ${brandRaw} ${specRaw} (${pattern.type})`);
-        
         // Step 1: Get exact brand+spec matches using strict filter
         const searchQuery = this.buildSearchQuery(brandRaw, specRaw, pattern.type);
         const strictResult = brandStrictFilter.filterProducts(this.allProducts, searchQuery);
         
         if (strictResult.filteredProducts.length > 0) {
-          console.log(`✅ Found ${strictResult.filteredProducts.length} exact matches for ${brandRaw} ${specRaw}`);
-          
           // Step 2: Try to find specific model within exact matches
           const contextWindow = this.getContext(normalizedText, match.index!);
           const bestMatch = this.findBestModel(strictResult.filteredProducts, contextWindow, fullMatch);
           
           results.push(bestMatch);
-        } else {
-          console.log(`❌ No exact matches found for ${brandRaw} ${specRaw}`);
         }
       }
     }
@@ -83,8 +75,6 @@ export class HierarchicalMatcher {
   private generateAllPatterns(): Array<{regex: RegExp, type: 'panel' | 'battery' | 'inverter'}> {
     const allBrands = [...new Set(this.allProducts.map(p => p.brand.toUpperCase()))];
     const patterns: Array<{regex: RegExp, type: 'panel' | 'battery' | 'inverter'}> = [];
-    
-    console.log(`🔧 Generating patterns for ${allBrands.length} unique brands`);
     
     // Create brand alternatives string for regex
     const brandPattern = allBrands
@@ -109,7 +99,6 @@ export class HierarchicalMatcher {
       type: 'inverter'
     });
     
-    console.log(`📋 Generated ${patterns.length} pattern types for all brands`);
     return patterns;
   }
 
@@ -159,7 +148,6 @@ export class HierarchicalMatcher {
           bestProduct = product;
           bestConfidence = totalConfidence;
           modelFound = true;
-          console.log(`🎯 Model match: ${product.model} (${foundTokens} tokens, confidence: ${totalConfidence})`);
         }
       }
     }
