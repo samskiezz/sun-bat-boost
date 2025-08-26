@@ -105,8 +105,11 @@ export const RealSpecsExtractor = () => {
         console.log(`🔄 Iteration ${iterationCount}: Getting products needing specs...`);
         setCurrentProduct(`Iteration ${iterationCount}: Checking for products needing specs...`);
         
-        // Get products that need specs using our RPC
-        const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs');
+        // Get products that need specs using our RPC - all categories that need work
+        const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs', {
+          min_specs: 6,
+          categories: ['PANEL', 'BATTERY_MODULE'] // Only get panels and batteries since inverters are complete
+        });
         
         if (productsError) {
           throw new Error(`Failed to get products: ${productsError.message}`);

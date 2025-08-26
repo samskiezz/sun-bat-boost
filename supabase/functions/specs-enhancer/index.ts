@@ -371,7 +371,19 @@ serve(async (req) => {
           try {
             const specs = await extractSpecsWithAI(product);
             if (specs.length > 0) {
+              // CRITICAL FIX: Actually save the specs to database!
+              const { error: specsError } = await supabase
+                .from('specs')
+                .upsert(specs, { onConflict: 'product_id,key' });
+
+              if (specsError) {
+                console.error(`❌ Specs save error for ${product.model}:`, specsError.message);
+                failures++;
+                return { success: false, error: specsError.message };
+              }
+              
               successful++;
+              console.log(`✅ Saved ${specs.length} specs for ${product.model}`);
               return { success: true, specsAdded: specs.length };
             } else {
               failures++;
