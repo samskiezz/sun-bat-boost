@@ -370,6 +370,12 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
 
     console.log(`🚀 Migrating existing ${category} data (${processed}/${target})...`);
     
+    // For INVERTER category, skip migration and go directly to web search
+    if (category === 'INVERTER') {
+      console.log(`⚡ INVERTER category - no migration table exists, going directly to web search...`);
+      return await webSearchScraping(supabase, jobId, category, target, { processed, pdf_done: progress.pdf_done, specs_done: progress.specs_done });
+    }
+    
     // Migrate existing data from old tables to new products table
     let sourceData = [];
     
@@ -389,12 +395,12 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
         .range(processed, processed + batchSize - 1)
         .order('id');
       sourceData = data || [];
-    } else if (category === 'INVERTER') {
-      // No inverter data yet, skip for now
-      sourceData = [];
     }
 
-    console.log(`📦 Retrieved ${sourceData.length} ${category} items to migrate`);
+    if (!sourceData || sourceData.length === 0) {
+      console.log(`⚠️ No data found for ${category} migration, triggering web search...`);
+      return await webSearchScraping(supabase, jobId, category, target, { processed, pdf_done: progress.pdf_done, specs_done: progress.specs_done });
+    }
     
     // Transform and insert into products table
     const productsToInsert = [];
@@ -499,6 +505,8 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       }
     });
     
+    console.log(`🔍 Web search response for ${currentBrand}:`, searchResponse);
+    
     if (searchResponse.error) {
       console.error('❌ Web search error:', searchResponse.error);
       // Fall back to basic product generation
@@ -506,7 +514,7 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
     }
     
     const searchData = searchResponse.data;
-    if (!searchData.success || !searchData.data) {
+    if (!searchData || !searchData.success || !searchData.data) {
       console.log('⚠️ No web search data, falling back to basic generation');
       return await generateBasicProducts(supabase, jobId, category, target, progress, currentBrand);
     }

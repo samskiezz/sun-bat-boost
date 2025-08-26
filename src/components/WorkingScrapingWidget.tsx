@@ -198,24 +198,40 @@ export default function WorkingScrapingWidget() {
   }
 
   async function resetScraping() {
-    if (!confirm('⚠️ Reset all scraping jobs?')) return;
+    if (!confirm('⚠️ Reset all scraping jobs and restart inverter processing?')) return;
     
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+      // First reset the job
+      const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'reset' }
       });
 
-      if (error) throw error;
+      if (resetError) {
+        console.error('❌ Reset error:', resetError);
+      }
+
+      // Wait a moment then start fresh
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Start new job which will now properly process inverters
+      const { error: startError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'start' }
+      });
+
+      if (startError) throw startError;
 
       setJob(null);
       setProgress([]);
       localStorage.removeItem('scrape_job_id');
 
       toast({
-        title: "Reset Complete",
-        description: "All jobs have been reset"
+        title: "Jobs Reset & Restarted",
+        description: "Fresh scraping job started with inverter web search enabled"
       });
+
+      // Immediately refresh status
+      setTimeout(loadCurrentStatus, 3000);
 
     } catch (error) {
       console.error('❌ Reset failed:', error);
