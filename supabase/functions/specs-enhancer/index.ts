@@ -39,7 +39,7 @@ For ${product.category}, focus on: ${
   product.category === 'PANEL' ? 'watts, efficiency_percent, cell_type' : 
   product.category === 'BATTERY_MODULE' ? 'kWh, battery_chemistry, vpp_compatible' : 
   'power_kw, max_efficiency, inverter_topology'
-}. NO JSON, just lines.`
+}. RETURN ONLY PLAIN JSON ARRAY - NO MARKDOWN, NO CODE BLOCKS.`
           },
           {
             role: 'user',  
@@ -54,7 +54,7 @@ For ${product.category}, focus on: ${
       const data = await response.json();
       const content = data.choices[0].message.content.trim();
       
-      // Parse line-by-line format - much more reliable than JSON
+      // Parse line-by-line format and convert to JSON structure
       const specs = content
         .split('\n')
         .map(line => line.trim())

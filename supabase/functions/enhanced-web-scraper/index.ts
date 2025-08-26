@@ -153,9 +153,10 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
         messages: [
           {
             role: 'system',
-            content: `Extract technical specifications for solar equipment. Return only valid JSON array format.
+            content: `Extract technical specifications for solar equipment. Return ONLY a valid JSON array, no markdown blocks.
             Each spec should be: {"key": "spec_name", "value": "spec_value", "unit": "unit_if_applicable"}
-            Focus on: ${categorySpecs[product.category as keyof typeof categorySpecs]}`
+            Focus on: ${categorySpecs[product.category as keyof typeof categorySpecs]}
+            CRITICAL: Return ONLY the JSON array, no ```json``` blocks, no explanations.`
           },
           {
             role: 'user',
@@ -176,7 +177,15 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
       const content = data.choices[0].message.content.trim();
       
       try {
-        const specs = JSON.parse(content);
+        // Clean up the content by removing markdown code blocks
+        let cleanContent = content.trim();
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        const specs = JSON.parse(cleanContent);
         if (Array.isArray(specs)) {
           return specs.map((spec: any) => ({
             product_id: product.id,
@@ -188,6 +197,7 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
         }
       } catch (parseError) {
         console.error('Failed to parse direct extraction:', parseError);
+        console.error('Raw content:', content);
       }
     }
   } catch (error) {
