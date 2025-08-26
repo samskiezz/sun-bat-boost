@@ -148,9 +148,15 @@ Warranty:
     let guidelines;
     
     try {
-      guidelines = JSON.parse(aiResponse.choices[0].message.content);
+      let content = aiResponse.choices[0].message.content;
+      // Clean up markdown formatting if present
+      if (content.includes('```json')) {
+        content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      }
+      guidelines = JSON.parse(content);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('Raw AI response:', aiResponse.choices[0].message.content);
       // Fallback guidelines
       guidelines = {
         technical_requirements: {

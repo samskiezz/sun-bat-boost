@@ -109,28 +109,55 @@ const PDFProposalUploader: React.FC = () => {
     
     setProcessingFiles(initialProcessingFiles);
     
-    // Process files in batches of 5
-    const batchSize = 5;
+    // Process files in smaller batches with throttling to prevent crashes
+    const batchSize = 3; // Reduced batch size for stability
     const batches = [];
     for (let i = 0; i < files.length; i += batchSize) {
       batches.push(files.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
-      const batchPromises = batch.map((file, batchIndex) => 
-        processFile(file, files.indexOf(file))
-      );
+    let completedCount = 0;
+    
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
       
-      try {
-        await Promise.all(batchPromises);
-      } catch (error) {
-        console.error('Batch processing error:', error);
+      console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} files`);
+      
+      // Process batch with individual error handling
+      const batchPromises = batch.map(async (file) => {
+        const fileIndex = files.indexOf(file);
+        try {
+          await processFile(file, fileIndex);
+          completedCount++;
+        } catch (error) {
+          console.error(`Error processing ${file.name}:`, error);
+          setProcessingFiles(prev => prev.map((f, i) => 
+            i === fileIndex ? { 
+              ...f, 
+              status: 'error', 
+              error: error instanceof Error ? error.message : 'Processing failed'
+            } : f
+          ));
+        }
+      });
+      
+      // Wait for current batch to complete before starting next
+      await Promise.allSettled(batchPromises);
+      
+      // Add delay between batches to prevent overwhelming the system
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
+      
+      // Update progress
+      toast({
+        title: `Batch ${batchIndex + 1} Complete`,
+        description: `Processed ${completedCount}/${files.length} files`,
+      });
     }
     
     setIsProcessing(false);
     
-    const completedCount = processingFiles.filter(f => f.status === 'completed').length;
     toast({
       title: "Bulk Processing Complete",
       description: `Successfully processed ${completedCount} of ${files.length} PDF proposals`,
