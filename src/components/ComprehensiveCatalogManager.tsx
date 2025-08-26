@@ -8,6 +8,7 @@ import { Database, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Shield
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useReadinessGates } from '@/lib/readiness-gates';
+import DataCollectionPanel from './DataCollectionPanel';
 
 interface ScrapeJob {
   id: string;
@@ -276,131 +277,9 @@ export default function ComprehensiveCatalogManager() {
         </TabsList>
 
         <TabsContent value="progress" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Job-Based Scraping Progress
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Orchestrated data collection with job management and comprehensive progress tracking.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {progress.length > 0 ? (
-                progress.map((item) => (
-                  <div key={item.category} className="space-y-4 p-4 rounded-lg border">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        {getCategoryDisplayName(item.category)}
-                        {getStateIcon(item.status)}
-                      </h3>
-                       <Badge className={getStateColor(item.status)}>
-                         {item.status}
-                       </Badge>
-                    </div>
-
-                     <div className="grid grid-cols-4 gap-4 text-center">
-                       <div>
-                         <div className="text-2xl font-bold text-blue-600">{item.total_found}</div>
-                         <div className="text-xs text-muted-foreground">Target</div>
-                       </div>
-                       <div>
-                         <div className="text-2xl font-bold text-green-600">{item.total_processed}</div>
-                         <div className="text-xs text-muted-foreground">Processed</div>
-                       </div>
-                       <div>
-                         <div className="text-2xl font-bold text-purple-600">{item.total_with_pdfs}</div>
-                         <div className="text-xs text-muted-foreground">PDFs</div>
-                       </div>
-                       <div>
-                         <div className="text-2xl font-bold text-orange-600">{item.total_parsed}</div>
-                         <div className="text-xs text-muted-foreground">Specs</div>
-                       </div>
-                     </div>
-
-                    {/* Progress Bars */}
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Processed</span>
-                          <span className="font-mono">{getProgressPercentage(item.total_processed, item.total_found)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="h-2 bg-green-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.total_processed, item.total_found)}%` }}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>PDFs Downloaded</span>
-                          <span className="font-mono">{getProgressPercentage(item.total_with_pdfs, item.total_found)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="h-2 bg-purple-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.total_with_pdfs, item.total_found)}%` }}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Specs Parsed</span>
-                          <span className="font-mono">{getProgressPercentage(item.total_parsed, item.total_found)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="h-2 bg-orange-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.total_parsed, item.total_found)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status Messages */}
-                     {item.status === 'processing' && (
-                       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
-                         <Clock className="w-4 h-4 animate-spin" />
-                         <span>Processing {getCategoryDisplayName(item.category).toLowerCase()}... {item.total_processed}/{item.total_found}</span>
-                       </div>
-                     )}
-                     
-                     {item.status === 'completed' && (
-                       <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-md">
-                         <CheckCircle className="w-4 h-4" />
-                         <span>Complete - {item.total_processed} products with {item.total_with_pdfs} PDFs and {item.total_parsed} parsed specs</span>
-                       </div>
-                     )}
-                     
-                     {item.status === 'failed' && (
-                       <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-md">
-                         <XCircle className="w-4 h-4" />
-                         <span>Processing failed - check logs for details</span>
-                       </div>
-                     )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-12">
-                  <Database className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No Job Running</h3>
-                  <p className="text-sm mb-4">Click "Start Scraping" to create a new job and begin processing.</p>
-                  <Button 
-                    onClick={startJob}
-                    disabled={loading}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Database className="w-4 h-4 mr-2" />
-                    Start Scraping
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="min-h-[400px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-lg">
+            <DataCollectionPanel />
+          </div>
         </TabsContent>
 
         <TabsContent value="catalog" className="space-y-4">
