@@ -68,7 +68,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
     try {
       setIsTraining(true);
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'scrape_all' }
+        body: { action: 'start' }
       });
       
       if (error) throw error;

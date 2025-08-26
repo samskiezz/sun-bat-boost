@@ -165,7 +165,7 @@ export default function ScrapingDashboard() {
     try {
       // Start the background scraping process
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'scrape_all' }
+        body: { action: 'start' }
       });
 
       if (error) throw error;
