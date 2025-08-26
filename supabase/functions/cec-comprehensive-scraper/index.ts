@@ -403,7 +403,7 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       .single();
 
     if (!progress || progress.state === 'completed') {
-      return;
+      return 0; // Already completed, no items processed
     }
 
     const target = progress.target;
@@ -529,9 +529,9 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
   } catch (error) {
     console.error(`❌ Migration error for ${category}:`, error);
     
-    // If migration fails, try web search for all categories as fallback
-    console.log(`🌍 No source data for ${category}, attempting web search scraping...`);
-    return await webSearchScraping(supabase, jobId, category, target, progress);
+    console.log(`🌍 No source data for ${category}, attempting web search...`);
+    const webSearchResult = await webSearchScraping(supabase, jobId, category, target, progress);
+    return webSearchResult || 0; // Ensure we return a number
   }
 }
 
