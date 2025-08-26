@@ -14,788 +14,322 @@ export type Database = {
   }
   public: {
     Tables: {
-      batteries: {
+      automation_logs: {
         Row: {
-          approval_expires: string | null
-          approval_status: string | null
-          brand: string
-          capacity_kwh: number | null
-          certificate: string | null
-          chemistry: string | null
-          datasheet_url: string | null
-          description: string | null
-          hash: string | null
-          id: number
-          image_url: string | null
-          model: string
-          nominal_capacity: number | null
-          scraped_at: string
-          source_url: string
-          units: number | null
-          usable_capacity: number | null
-          vpp_capable: boolean | null
-        }
-        Insert: {
-          approval_expires?: string | null
-          approval_status?: string | null
-          brand: string
-          capacity_kwh?: number | null
-          certificate?: string | null
-          chemistry?: string | null
-          datasheet_url?: string | null
-          description?: string | null
-          hash?: string | null
-          id?: number
-          image_url?: string | null
-          model: string
-          nominal_capacity?: number | null
-          scraped_at?: string
-          source_url: string
-          units?: number | null
-          usable_capacity?: number | null
-          vpp_capable?: boolean | null
-        }
-        Update: {
-          approval_expires?: string | null
-          approval_status?: string | null
-          brand?: string
-          capacity_kwh?: number | null
-          certificate?: string | null
-          chemistry?: string | null
-          datasheet_url?: string | null
-          description?: string | null
-          hash?: string | null
-          id?: number
-          image_url?: string | null
-          model?: string
-          nominal_capacity?: number | null
-          scraped_at?: string
-          source_url?: string
-          units?: number | null
-          usable_capacity?: number | null
-          vpp_capable?: boolean | null
-        }
-        Relationships: []
-      }
-      compat: {
-        Row: {
-          battery_id: string
+          action: string
           created_at: string
-          details: Json | null
+          error_message: string | null
           id: string
-          inverter_id: string
-          ok: boolean
-          rule_code: string
-        }
-        Insert: {
-          battery_id: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          inverter_id: string
-          ok: boolean
-          rule_code: string
-        }
-        Update: {
-          battery_id?: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          inverter_id?: string
-          ok?: boolean
-          rule_code?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "compat_battery_id_fkey"
-            columns: ["battery_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "compat_inverter_id_fkey"
-            columns: ["inverter_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      data_update_tracking: {
-        Row: {
-          created_at: string
-          id: string
-          last_updated: string
-          notes: string | null
-          record_count: number
+          integration_type: string
+          job_id: string
+          request_data: Json | null
+          response_data: Json | null
           status: string
-          table_name: string
+          workflow_step_id: string | null
         }
         Insert: {
+          action: string
           created_at?: string
+          error_message?: string | null
           id?: string
-          last_updated?: string
-          notes?: string | null
-          record_count?: number
-          status?: string
-          table_name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          last_updated?: string
-          notes?: string | null
-          record_count?: number
-          status?: string
-          table_name?: string
-        }
-        Relationships: []
-      }
-      doc_spans: {
-        Row: {
-          bbox: Json | null
-          created_at: string
-          id: string
-          key: string
-          page: number
-          product_id: string
-          text: string
-        }
-        Insert: {
-          bbox?: Json | null
-          created_at?: string
-          id?: string
-          key: string
-          page: number
-          product_id: string
-          text: string
-        }
-        Update: {
-          bbox?: Json | null
-          created_at?: string
-          id?: string
-          key?: string
-          page?: number
-          product_id?: string
-          text?: string
-        }
-        Relationships: []
-      }
-      manufacturers: {
-        Row: {
-          aliases: string[] | null
-          created_at: string
-          id: string
-          name: string
-          updated_at: string
-          urls: string[] | null
-        }
-        Insert: {
-          aliases?: string[] | null
-          created_at?: string
-          id?: string
-          name: string
-          updated_at?: string
-          urls?: string[] | null
-        }
-        Update: {
-          aliases?: string[] | null
-          created_at?: string
-          id?: string
-          name?: string
-          updated_at?: string
-          urls?: string[] | null
-        }
-        Relationships: []
-      }
-      postcode_zones: {
-        Row: {
-          created_at: string
-          postcode: number
-          state: string
-          zone: number
-        }
-        Insert: {
-          created_at?: string
-          postcode: number
-          state: string
-          zone: number
-        }
-        Update: {
-          created_at?: string
-          postcode?: number
-          state?: string
-          zone?: number
-        }
-        Relationships: []
-      }
-      product_changes: {
-        Row: {
-          brand: string
-          changed_at: string
-          id: number
-          model: string
-          new_hash: string | null
-          old_hash: string | null
-          product_type: string
-        }
-        Insert: {
-          brand: string
-          changed_at?: string
-          id?: number
-          model: string
-          new_hash?: string | null
-          old_hash?: string | null
-          product_type: string
-        }
-        Update: {
-          brand?: string
-          changed_at?: string
-          id?: number
-          model?: string
-          new_hash?: string | null
-          old_hash?: string | null
-          product_type?: string
-        }
-        Relationships: []
-      }
-      products: {
-        Row: {
-          category: Database["public"]["Enums"]["product_category"] | null
-          cec_ref: string | null
-          created_at: string
-          datasheet_url: string | null
-          id: string
-          manufacturer_id: string | null
-          model: string
-          pdf_hash: string | null
-          pdf_path: string | null
-          product_url: string | null
-          raw: Json | null
-          series: string | null
-          sku: string | null
-          source: string | null
-          specs: Json | null
-          status: string | null
-          updated_at: string
-        }
-        Insert: {
-          category?: Database["public"]["Enums"]["product_category"] | null
-          cec_ref?: string | null
-          created_at?: string
-          datasheet_url?: string | null
-          id?: string
-          manufacturer_id?: string | null
-          model: string
-          pdf_hash?: string | null
-          pdf_path?: string | null
-          product_url?: string | null
-          raw?: Json | null
-          series?: string | null
-          sku?: string | null
-          source?: string | null
-          specs?: Json | null
-          status?: string | null
-          updated_at?: string
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["product_category"] | null
-          cec_ref?: string | null
-          created_at?: string
-          datasheet_url?: string | null
-          id?: string
-          manufacturer_id?: string | null
-          model?: string
-          pdf_hash?: string | null
-          pdf_path?: string | null
-          product_url?: string | null
-          raw?: Json | null
-          series?: string | null
-          sku?: string | null
-          source?: string | null
-          specs?: Json | null
-          status?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_manufacturer_id_fkey"
-            columns: ["manufacturer_id"]
-            isOneToOne: false
-            referencedRelation: "manufacturers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pv_modules: {
-        Row: {
-          approval_expires: string | null
-          approval_status: string | null
-          brand: string
-          certificate: string | null
-          datasheet_url: string | null
-          description: string | null
-          hash: string | null
-          id: number
-          image_url: string | null
-          model: string
-          power_rating: number | null
-          scraped_at: string
-          source_url: string
-          technology: string | null
-        }
-        Insert: {
-          approval_expires?: string | null
-          approval_status?: string | null
-          brand: string
-          certificate?: string | null
-          datasheet_url?: string | null
-          description?: string | null
-          hash?: string | null
-          id?: number
-          image_url?: string | null
-          model: string
-          power_rating?: number | null
-          scraped_at?: string
-          source_url: string
-          technology?: string | null
-        }
-        Update: {
-          approval_expires?: string | null
-          approval_status?: string | null
-          brand?: string
-          certificate?: string | null
-          datasheet_url?: string | null
-          description?: string | null
-          hash?: string | null
-          id?: number
-          image_url?: string | null
-          model?: string
-          power_rating?: number | null
-          scraped_at?: string
-          source_url?: string
-          technology?: string | null
-        }
-        Relationships: []
-      }
-      readiness_gates: {
-        Row: {
-          created_at: string
-          current_value: number | null
-          details: Json | null
-          gate_name: string
-          id: string
-          last_checked: string | null
-          passing: boolean | null
-          required_value: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          current_value?: number | null
-          details?: Json | null
-          gate_name: string
-          id?: string
-          last_checked?: string | null
-          passing?: boolean | null
-          required_value: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          current_value?: number | null
-          details?: Json | null
-          gate_name?: string
-          id?: string
-          last_checked?: string | null
-          passing?: boolean | null
-          required_value?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      replay_items: {
-        Row: {
-          created_at: string
-          id: string
-          kind: string
-          payload: Json
-          processed: boolean
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kind: string
-          payload: Json
-          processed?: boolean
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kind?: string
-          payload?: Json
-          processed?: boolean
-        }
-        Relationships: []
-      }
-      scrape_job_progress: {
-        Row: {
-          category: string
+          integration_type: string
           job_id: string
-          pdf_done: number
-          processed: number
-          specs_done: number
-          state: string
-          target: number
-        }
-        Insert: {
-          category: string
-          job_id: string
-          pdf_done?: number
-          processed?: number
-          specs_done?: number
-          state?: string
-          target: number
+          request_data?: Json | null
+          response_data?: Json | null
+          status: string
+          workflow_step_id?: string | null
         }
         Update: {
-          category?: string
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          integration_type?: string
           job_id?: string
-          pdf_done?: number
-          processed?: number
-          specs_done?: number
-          state?: string
-          target?: number
+          request_data?: Json | null
+          response_data?: Json | null
+          status?: string
+          workflow_step_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "scrape_job_progress_job_id_fkey"
+            foreignKeyName: "automation_logs_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
-            referencedRelation: "scrape_jobs"
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_logs_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
             referencedColumns: ["id"]
           },
         ]
       }
-      scrape_jobs: {
+      integration_settings: {
         Row: {
-          created_at: string
-          error: string | null
-          finished_at: string | null
-          id: string
-          started_at: string | null
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          error?: string | null
-          finished_at?: string | null
-          id?: string
-          started_at?: string | null
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          error?: string | null
-          finished_at?: string | null
-          id?: string
-          started_at?: string | null
-          status?: string
-        }
-        Relationships: []
-      }
-      scrape_progress: {
-        Row: {
-          category: Database["public"]["Enums"]["product_category"]
+          configuration: Json
           created_at: string
           id: string
-          last_cursor: string | null
-          status: string | null
-          total_found: number | null
-          total_parsed: number | null
-          total_processed: number | null
-          total_with_pdfs: number | null
+          integration_name: string
+          is_enabled: boolean
           updated_at: string
         }
         Insert: {
-          category: Database["public"]["Enums"]["product_category"]
+          configuration?: Json
           created_at?: string
           id?: string
-          last_cursor?: string | null
-          status?: string | null
-          total_found?: number | null
-          total_parsed?: number | null
-          total_processed?: number | null
-          total_with_pdfs?: number | null
+          integration_name: string
+          is_enabled?: boolean
           updated_at?: string
         }
         Update: {
-          category?: Database["public"]["Enums"]["product_category"]
+          configuration?: Json
           created_at?: string
           id?: string
-          last_cursor?: string | null
-          status?: string | null
-          total_found?: number | null
-          total_parsed?: number | null
-          total_processed?: number | null
-          total_with_pdfs?: number | null
+          integration_name?: string
+          is_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
       }
-      specs: {
+      jobs: {
         Row: {
+          address: string
+          assigned_technician: string | null
+          completion_date: string | null
           created_at: string
-          doc_span_id: string | null
+          created_by: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
           id: string
-          key: string
-          product_id: string
-          source: string | null
-          unit: string | null
-          value: string
+          job_number: string
+          notes: string | null
+          priority: string
+          scheduled_date: string | null
+          status: string
+          system_size: number | null
+          updated_at: string
         }
         Insert: {
+          address: string
+          assigned_technician?: string | null
+          completion_date?: string | null
           created_at?: string
-          doc_span_id?: string | null
+          created_by: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
           id?: string
-          key: string
-          product_id: string
-          source?: string | null
-          unit?: string | null
-          value: string
+          job_number: string
+          notes?: string | null
+          priority?: string
+          scheduled_date?: string | null
+          status?: string
+          system_size?: number | null
+          updated_at?: string
         }
         Update: {
+          address?: string
+          assigned_technician?: string | null
+          completion_date?: string | null
           created_at?: string
-          doc_span_id?: string | null
+          created_by?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
           id?: string
-          key?: string
-          product_id?: string
-          source?: string | null
-          unit?: string | null
-          value?: string
+          job_number?: string
+          notes?: string | null
+          priority?: string
+          scheduled_date?: string | null
+          status?: string
+          system_size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          converted_job_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          id: string
+          lead_data: Json | null
+          lead_score: number | null
+          lead_source: string
+          notes: string | null
+          source_lead_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          converted_job_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          id?: string
+          lead_data?: Json | null
+          lead_score?: number | null
+          lead_source: string
+          notes?: string | null
+          source_lead_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          converted_job_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          id?: string
+          lead_data?: Json | null
+          lead_score?: number | null
+          lead_source?: string
+          notes?: string | null
+          source_lead_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workflow_steps: {
+        Row: {
+          automation_data: Json | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          job_id: string
+          notes: string | null
+          status: string
+          step_name: string
+          step_number: number
+          updated_at: string
+        }
+        Insert: {
+          automation_data?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          status?: string
+          step_name: string
+          step_number: number
+          updated_at?: string
+        }
+        Update: {
+          automation_data?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          status?: string
+          step_name?: string
+          step_number?: number
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "specs_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "workflow_steps_job_id_fkey"
+            columns: ["job_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
-      }
-      train_episodes: {
-        Row: {
-          context: Json
-          created_at: string
-          id: string
-          metrics: Json
-          mode: string
-          result: Json
-          reward: number
-        }
-        Insert: {
-          context: Json
-          created_at?: string
-          id?: string
-          metrics: Json
-          mode: string
-          result: Json
-          reward: number
-        }
-        Update: {
-          context?: Json
-          created_at?: string
-          id?: string
-          metrics?: Json
-          mode?: string
-          result?: Json
-          reward?: number
-        }
-        Relationships: []
-      }
-      training_metrics: {
-        Row: {
-          created_at: string
-          id: string
-          metadata: Json | null
-          metric_type: string
-          value: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          metadata?: Json | null
-          metric_type: string
-          value: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          metadata?: Json | null
-          metric_type?: string
-          value?: number
-        }
-        Relationships: []
-      }
-      ui_constraints: {
-        Row: {
-          confidence: number
-          created_at: string
-          enabled: boolean
-          expression: Json
-          id: string
-          reason: Json
-          rule_code: string
-          scope: string
-          updated_at: string
-        }
-        Insert: {
-          confidence?: number
-          created_at?: string
-          enabled?: boolean
-          expression: Json
-          id?: string
-          reason: Json
-          rule_code: string
-          scope: string
-          updated_at?: string
-        }
-        Update: {
-          confidence?: number
-          created_at?: string
-          enabled?: boolean
-          expression?: Json
-          id?: string
-          reason?: Json
-          rule_code?: string
-          scope?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      vpp_providers: {
-        Row: {
-          company: string
-          compatible_battery_brands: string[] | null
-          compatible_inverter_brands: string[] | null
-          contact_phone: string | null
-          created_at: string | null
-          estimated_annual_reward: number | null
-          id: string
-          is_active: boolean | null
-          max_battery_kwh: number | null
-          min_battery_kwh: number | null
-          name: string
-          requirements: string | null
-          signup_bonus: number | null
-          states_available: string[] | null
-          terms_url: string | null
-          updated_at: string | null
-          website: string | null
-        }
-        Insert: {
-          company: string
-          compatible_battery_brands?: string[] | null
-          compatible_inverter_brands?: string[] | null
-          contact_phone?: string | null
-          created_at?: string | null
-          estimated_annual_reward?: number | null
-          id?: string
-          is_active?: boolean | null
-          max_battery_kwh?: number | null
-          min_battery_kwh?: number | null
-          name: string
-          requirements?: string | null
-          signup_bonus?: number | null
-          states_available?: string[] | null
-          terms_url?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Update: {
-          company?: string
-          compatible_battery_brands?: string[] | null
-          compatible_inverter_brands?: string[] | null
-          contact_phone?: string | null
-          created_at?: string | null
-          estimated_annual_reward?: number | null
-          id?: string
-          is_active?: boolean | null
-          max_battery_kwh?: number | null
-          min_battery_kwh?: number | null
-          name?: string
-          requirements?: string | null
-          signup_bonus?: number | null
-          states_available?: string[] | null
-          terms_url?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {
-      all_products: {
-        Row: {
-          approval_expires: string | null
-          approval_status: string | null
-          brand: string | null
-          capacity: number | null
-          certificate: string | null
-          description: string | null
-          id: number | null
-          image_url: string | null
-          model: string | null
-          product_type: string | null
-          rating: number | null
-          scraped_at: string | null
-          source_url: string | null
-          specs: string | null
-          vpp_capable: boolean | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      check_data_freshness: {
-        Args: { table_name_param: string }
-        Returns: boolean
+      convert_lead_to_job: {
+        Args: { lead_uuid: string }
+        Returns: string
       }
-      check_readiness_gates: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
+      get_user_role: {
+        Args: { user_uuid: string }
+        Returns: Database["public"]["Enums"]["user_role"]
       }
-      get_product_counts_by_category: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          active_count: number
-          category: string
-          total_count: number
-          with_datasheet_count: number
-          with_pdf_count: number
-        }[]
-      }
-      refresh_battery_data: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      update_data_tracking: {
-        Args: {
-          count_param: number
-          notes_param?: string
-          status_param?: string
-          table_name_param: string
-        }
+      initialize_workflow_steps: {
+        Args: { job_uuid: string }
         Returns: undefined
       }
     }
     Enums: {
-      product_category:
-        | "PANEL"
-        | "INVERTER"
-        | "BATTERY_MODULE"
-        | "BATTERY_STACK"
+      user_role: "super_admin" | "admin" | "manager" | "technician" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -923,12 +457,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      product_category: [
-        "PANEL",
-        "INVERTER",
-        "BATTERY_MODULE",
-        "BATTERY_STACK",
-      ],
+      user_role: ["super_admin", "admin", "manager", "technician", "viewer"],
     },
   },
 } as const
