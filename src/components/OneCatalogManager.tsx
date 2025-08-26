@@ -131,11 +131,17 @@ export default function OneCatalogManager() {
         return;
       }
 
-      if (data) {
+      // Ensure data is always an array
+      if (data && Array.isArray(data)) {
         setProductCounts(data);
+      } else if (data) {
+        // If data is not an array but exists, wrap it or extract array
+        console.warn('Product counts data is not an array:', data);
+        setProductCounts([]);
       }
     } catch (error) {
       console.error('Product counts loading error:', error);
+      setProductCounts([]); // Reset to empty array on error
     }
   };
 
@@ -262,10 +268,18 @@ export default function OneCatalogManager() {
   };
 
   const getTotalProducts = () => {
+    if (!Array.isArray(productCounts)) {
+      console.warn('productCounts is not an array:', productCounts);
+      return 0;
+    }
     return productCounts.reduce((sum, cat) => sum + (cat.total_count || 0), 0);
   };
 
   const getTotalWithPDFs = () => {
+    if (!Array.isArray(productCounts)) {
+      console.warn('productCounts is not an array:', productCounts);
+      return 0;
+    }
     return productCounts.reduce((sum, cat) => sum + (cat.with_pdf_count || 0), 0);
   };
 
@@ -436,7 +450,7 @@ export default function OneCatalogManager() {
       )}
 
       {/* Category Breakdown */}
-      {productCounts.length > 0 && (
+      {Array.isArray(productCounts) && productCounts.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Product Categories</CardTitle>
