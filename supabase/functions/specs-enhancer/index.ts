@@ -13,7 +13,178 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple direct specs extraction without complex AI matching
+// AI-powered product matching using NLP with improved error handling
+async function findProductAliases(productName: string, category: string): Promise<string[]> {
+  if (!openAIApiKey) {
+    console.log('⚠️ OpenAI API key not configured, using basic matching');
+    return [productName];
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert in solar energy products. Generate ALL possible aliases and variations for this product that could refer to the same item. Include:
+            - Different spellings and abbreviations
+            - Marketing names vs technical names  
+            - Model number variations (with/without spaces, dashes, etc.)
+            - Brand variations and shortened forms
+            - Series names and model families
+            
+            Return a simple JSON array of strings, nothing else. Example: ["Product A", "Product-A", "ProductA", "Product A Series"]`
+          },
+          {
+            role: 'user',
+            content: `Product: "${productName}" Category: "${category}"`
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.2
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAPI request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content.trim();
+    
+    // Clean up response - handle different formats
+    content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    
+    // Extract JSON array from response
+    const arrayMatch = content.match(/\[[\s\S]*?\]/);
+    if (arrayMatch) {
+      content = arrayMatch[0];
+    }
+    
+    const aliases = JSON.parse(content);
+    console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
+    return Array.isArray(aliases) ? aliases.slice(0, 10) : [productName]; // Limit to 10 aliases
+    
+  } catch (error) {
+    console.error('❌ Error generating aliases:', error);
+    return [productName];
+  }
+}
+
+// Cross-reference product catalog using aliases to find similar products
+async function findSimilarProducts(product: any, aliases: string[]): Promise<any[]> {
+  try {
+    // Search for products with similar models in the same category
+    const searchTerms = aliases.concat([product.model]).slice(0, 5); // Limit search terms
+    
+    const { data: similarProducts } = await supabase
+      .from('products')  
+      .select('id, model, raw, specs')
+      .eq('category', product.category)
+      .neq('id', product.id)
+      .or(searchTerms.map(term => `model.ilike.%${term.replace(/[^a-zA-Z0-9]/g, '')}%`).join(','))
+      .limit(5);
+    
+    console.log(`🔍 Found ${similarProducts?.length || 0} similar products for cross-reference`);
+    return similarProducts || [];
+    
+  } catch (error) {
+    console.error('❌ Error finding similar products:', error);
+    return [];
+  }
+}
+
+// Intelligent specs extraction with NLP matching and cross-referencing
+async function extractIntelligentSpecs(product: any): Promise<any[]> {
+  console.log(`🤖 Starting intelligent specs extraction for ${product.model} (${product.category})`);
+  
+  try {
+    // Step 1: Generate aliases using AI
+    const aliases = await findProductAliases(product.model, product.category);
+    
+    // Step 2: Find similar products for cross-referencing
+    const similarProducts = await findSimilarProducts(product, aliases);
+    
+    // Step 3: Extract specs using AI with catalog cross-reference
+    if (openAIApiKey && similarProducts.length > 0) {
+      console.log(`🔄 Using AI extraction with ${similarProducts.length} similar products for context`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a solar product specification expert. Extract specifications by cross-referencing the target product with similar products in the catalog.
+
+              Required specs for ${product.category}:
+              ${product.category === 'PANEL' ? '- watts: power rating in watts\n- efficiency_percent: efficiency percentage\n- cell_type: solar cell technology' : ''}
+              ${product.category === 'BATTERY_MODULE' ? '- kWh: capacity in kilowatt hours\n- battery_chemistry: battery chemistry type\n- vpp_compatible: virtual power plant compatibility' : ''}
+              ${product.category === 'INVERTER' ? '- power_kw: power in kilowatts\n- max_efficiency: maximum efficiency percentage\n- inverter_topology: inverter type' : ''}
+
+              Use NLP matching to identify if any similar products are the same model with different naming.
+              Return only a JSON array: [{"key": "spec_name", "value": "spec_value"}]`
+            },
+            {
+              role: 'user',
+              content: `Target: ${JSON.stringify(product)}
+              Aliases: ${JSON.stringify(aliases)}
+              Similar Products: ${JSON.stringify(similarProducts.map(p => ({model: p.model, raw: p.raw})))}`
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.1
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        let content = data.choices[0].message.content.trim();
+        
+        // Clean and parse response
+        content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        const arrayMatch = content.match(/\[[\s\S]*?\]/);
+        if (arrayMatch) {
+          content = arrayMatch[0];
+        }
+        
+        const aiSpecs = JSON.parse(content);
+        if (Array.isArray(aiSpecs) && aiSpecs.length > 0) {
+          const specs = aiSpecs.map(spec => ({
+            product_id: product.id,
+            key: spec.key,
+            value: spec.value.toString(),
+            source: 'ai_nlp_matched'
+          }));
+          
+          console.log(`✅ AI extracted ${specs.length} NLP-matched specs for ${product.model}`);
+          return specs;
+        }
+      }
+    }
+    
+    // Step 4: Fallback to basic extraction if AI fails
+    console.log(`⚠️ Using direct extraction fallback for ${product.model}`);
+    return await extractBasicSpecs(product);
+    
+  } catch (error) {
+    console.error(`❌ Intelligent extraction error for ${product.model}:`, error);
+    return await extractBasicSpecs(product);
+  }
+}
+
+// Basic specs extraction from raw product data
 async function extractBasicSpecs(product: any): Promise<any[]> {
   console.log(`🔧 Extracting basic specs for ${product.model} (${product.category})`);
   
@@ -30,7 +201,6 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
 
   // Category-specific specs extraction from raw data
   if (product.category === 'PANEL') {
-    // Extract panel specs
     if (raw.power_rating || raw.watts) {
       specs.push({
         product_id: product.id,
@@ -59,7 +229,6 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
     }
 
   } else if (product.category === 'BATTERY_MODULE') {
-    // Extract battery specs
     if (raw.capacity_kwh || raw.capacity) {
       specs.push({
         product_id: product.id,
@@ -88,7 +257,6 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
     }
 
   } else if (product.category === 'INVERTER') {
-    // Extract inverter specs
     if (raw.power_rating) {
       specs.push({
         product_id: product.id,
@@ -119,83 +287,6 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
 
   console.log(`✅ Extracted ${specs.length} basic specs for ${product.model}`);
   return specs;
-}
-
-// Enhanced direct specs extraction - faster and more reliable  
-async function extractIntelligentSpecs(product: any): Promise<any[]> {
-  try {
-    // First try basic extraction from raw data
-    let specs = await extractBasicSpecs(product);
-    
-    // If we don't have enough specs and OpenAI is available, enhance with AI
-    if (specs.length < 3 && openAIApiKey) {
-      console.log(`🤖 Enhancing specs with AI for ${product.model}`);
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `Extract solar product specifications from the given data. Return ONLY a JSON array of specifications in this exact format: [{"key": "spec_name", "value": "value"}]. No markdown, no explanations.`
-            },
-            {
-              role: 'user',
-              content: `Product: ${product.model}\nCategory: ${product.category}\nRaw Data: ${JSON.stringify(product.raw || {})}`
-            }
-          ],
-          max_tokens: 500,
-          temperature: 0.1
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        let content = data.choices[0].message.content.trim();
-        
-        // Clean JSON response
-        if (content.startsWith('```')) {
-          content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-        }
-        
-        try {
-          const aiSpecs = JSON.parse(content);
-          if (Array.isArray(aiSpecs)) {
-            const enhancedSpecs = aiSpecs.map(spec => ({
-              product_id: product.id,
-              key: spec.key,
-              value: spec.value.toString(),
-              source: 'ai_enhanced'
-            }));
-            
-            // Merge with existing specs, avoiding duplicates
-            const existingKeys = new Set(specs.map(s => s.key));
-            const newSpecs = enhancedSpecs.filter(s => !existingKeys.has(s.key));
-            specs = [...specs, ...newSpecs];
-          }
-        } catch (parseError) {
-          console.log(`⚠️ AI parsing failed for ${product.model}, using basic specs`);
-        }
-      }
-    }
-    
-    // If still no specs, use fallback
-    if (specs.length === 0) {
-      specs = generateFallbackSpecs(product);
-    }
-    
-    console.log(`✅ Final specs count for ${product.model}: ${specs.length}`);
-    return specs;
-
-  } catch (error) {
-    console.error(`❌ Error extracting specs for ${product.model}:`, error);
-    return generateFallbackSpecs(product);
-  }
 }
 
 // Enhanced specs for AI/ML compatibility - simplified and faster approach
