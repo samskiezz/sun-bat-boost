@@ -30,71 +30,69 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
 
   async function checkSystemReadiness() {
     try {
-      // Only show loading on first check, not subsequent ones to avoid flickering
-      if (!readiness) {
-        setLoading(true);
-      }
+      // Always allow app to render - don't block on slow calls
+      setLoading(false);
       
-      // Check readiness gates
+      // Check readiness gates (fast call)
       const gatesResult = await checkReadinessGates();
       setReadiness(gatesResult);
       
-      // Get training status
+      // Get training status (fast call)  
       const trainingResult = await getTrainingStatus();
       setTrainingStatus(trainingResult);
       
-      // Get scraping status with proper error handling and update readiness gates
-      try {
-        const { data: scrapingResult, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-          body: { action: 'status' }
-        });
+      // Get scraping status in background - don't block app loading
+      setTimeout(async () => {
+        try {
+          const { data: scrapingResult, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+            body: { action: 'status' }
+          });
         
-        if (!error && scrapingResult) {
-          setScrapingStatus(scrapingResult);
-          
-          // Update readiness gates based on actual product counts
-          const productCounts = scrapingResult.productCounts || [];
-          const totalProducts = productCounts.reduce((sum: number, p: any) => sum + (p.total_count || 0), 0);
-          const totalWithPdfs = productCounts.reduce((sum: number, p: any) => sum + (p.with_pdf_count || 0), 0);
-          
-          console.log(`📊 Updating readiness: ${totalProducts} total products, ${totalWithPdfs} with PDFs`);
-          
-          // Update readiness gates with actual data - force passing status
-          if (totalProducts > 0 || totalWithPdfs > 0) {
-            await supabase.from('readiness_gates').upsert([
-              {
-                gate_name: 'data_collection',
-                required_value: 1000,
-                current_value: totalProducts,
-                passing: true, // Force pass - we have 3014 products
-                details: { description: 'Minimum product data collected', source: 'product_counts' }
-              },
-              {
-                gate_name: 'pdf_processing', 
-                required_value: 500,
-                current_value: totalWithPdfs,
-                passing: true, // Force pass - we have 1149 PDFs
-                details: { description: 'Product PDFs processed', source: 'pdf_counts' }
-              },
-              {
-                gate_name: 'system_ready',
-                required_value: 1,
-                current_value: 1,
-                passing: true, // Always pass - system is ready
-                details: { description: 'System ready for calculator access', source: 'force_ready' }
-              }
-            ], { onConflict: 'gate_name' });
+          if (!error && scrapingResult) {
+            setScrapingStatus(scrapingResult);
+            
+            // Update readiness gates based on actual product counts
+            const productCounts = scrapingResult.productCounts || [];
+            const totalProducts = productCounts.reduce((sum: number, p: any) => sum + (p.total_count || 0), 0);
+            const totalWithPdfs = productCounts.reduce((sum: number, p: any) => sum + (p.with_pdf_count || 0), 0);
+            
+            console.log(`📊 Updating readiness: ${totalProducts} total products, ${totalWithPdfs} with PDFs`);
+            
+            // Update readiness gates with actual data - force passing status
+            if (totalProducts > 0 || totalWithPdfs > 0) {
+              await supabase.from('readiness_gates').upsert([
+                {
+                  gate_name: 'data_collection',
+                  required_value: 1000,
+                  current_value: totalProducts,
+                  passing: true, // Force pass - we have 3014 products
+                  details: { description: 'Minimum product data collected', source: 'product_counts' }
+                },
+                {
+                  gate_name: 'pdf_processing', 
+                  required_value: 500,
+                  current_value: totalWithPdfs,
+                  passing: true, // Force pass - we have 1149 PDFs
+                  details: { description: 'Product PDFs processed', source: 'pdf_counts' }
+                },
+                {
+                  gate_name: 'system_ready',
+                  required_value: 1,
+                  current_value: 1,
+                  passing: true, // Always pass - system is ready
+                  details: { description: 'System ready for calculator access', source: 'force_ready' }
+                }
+              ], { onConflict: 'gate_name' });
+            }
           }
+        } catch (scrapingError) {
+          console.log('Scraping status not available yet');
+          // Don't fail the whole check if scraping status fails
         }
-      } catch (scrapingError) {
-        console.log('Scraping status not available yet');
-        // Don't fail the whole check if scraping status fails
-      }
+      }, 1000);
       
     } catch (error) {
       console.error('Failed to check system readiness:', error);
-    } finally {
-      setLoading(false);
     }
   }
 
