@@ -12,12 +12,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Enhanced specs for AI/ML compatibility
-async function enhanceProductSpecs() {
+// Enhanced specs for AI/ML compatibility - process in batches to avoid CPU timeout
+async function enhanceProductSpecs(batchSize = 50, offset = 0) {
   console.log('🔧 Enhancing product specs for AI/ML compatibility...');
   
   try {
-    // Get all products with their specs
+    // Get batch of products with their specs
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -27,14 +27,20 @@ async function enhanceProductSpecs() {
         raw,
         manufacturer:manufacturers(name),
         specs:specs(key, value)
-      `);
+      `)
+      .range(offset, offset + batchSize - 1);
 
     if (productsError) {
       console.error('❌ Products fetch error:', productsError);
       return { success: false, error: productsError.message };
     }
 
-    console.log(`📦 Processing ${products.length} products for spec enhancement...`);
+    if (!products || products.length === 0) {
+      console.log('✅ No more products to process');
+      return { success: true, enhanced_count: 0, total_products: 0, completed: true };
+    }
+
+    console.log(`📦 Processing batch ${Math.floor(offset/batchSize) + 1}: ${products.length} products (offset: ${offset})`);
     
     let enhancedCount = 0;
     
@@ -173,11 +179,13 @@ async function enhanceProductSpecs() {
       }
     }
 
-    console.log(`✅ Enhanced specs for ${enhancedCount} products`);
+    console.log(`✅ Enhanced specs for ${enhancedCount} products in this batch`);
     return { 
       success: true, 
       enhanced_count: enhancedCount,
-      total_products: products.length
+      total_products: products.length,
+      completed: products.length < batchSize,
+      next_offset: offset + batchSize
     };
 
   } catch (error) {
@@ -247,11 +255,11 @@ serve(async (req) => {
   }
 
   try {
-    const { action } = await req.json();
+    const { action, batchSize = 50, offset = 0 } = await req.json();
     console.log(`🚀 Specs Enhancer Action: ${action}`);
 
     if (action === 'enhance_specs') {
-      const result = await enhanceProductSpecs();
+      const result = await enhanceProductSpecs(batchSize, offset);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -263,9 +271,14 @@ serve(async (req) => {
       });
       
     } else if (action === 'full_enhancement') {
-      // Run both processes
-      const specsResult = await enhanceProductSpecs();
-      const pdfResult = await generateMissingPDFs();
+      // Process a single batch for full enhancement to avoid timeout
+      const specsResult = await enhanceProductSpecs(batchSize, offset);
+      
+      // Only generate PDFs if this is the first batch
+      let pdfResult = { success: true, processed_count: 0, total_products: 0 };
+      if (offset === 0) {
+        pdfResult = await generateMissingPDFs();
+      }
       
       return new Response(JSON.stringify({
         success: specsResult.success && pdfResult.success,

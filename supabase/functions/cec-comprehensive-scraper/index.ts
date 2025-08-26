@@ -264,17 +264,45 @@ async function tickJob(supabase: any) {
     if (allCategoriesComplete) {
       console.log('🚀 All categories complete - triggering FULL specs enhancement...');
       
-      // Enhance specs for AI/ML compatibility - FULL EXTRACTION FOR ALL PRODUCTS
+      // Enhance specs for AI/ML compatibility - BATCH PROCESSING to avoid timeouts
       try {
         console.log('🔥 CRITICAL: Triggering complete specs extraction for ALL products...');
-        await supabase.functions.invoke('specs-enhancer', {
-          body: { 
-            action: 'full_enhancement',
-            force_all_categories: true,
-            extract_all_specs: true
+        
+        let offset = 0;
+        let batchSize = 50;
+        let totalProcessed = 0;
+        let completed = false;
+        
+        while (!completed) {
+          const { data: result, error } = await supabase.functions.invoke('specs-enhancer', {
+            body: { 
+              action: 'full_enhancement',
+              batchSize: batchSize,
+              offset: offset
+            }
+          });
+          
+          if (error) {
+            console.error(`❌ Specs enhancement error at offset ${offset}:`, error);
+            break;
           }
-        });
-        console.log('✅ Full specs enhancement triggered for ALL products');
+          
+          if (result?.specs_result?.enhanced_count) {
+            totalProcessed += result.specs_result.enhanced_count;
+            console.log(`✅ Processed ${result.specs_result.enhanced_count} products (total: ${totalProcessed})`);
+          }
+          
+          completed = result?.specs_result?.completed || false;
+          offset += batchSize;
+          
+          // Safety limit to prevent infinite loops
+          if (offset > 10000) {
+            console.log('⚠️ Reached safety limit, stopping batch processing');
+            break;
+          }
+        }
+        
+        console.log(`✅ Full specs enhancement completed - processed ${totalProcessed} products total`);
       } catch (error) {
         console.error('❌ Specs enhancement error:', error);
       }
