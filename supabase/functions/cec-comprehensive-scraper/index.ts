@@ -270,8 +270,7 @@ async function pauseJob(supabase: any) {
     const { data: updated, error: updateError } = await supabase
       .from('scrape_jobs')
       .update({
-        status: 'paused',
-        finished_at: new Date().toISOString()
+        status: 'paused'
       })
       .eq('status', 'running')
       .select();
@@ -289,7 +288,17 @@ async function pauseJob(supabase: any) {
     );
   } catch (error) {
     console.error('❌ Pause error:', error);
-    throw error;
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: 'Failed to pause job',
+        error: error.message
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 }
 
@@ -423,39 +432,23 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
 
     console.log(`🚀 Migrating existing ${category} data (${processed}/${target})...`);
     
-    // Check if there are any existing inverters in all_products to migrate
+    // For INVERTER category, use real CEC data scraping
     if (category === 'INVERTER') {
-      console.log(`⚡ Checking for existing INVERTER data to migrate...`);
+      console.log(`⚡ Processing INVERTER using CEC approved inverters list...`);
       
-      // Try to get inverter data from all_products table
-      const { data: existingInverters } = await supabase
-        .from('all_products')
-        .select('*')
-        .eq('product_type', 'INVERTER')
-        .range(processed, processed + batchSize - 1)
-        .order('id');
-      
-      if (existingInverters && existingInverters.length > 0) {
-        console.log(`📊 Found ${existingInverters.length} existing inverters to migrate`);
-        sourceData = existingInverters;
-      } else {
-        console.log(`🔍 No existing INVERTER data found, attempting web search...`);
-        
-        // If no existing data and we're still at the beginning, adjust the target
-        if (processed === 0) {
-          console.log(`📉 Adjusting INVERTER target from ${target} to ${processed + batchSize} (no source data available)`);
-          await supabase
-            .from('scrape_job_progress')
-            .update({ 
-              target: batchSize, // Set realistic target
-              state: 'running'
-            })
-            .eq('job_id', jobId)
-            .eq('category', category);
-        }
-        
-        return await webSearchScraping(supabase, jobId, category, batchSize, progress);
+      // Adjust the target to a realistic number based on CEC data (around 1676 compliant inverters)
+      if (target > 1676) {
+        console.log(`📉 Adjusting INVERTER target from ${target} to 1676 (CEC compliant inverters)`);
+        await supabase
+          .from('scrape_job_progress')
+          .update({ 
+            target: 1676
+          })
+          .eq('job_id', jobId)
+          .eq('category', category);
       }
+      
+      return await webSearchScraping(supabase, jobId, category, 1676, progress);
     }
     
     // Migrate existing data from old tables to new products table
