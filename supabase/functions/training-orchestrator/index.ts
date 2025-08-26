@@ -271,7 +271,7 @@ async function runMultitaskTraining(sessionId: string, config: OrchestratorConfi
     ]
   };
   
-  const { data: result } = await supabase.functions.invoke('multitask-trainer', {
+  const { data: result, error } = await supabase.functions.invoke('multitask-trainer', {
     body: { 
       action: 'start_multitask_training',
       config: trainingConfig
@@ -280,7 +280,13 @@ async function runMultitaskTraining(sessionId: string, config: OrchestratorConfi
   
   await updatePhaseStatus(sessionId, 'multitask_training', 'running', 50);
   
+  if (error) {
+    console.error('❌ Multitask training invocation error:', error);
+    throw new Error(`Multitask training invocation failed: ${error.message}`);
+  }
+  
   if (!result?.success) {
+    console.error('❌ Multitask training result failed:', result);
     throw new Error(result?.error || 'Multitask training failed');
   }
   

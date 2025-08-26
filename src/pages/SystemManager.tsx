@@ -6,10 +6,9 @@ import { Database, Brain, Shield, BarChart3, StopCircle, Pause, AlertTriangle } 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import ComprehensiveCatalogManager from '@/components/ComprehensiveCatalogManager';
-import ComprehensiveTrainingDashboard from '@/components/ComprehensiveTrainingDashboard';
-import TrainingDashboard from '@/train/dashboard';
 import MasterTrainingControl from '@/components/MasterTrainingControl';
+import OneCatalogManager from '@/components/OneCatalogManager';
+import TrainingDashboard from '@/train/dashboard';
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -114,7 +113,7 @@ export default function SystemManager() {
         </TabsList>
 
         <TabsContent value="catalog">
-          <ComprehensiveCatalogManager />
+          <OneCatalogManager />
         </TabsContent>
 
         <TabsContent value="training">
