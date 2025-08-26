@@ -216,7 +216,7 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
     // Get products that don't have specs yet
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, category, model, raw, (SELECT COUNT(*) FROM specs WHERE specs.product_id = products.id) as spec_count')
+      .select('id, category, model, raw')
       .eq('status', 'active')
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
@@ -242,9 +242,14 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
       
       const batchPromises = batch.map(async (product) => {
         try {
-          // Skip products that already have specs
-          if (parseInt(product.spec_count) > 0) {
-            console.log(`⏭️ Skipping ${product.model} - already has ${product.spec_count} specs`);
+          // Check if product already has specs
+          const { count: specCount } = await supabase
+            .from('specs')
+            .select('*', { count: 'exact', head: true })
+            .eq('product_id', product.id);
+          
+          if (specCount > 0) {
+            console.log(`⏭️ Skipping ${product.model} - already has ${specCount} specs`);
             return false;
           }
 

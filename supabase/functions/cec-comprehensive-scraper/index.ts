@@ -1569,8 +1569,8 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       .single();
     
     if (currentProgress) {
-      // Force specs re-extraction for panels and batteries if they have 0 specs
-      const shouldForceSpecs = ['PANEL', 'BATTERY_MODULE'].includes(category) && uniqueProductsWithSpecs === 0;
+      // Force specs re-extraction for panels and batteries if they have significant missing specs
+      const shouldForceSpecs = ['PANEL', 'BATTERY_MODULE'].includes(category) && uniqueProductsWithSpecs < (currentProgress.target * 0.8);
       
       // Update progress to match database reality
       const updatedProgress = {
@@ -1590,6 +1590,23 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .eq('category', category);
       
       console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${currentProgress.target} processed, ${updatedProgress.specs_done} specs, ${updatedProgress.pdf_done} PDFs`);
+      
+      // Trigger specs enhancement if we have products without specs
+      if ((category === 'PANEL' || category === 'BATTERY_MODULE') && uniqueProductsWithSpecs < actualCount) {
+        console.log(`🚀 Triggering specs enhancement for ${category} - ${actualCount - uniqueProductsWithSpecs} products need specs`);
+        try {
+          const specsResponse = await supabase.functions.invoke('specs-enhancer', {
+            body: { 
+              action: 'enhance_specs', 
+              batchSize: 50, 
+              offset: 0 
+            }
+          });
+          console.log(`✅ Specs enhancement triggered for ${category}:`, specsResponse.data);
+        } catch (error) {
+          console.error(`❌ Failed to trigger specs enhancement for ${category}:`, error);
+        }
+      }
     }
     
   } catch (error) {
