@@ -587,6 +587,24 @@ async function checkReadinessGates(supabase: any) {
         currentValue = totalProducts > 0 ? (productsWithSpecs || 0) / totalProducts : 0;
         break;
         
+      case 'pdf_processing':
+        // Count total PDFs processed across all categories
+        const { count: totalPdfsProcessed } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .not('pdf_path', 'is', null);
+        currentValue = totalPdfsProcessed || 0;
+        break;
+        
+      case 'product_coverage':
+        // Count total products across main categories
+        const { count: totalProductsCoverage } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .or('category.eq.PANEL,category.eq.BATTERY_MODULE,category.eq.INVERTER');
+        currentValue = totalProductsCoverage || 0;
+        break;
+        
       case 'ocr_precision':
       case 'ocr_recall':
         // Calculate from recent training episodes

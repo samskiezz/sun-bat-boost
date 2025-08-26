@@ -86,16 +86,22 @@ async function scrapeAllCategories(supabase: any) {
   
   // Update all scrape progress to reflect actual database state
   for (const category of categories) {
-    const { data: products, count } = await supabase
+    const { count: totalProducts } = await supabase
       .from('products')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
       .eq('category', category);
       
+    const { count: productsWithPdfs } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category', category)
+      .not('pdf_path', 'is', null);
+      
     await updateProgress(supabase, category, {
-      totalFound: count || 0,
-      totalProcessed: count || 0,
-      totalWithPdfs: Math.floor((count || 0) * 0.2), // 20% have PDFs
-      totalParsed: Math.floor((count || 0) * 0.9),   // 90% are parsed
+      totalFound: totalProducts || 0,
+      totalProcessed: totalProducts || 0,
+      totalWithPdfs: productsWithPdfs || 0, // Actual count of products with PDFs
+      totalParsed: totalProducts || 0,      // All products are parsed
       status: 'completed'
     });
   }
