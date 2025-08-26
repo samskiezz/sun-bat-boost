@@ -83,25 +83,83 @@ export default function TrainingAutomation() {
     return () => clearInterval(interval);
   }, [config.enabled]);
 
-  const loadAutomationConfig = () => {
-    const savedConfig = localStorage.getItem('trainingAutomationConfig');
-    if (savedConfig) {
-      try {
-        setConfig(JSON.parse(savedConfig));
-      } catch (e) {
-        console.error('Failed to load automation config:', e);
+  const loadAutomationConfig = async () => {
+    try {
+      const { data } = await supabase.functions.invoke('training-scheduler', {
+        body: { action: 'get_status' }
+      });
+      
+      if (data?.success && data.schedules?.length > 0) {
+        const latestSchedule = data.schedules[0];
+        setConfig(latestSchedule.config);
+        
+        setStatus({
+          isRunning: latestSchedule.status === 'active',
+          lastRunStatus: latestSchedule.last_run_status || 'pending',
+          lastRun: latestSchedule.last_run,
+          nextScheduledRun: latestSchedule.next_run,
+          runsToday: data.recentLogs?.filter((log: any) => 
+            new Date(log.created_at).toDateString() === new Date().toDateString()
+          ).length || 0,
+          totalRuns: data.recentLogs?.length || 0
+        });
+      } else {
+        // Load from localStorage as fallback
+        const savedConfig = localStorage.getItem('trainingAutomationConfig');
+        if (savedConfig) {
+          try {
+            setConfig(JSON.parse(savedConfig));
+          } catch (e) {
+            console.error('Failed to load automation config:', e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load automation config from server:', error);
+      // Fallback to localStorage
+      const savedConfig = localStorage.getItem('trainingAutomationConfig');
+      if (savedConfig) {
+        try {
+          setConfig(JSON.parse(savedConfig));
+        } catch (e) {
+          console.error('Failed to load automation config:', e);
+        }
       }
     }
   };
 
-  const saveAutomationConfig = (newConfig: AutomationConfig) => {
-    setConfig(newConfig);
-    localStorage.setItem('trainingAutomationConfig', JSON.stringify(newConfig));
-    
-    toast({
-      title: "🤖 Automation Updated",
-      description: "Training automation configuration has been saved.",
-    });
+  const saveAutomationConfig = async (newConfig: AutomationConfig) => {
+    try {
+      const { data } = await supabase.functions.invoke('training-scheduler', {
+        body: { 
+          action: 'create_schedule',
+          config: newConfig
+        }
+      });
+      
+      if (data?.success) {
+        setConfig(newConfig);
+        localStorage.setItem('trainingAutomationConfig', JSON.stringify(newConfig));
+        
+        toast({
+          title: "🤖 Automation Updated",
+          description: "Training automation configuration has been saved.",
+        });
+        
+        // Update status with next run time
+        setStatus(prev => ({ 
+          ...prev, 
+          nextScheduledRun: data.nextRun 
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to save automation config:', error);
+      toast({
+        title: "❌ Failed to Save",
+        description: "Could not save automation config. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const loadAutomationStatus = () => {
@@ -153,63 +211,19 @@ export default function TrainingAutomation() {
 
   const checkAutomationTriggers = async () => {
     try {
-      let shouldTrigger = false;
-      const triggers: string[] = [];
+      const { data } = await supabase.functions.invoke('training-scheduler', {
+        body: { action: 'check_triggers' }
+      });
       
-      // Check if enough time has passed since last run
-      if (status.lastRun) {
-        const lastRun = new Date(status.lastRun);
-        const hoursSinceLastRun = (Date.now() - lastRun.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursSinceLastRun < config.triggerConditions.minimumInterval) {
-          return; // Too soon since last run
-        }
-      }
-      
-      // Check scheduled time trigger
-      if (config.scheduleType === 'daily' || config.scheduleType === 'weekly') {
-        const now = new Date();
-        const nextScheduled = new Date(status.nextScheduledRun || '');
-        
-        if (now >= nextScheduled) {
-          shouldTrigger = true;
-          triggers.push('scheduled_time');
-        }
-      }
-      
-      // Check data freshness trigger
-      if (config.triggerConditions.dataFreshness && config.scheduleType === 'data_driven') {
-        const { data: freshness } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-          body: { action: 'check_data_freshness' }
+      if (data?.success && data.triggeredJobs?.length > 0) {
+        toast({
+          title: "🤖 Automation Triggered",
+          description: `Started ${data.triggeredJobs.length} training job(s)`,
         });
         
-        if (freshness?.needsUpdate) {
-          shouldTrigger = true;
-          triggers.push('data_updated');
-        }
+        // Refresh status
+        loadAutomationConfig();
       }
-      
-      // Check performance threshold trigger
-      if (config.triggerConditions.performanceThreshold && config.scheduleType === 'performance_driven') {
-        // Check if system performance has degraded
-        const { data: metrics } = await supabase.from('training_metrics')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-          
-        if (metrics && metrics.length > 0) {
-          const avgAccuracy = metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length;
-          if (avgAccuracy < 0.85) { // Below 85% accuracy threshold
-            shouldTrigger = true;
-            triggers.push('performance_degraded');
-          }
-        }
-      }
-      
-      if (shouldTrigger) {
-        await triggerAutomatedTraining(triggers);
-      }
-      
     } catch (error) {
       console.error('Automation trigger check failed:', error);
     }
@@ -284,7 +298,38 @@ export default function TrainingAutomation() {
   };
 
   const runTrainingNow = async () => {
-    await triggerAutomatedTraining(['manual_trigger']);
+    try {
+      setIsLoading(true);
+      
+      const { data } = await supabase.functions.invoke('training-scheduler', {
+        body: { action: 'manual_trigger' }
+      });
+      
+      if (data?.success) {
+        toast({
+          title: "🚀 Manual Training Started",
+          description: "Training initiated manually via automation system.",
+        });
+        
+        setStatus(prev => ({
+          ...prev,
+          isRunning: true,
+          lastRun: new Date().toISOString(),
+          lastRunStatus: 'pending',
+          runsToday: prev.runsToday + 1,
+          totalRuns: prev.totalRuns + 1
+        }));
+      }
+    } catch (error) {
+      console.error('Manual training failed:', error);
+      toast({
+        title: "❌ Manual Training Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

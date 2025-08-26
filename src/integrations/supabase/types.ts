@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_logs: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          schedule_id: string | null
+          session_id: string | null
+          status: string
+          trigger_reason: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          schedule_id?: string | null
+          session_id?: string | null
+          status?: string
+          trigger_reason: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          schedule_id?: string | null
+          session_id?: string | null
+          status?: string
+          trigger_reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_schedules: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          last_run: string | null
+          last_run_status: string | null
+          next_run: string
+          retry_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          last_run?: string | null
+          last_run_status?: string | null
+          next_run: string
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          last_run?: string | null
+          last_run_status?: string | null
+          next_run?: string
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       batteries: {
         Row: {
           approval_expires: string | null
