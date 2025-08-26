@@ -227,29 +227,36 @@ async function runCompleteReset(supabase: any) {
 async function initializeAllCategories(supabase: any, categories: string[]) {
   console.log('🚀 Initializing all categories...');
   
-  for (const category of categories) {
+  // CRITICAL FIX: Clear existing progress first, then insert ALL categories
+  console.log('🗑️ Clearing existing scrape progress...');
+  await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  
+  // Insert ALL categories in one batch
+  const progressEntries = categories.map(category => {
     const targetCount = TARGET_COUNTS[category as keyof typeof TARGET_COUNTS];
-    
-    const { error } = await supabase
-      .from('scrape_progress')
-      .upsert({
-        category: category,
-        status: 'processing',
-        total_found: targetCount,
-        total_processed: 0,
-        total_with_pdfs: 0,
-        total_parsed: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'category'
-      });
-    
-    if (error) {
-      console.error(`❌ Failed to initialize ${category}:`, error);
-    } else {
-      console.log(`✅ ${category}: Initialized with target ${targetCount}`);
-    }
+    return {
+      category: category,
+      status: 'processing',
+      total_found: targetCount,
+      total_processed: 0,
+      total_with_pdfs: 0,
+      total_parsed: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  });
+  
+  console.log('📋 Creating progress entries for:', categories);
+  const { data, error } = await supabase
+    .from('scrape_progress')
+    .insert(progressEntries)
+    .select();
+  
+  if (error) {
+    console.error('❌ Failed to initialize categories:', error);
+    throw error;
+  } else {
+    console.log('✅ ALL categories initialized successfully:', data?.map(d => `${d.category}: ${d.total_found}`));
   }
 }
 
