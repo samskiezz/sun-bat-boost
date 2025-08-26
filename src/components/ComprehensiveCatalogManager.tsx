@@ -274,8 +274,11 @@ export default function ComprehensiveCatalogManager() {
 
   const getProgressPercentage = (current: number, target: number) => {
     if (target === 0) return 0;
-    const denominator = Math.max(current, target);
-    return Math.round((current / denominator) * 100);
+    // Log overshoot for developers but cap display at 100%
+    if (current > target) {
+      console.warn(`Gate overshoot detected - rawCurrent=${current}, target=${target}`);
+    }
+    return Math.min(100, Math.round((current / target) * 100));
   };
 
   const getCategoryDisplayName = (category: string) => {
@@ -417,7 +420,7 @@ export default function ComprehensiveCatalogManager() {
                             <div 
                               className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                               style={{ 
-                                width: `${categoryProgress.target > 0 ? (categoryProgress.pdf_done / Math.max(categoryProgress.pdf_done, categoryProgress.target)) * 100 : 0}%` 
+                                width: `${categoryProgress.target > 0 ? Math.min(100, (categoryProgress.pdf_done / categoryProgress.target) * 100) : 0}%` 
                               }}
                             />
                           </div>
@@ -435,7 +438,7 @@ export default function ComprehensiveCatalogManager() {
                             <div 
                               className="bg-purple-500 h-2 rounded-full transition-all duration-500"
                               style={{ 
-                                width: `${categoryProgress.target > 0 ? (categoryProgress.specs_done / Math.max(categoryProgress.specs_done, categoryProgress.target)) * 100 : 0}%` 
+                                width: `${categoryProgress.target > 0 ? Math.min(100, (categoryProgress.specs_done / categoryProgress.target) * 100) : 0}%` 
                               }}
                             />
                           </div>
@@ -585,10 +588,10 @@ export default function ComprehensiveCatalogManager() {
                         </div>
                         <div className="text-right">
                           <div className="font-mono text-sm">
-                            {gate.current} / {gate.required}
+                            {Math.min(gate.current, gate.required)} / {gate.required}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {Math.round((gate.current / Math.max(gate.current, gate.required)) * 100)}%
+                            {Math.min(100, Math.round((gate.current / gate.required) * 100))}%
                           </div>
                         </div>
                       </div>

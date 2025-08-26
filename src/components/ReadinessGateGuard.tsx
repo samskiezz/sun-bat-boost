@@ -236,10 +236,10 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                     </div>
                     <div className="text-right">
                       <div className="font-mono">
-                        {gate.current.toLocaleString()} / {gate.required.toLocaleString()}
+                        {Math.min(gate.current, gate.required).toLocaleString()} / {gate.required.toLocaleString()}
                       </div>
                       <Progress 
-                        value={(gate.current / Math.max(gate.current, gate.required)) * 100} 
+                        value={Math.min(100, (gate.current / gate.required) * 100)} 
                         className="w-32 mt-1"
                       />
                     </div>
@@ -324,7 +324,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                       </span>
                     </div>
                     <Progress 
-                      value={(trainingStatus.currentEpisodes / Math.max(trainingStatus.currentEpisodes, trainingStatus.targetEpisodes)) * 100} 
+                      value={Math.min(100, (trainingStatus.currentEpisodes / trainingStatus.targetEpisodes) * 100)} 
                       className="h-3"
                     />
                     

@@ -68,9 +68,9 @@ export default function WorkingScrapingWidget() {
       if (panelData) {
         newProgress.push({
           category: 'Panels',
-          current: panelData.total_count || 0,
+          current: Math.min(panelData.total_count || 0, 1348),
           target: 1348,
-          percentage: Math.round(((panelData.total_count || 0) / Math.max(panelData.total_count || 0, 1348)) * 100)
+          percentage: Math.min(100, Math.round(((panelData.total_count || 0) / 1348) * 100))
         });
       } else {
         newProgress.push({
@@ -86,9 +86,9 @@ export default function WorkingScrapingWidget() {
       if (batteryData) {
         newProgress.push({
           category: 'Batteries',
-          current: batteryData.total_count || 0,
+          current: Math.min(batteryData.total_count || 0, 513),
           target: 513,
-          percentage: Math.round(((batteryData.total_count || 0) / Math.max(batteryData.total_count || 0, 513)) * 100)
+          percentage: Math.min(100, Math.round(((batteryData.total_count || 0) / 513) * 100))
         });
       } else {
         newProgress.push({
@@ -104,9 +104,9 @@ export default function WorkingScrapingWidget() {
       if (inverterData) {
         newProgress.push({
           category: 'Inverters',
-          current: inverterData.total_count || 0,
+          current: Math.min(inverterData.total_count || 0, 200),
           target: 200,
-          percentage: Math.round(((inverterData.total_count || 0) / Math.max(inverterData.total_count || 0, 200)) * 100)
+          percentage: Math.min(100, Math.round(((inverterData.total_count || 0) / 200) * 100))
         });
       } else {
         newProgress.push({
