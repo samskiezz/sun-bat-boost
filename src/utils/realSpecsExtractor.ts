@@ -140,80 +140,104 @@ async function updateJobProgressRealTime() {
   try {
     console.log('🔄 Updating job progress with real data...');
     
-    // Get accurate spec counts using a more efficient query
-    const { data: specCounts } = await supabase
-      .from('products')
-      .select(`
-        category,
-        id,
-        specs!inner(product_id)
-      `)
-      .in('category', ['PANEL', 'BATTERY_MODULE', 'INVERTER'])
-      .eq('status', 'active');
+    // Get accurate spec counts using direct SQL-like approach
+    const { data: specCounts, error: specError } = await supabase
+      .rpc('get_spec_counts_by_category');
 
-    // Count products with 6+ specs by category
-    const counts = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
-    
-    if (specCounts) {
-      // Group by product and count specs
-      const productSpecs = new Map();
-      
-      for (const row of specCounts) {
-        const key = `${row.category}-${row.id}`;
-        productSpecs.set(key, (productSpecs.get(key) || 0) + 1);
-      }
-      
-      // Count products with 6+ specs
-      for (const [key, specCount] of productSpecs.entries()) {
-        const category = key.split('-')[0];
-        if (specCount >= 6) {
-          counts[category]++;
-        }
-      }
+    if (specError) {
+      console.error('Error getting spec counts:', specError);
+      // Fallback to manual counting
+      return await updateJobProgressManual();
     }
 
-    // Update progress with real counts
-    const updates = [
-      { category: 'PANEL', count: counts.PANEL, target: 1348 },
-      { category: 'BATTERY_MODULE', count: counts.BATTERY_MODULE, target: 513 },
-      { category: 'INVERTER', count: counts.INVERTER, target: 2411 }
-    ];
+    const counts = {
+      PANEL: specCounts?.find(c => c.category === 'PANEL')?.products_with_6plus_specs || 0,
+      BATTERY_MODULE: specCounts?.find(c => c.category === 'BATTERY_MODULE')?.products_with_6plus_specs || 0,
+      INVERTER: specCounts?.find(c => c.category === 'INVERTER')?.products_with_6plus_specs || 0
+    };
 
-    for (const { category, count, target } of updates) {
+    console.log('Real spec counts:', counts);
+
+    // Update scrape_job_progress for the active job
+    const { data: activeJob } = await supabase
+      .from('scrape_jobs')
+      .select('id')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const jobId = activeJob?.[0]?.id || 'f3376479-2c9c-4e25-8351-c03e72981661';
+
+    // Update progress for each category
+    for (const [category, count] of Object.entries(counts)) {
+      const target = category === 'PANEL' ? 1348 : category === 'BATTERY_MODULE' ? 513 : 2411;
+      
       const { error } = await supabase
         .from('scrape_job_progress')
         .update({
           specs_done: count,
           state: count >= target ? 'completed' : 'running'
         })
-        .eq('category', category);
+        .eq('category', category)
+        .eq('job_id', jobId);
 
       if (error) {
         console.error(`❌ Error updating ${category} progress:`, error);
       }
     }
 
-    console.log(`✅ Progress updated - Panels: ${counts.PANEL}/1348, Batteries: ${counts.BATTERY_MODULE}/513, Inverters: ${counts.INVERTER}/2411`);
+    // Update G3 readiness gates
+    await updateG3Gates(counts);
 
-    // Update readiness gates
-    await updateReadinessGates(counts);
+    console.log(`✅ Progress updated - Panels: ${counts.PANEL}/1348, Batteries: ${counts.BATTERY_MODULE}/513, Inverters: ${counts.INVERTER}/2411`);
 
   } catch (error) {
     console.error('❌ Error updating job progress:', error);
   }
 }
 
-async function updateReadinessGates(counts: { PANEL: number; BATTERY_MODULE: number; INVERTER: number }) {
+async function updateJobProgressManual() {
+  console.log('🔄 Using manual spec counting...');
+  
+  // Count products with 6+ specs manually
+  const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+  const counts = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
+
+  for (const category of categories) {
+    const { data: products } = await supabase
+      .from('products')
+      .select('id')
+      .eq('category', category)
+      .eq('status', 'active');
+
+    if (products) {
+      for (const product of products) {
+        const { count } = await supabase
+          .from('specs')
+          .select('*', { count: 'exact', head: true })
+          .eq('product_id', product.id);
+        
+        if ((count || 0) >= 6) {
+          counts[category]++;
+        }
+      }
+    }
+  }
+
+  console.log('Manual spec counts:', counts);
+  return counts;
+}
+
+async function updateG3Gates(counts: { PANEL: number; BATTERY_MODULE: number; INVERTER: number }) {
   try {
-    // Update readiness gates with actual counts
     const gates = [
-      { name: 'panel_comprehensive_specs', value: counts.PANEL, required: 1348 },
-      { name: 'battery_comprehensive_specs', value: counts.BATTERY_MODULE, required: 513 },
-      { name: 'inverter_comprehensive_specs', value: counts.INVERTER, required: 2411 }
+      { name: 'G3_PANEL_SPECS', value: counts.PANEL, required: 1348 },
+      { name: 'G3_BATTERY_SPECS', value: counts.BATTERY_MODULE, required: 513 },
+      { name: 'G3_INVERTER_SPECS', value: counts.INVERTER, required: 2411 }
     ];
 
     for (const gate of gates) {
-      await supabase
+      const { error } = await supabase
         .from('readiness_gates')
         .update({
           current_value: gate.value,
@@ -221,11 +245,15 @@ async function updateReadinessGates(counts: { PANEL: number; BATTERY_MODULE: num
           last_checked: new Date().toISOString()
         })
         .eq('gate_name', gate.name);
-    }
 
-    console.log('✅ Readiness gates updated');
+      if (error) {
+        console.error(`❌ Error updating gate ${gate.name}:`, error);
+      } else {
+        console.log(`✅ Updated gate ${gate.name}: ${gate.value}/${gate.required}`);
+      }
+    }
   } catch (error) {
-    console.error('❌ Error updating readiness gates:', error);
+    console.error('❌ Error updating G3 gates:', error);
   }
 }
 
