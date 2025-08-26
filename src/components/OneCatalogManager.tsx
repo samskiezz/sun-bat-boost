@@ -128,14 +128,19 @@ export default function OneCatalogManager() {
       
       if (error) {
         console.error('Failed to load product counts:', error);
+        setProductCounts([]);
         return;
       }
 
+      console.log('📊 Product counts data received:', data);
+
       // Ensure data is always an array
-      if (data && Array.isArray(data)) {
+      if (Array.isArray(data)) {
         setProductCounts(data);
-      } else if (data) {
-        // If data is not an array but exists, wrap it or extract array
+      } else if (data && data.productCounts && Array.isArray(data.productCounts)) {
+        // Handle nested structure if it exists
+        setProductCounts(data.productCounts);
+      } else {
         console.warn('Product counts data is not an array:', data);
         setProductCounts([]);
       }
@@ -272,7 +277,7 @@ export default function OneCatalogManager() {
       console.warn('productCounts is not an array:', productCounts);
       return 0;
     }
-    return productCounts.reduce((sum, cat) => sum + (cat.total_count || 0), 0);
+    return productCounts.reduce((sum, cat) => sum + (cat.total_count || cat.count || 0), 0);
   };
 
   const getTotalWithPDFs = () => {
@@ -280,7 +285,7 @@ export default function OneCatalogManager() {
       console.warn('productCounts is not an array:', productCounts);
       return 0;
     }
-    return productCounts.reduce((sum, cat) => sum + (cat.with_pdf_count || 0), 0);
+    return productCounts.reduce((sum, cat) => sum + (cat.with_pdf_count || cat.with_specs || 0), 0);
   };
 
   return (

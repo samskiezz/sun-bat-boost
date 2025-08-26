@@ -289,13 +289,20 @@ async function runDataValidation(sessionId: string, config: CatalogConfig) {
   await updatePhaseStatus(sessionId, 'data_validation', 'running', 20);
   
   // Run reliability checker or validation functions
-  const { data: counts } = await supabase.functions.invoke('get-product-counts');
+  const { data: counts, error: countsError } = await supabase.functions.invoke('get-product-counts');
+  
+  if (countsError) {
+    console.error('❌ Failed to get product counts:', countsError);
+    throw new Error(`Product counts validation failed: ${countsError.message}`);
+  }
   
   await updatePhaseStatus(sessionId, 'data_validation', 'running', 60);
   
   // Update tracking with latest counts
-  if (counts) {
-    const totalProducts = counts.reduce((sum: number, cat: any) => sum + (cat.total_count || 0), 0);
+  if (counts && Array.isArray(counts)) {
+    const totalProducts = counts.reduce((sum: number, cat: any) => sum + (cat.count || cat.total_count || 0), 0);
+    
+    console.log(`✅ Data validation completed - Total products: ${totalProducts}`);
     
     await supabase
       .from('data_update_tracking')
@@ -303,8 +310,11 @@ async function runDataValidation(sessionId: string, config: CatalogConfig) {
         table_name: 'products',
         record_count: totalProducts,
         status: 'completed',
-        notes: 'Catalog build validation completed'
+        notes: `Catalog build validation completed - ${totalProducts} products`
       });
+  } else {
+    console.warn('⚠️ Product counts data is invalid:', counts);
+    throw new Error('Product counts validation failed - invalid data structure');
   }
   
   await updatePhaseStatus(sessionId, 'data_validation', 'running', 90);
