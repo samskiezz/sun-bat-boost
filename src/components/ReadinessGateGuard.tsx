@@ -168,8 +168,8 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
     );
   }
 
-  // If system is ready OR in development, render the app
-  if (readiness?.allPassing || process.env.NODE_ENV === 'development') {
+  // If system is ready OR in development, render the app  
+  if (readiness?.allPassing || import.meta.env.DEV || window.location.hostname === 'localhost') {
     return <>{children}</>;
   }
 
