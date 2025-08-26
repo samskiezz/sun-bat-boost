@@ -120,22 +120,57 @@ export default function ScrapingDashboard() {
     addLog('🚀 Starting comprehensive CEC scrape...');
 
     try {
-      setCurrentOperation('Scraping all categories');
+      setCurrentOperation('Starting scrape process');
       
+      // Start the background scraping process
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'scrape_all' }
       });
 
       if (error) throw error;
 
-      addLog('🎯 CEC scraping completed successfully');
-      await loadProgress();
-      await loadStats();
+      addLog('✅ Scraping process started in background');
+      addLog('📊 Monitoring progress in real-time...');
+      
+      // Start polling for progress updates every 2 seconds
+      const pollInterval = setInterval(async () => {
+        try {
+          await loadProgress();
+          
+          // Check if all categories are completed
+          const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
+          
+          if (allCompleted) {
+            clearInterval(pollInterval);
+            addLog('🎯 All scraping operations completed');
+            setIsRunning(false);
+            setCurrentOperation('');
+            await loadStats();
+          } else {
+            // Update operation status based on current progress
+            const activeCategory = progress.find(p => p.status === 'processing');
+            if (activeCategory) {
+              setCurrentOperation(`Processing ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found}`);
+            }
+          }
+        } catch (pollError) {
+          console.error('Progress polling error:', pollError);
+        }
+      }, 2000);
+
+      // Safety timeout after 10 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (isRunning) {
+          addLog('⚠️ Scraping timeout - stopping progress monitoring');
+          setIsRunning(false);
+          setCurrentOperation('');
+        }
+      }, 600000);
 
     } catch (error) {
       console.error('Scraping failed:', error);
       addLog(`❌ Scraping failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
       setIsRunning(false);
       setCurrentOperation('');
     }
@@ -143,20 +178,61 @@ export default function ScrapingDashboard() {
 
   async function runCompleteReset() {
     setIsRunning(true);
-    setCurrentOperation('Complete system reset');
+    setCurrentOperation('Starting complete system reset');
     addLog('🔄 Starting complete system reset...');
 
     try {
-      await forceCompleteReset();
+      // Start the background reset process
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'force_complete_reset' }
+      });
+
+      if (error) throw error;
+
+      addLog('✅ Reset process started in background');
+      addLog('📊 Monitoring progress in real-time...');
       
-      addLog('✅ Complete reset successful');
-      await loadProgress();
-      await loadStats();
+      // Start polling for progress updates every 2 seconds
+      const pollInterval = setInterval(async () => {
+        try {
+          await loadProgress();
+          
+          // Check if all categories are completed (reset generates new data)
+          const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
+          const hasData = progress.some(p => p.total_processed > 0);
+          
+          if (allCompleted && hasData) {
+            clearInterval(pollInterval);
+            addLog('🎯 Complete reset finished successfully');
+            setIsRunning(false);
+            setCurrentOperation('');
+            await loadStats();
+          } else {
+            // Update operation status based on current progress
+            const activeCategory = progress.find(p => p.status === 'processing' || p.status === 'clearing');
+            if (activeCategory) {
+              const statusText = activeCategory.status === 'clearing' ? 'Clearing' : 'Processing';
+              setCurrentOperation(`${statusText} ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found}`);
+            }
+          }
+        } catch (pollError) {
+          console.error('Progress polling error:', pollError);
+        }
+      }, 2000);
+
+      // Safety timeout after 15 minutes (reset takes longer)
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (isRunning) {
+          addLog('⚠️ Reset timeout - stopping progress monitoring');
+          setIsRunning(false);
+          setCurrentOperation('');
+        }
+      }, 900000);
 
     } catch (error) {
       console.error('Reset failed:', error);
       addLog(`❌ Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
       setIsRunning(false);
       setCurrentOperation('');
     }
