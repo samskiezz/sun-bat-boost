@@ -779,6 +779,16 @@ export type Database = {
           with_pdf_count: number
         }[]
       }
+      get_products_needing_specs: {
+        Args: { categories?: string[]; min_specs?: number }
+        Returns: {
+          brand: string
+          category: string
+          model: string
+          product_id: string
+          spec_count: number
+        }[]
+      }
       get_spec_counts_by_category: {
         Args: Record<PropertyKey, never>
         Returns: {
