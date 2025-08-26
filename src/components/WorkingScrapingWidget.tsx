@@ -130,6 +130,16 @@ export default function WorkingScrapingWidget() {
     setLoading(true);
     
     try {
+      // First, force reset any stuck jobs
+      console.log('🔄 Resetting any stuck jobs...');
+      await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'reset' }
+      });
+
+      // Wait a moment then start fresh
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('🆕 Starting fresh scraping job...');
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'start' }
       });
@@ -144,8 +154,8 @@ export default function WorkingScrapingWidget() {
       }
 
       toast({
-        title: "Scraping Started",
-        description: "Data collection is now running",
+        title: "Scraping Restarted",
+        description: "Fresh scraping job started - data will begin collecting",
       });
 
       // Immediately refresh status

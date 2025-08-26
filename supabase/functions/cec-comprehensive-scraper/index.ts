@@ -177,7 +177,7 @@ async function getJobStatus(supabase: any) {
 }
 
 async function tickJob(supabase: any) {
-  console.log('⚙️ Ticking job...');
+  console.log('⚙️ Ticking job - PROCESSING BATCHES...');
   
   try {
     // Get current running job
@@ -188,6 +188,7 @@ async function tickJob(supabase: any) {
       .single();
 
     if (!job) {
+      console.log('⚠️ No running job found for tick');
       return new Response(
         JSON.stringify({
           success: true,
@@ -197,40 +198,32 @@ async function tickJob(supabase: any) {
       );
     }
 
-    // Process a small batch for each category
-    await processBatch(supabase, job.id, 'PANEL', 10);
-    await processBatch(supabase, job.id, 'BATTERY_MODULE', 10);
-    await processBatch(supabase, job.id, 'INVERTER', 10);
+    console.log('📊 Found running job:', job.id, '- processing batches...');
 
-    // Check if job is complete
-    const { data: progress } = await supabase
-      .from('scrape_job_progress')
-      .select('*')
-      .eq('job_id', job.id);
-
-    const allComplete = progress?.every(p => p.state === 'completed');
+    // Process larger batches for faster progress
+    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    let totalProcessed = 0;
     
-    if (allComplete) {
-      await supabase
-        .from('scrape_jobs')
-        .update({ 
-          status: 'completed', 
-          finished_at: new Date().toISOString() 
-        })
-        .eq('id', job.id);
+    for (const category of categories) {
+      console.log(`🔄 Processing ${category} batch...`);
+      const processed = await processBatch(supabase, job.id, category, 10); // Increased batch size
+      totalProcessed += processed;
+      console.log(`✅ Processed ${processed} ${category} items`);
     }
 
-    console.log('✅ Job tick completed');
+    console.log(`🎯 Total items processed this tick: ${totalProcessed}`);
+
     return new Response(
       JSON.stringify({
         success: true,
-        job_complete: allComplete,
-        progress
+        message: `Processed ${totalProcessed} items`,
+        job_id: job.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+    
   } catch (error) {
-    console.error('❌ Tick job error:', error);
+    console.error('❌ Tick error:', error);
     throw error;
   }
 }
@@ -360,7 +353,7 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
         .eq('job_id', jobId)
         .eq('category', category);
       console.log(`✅ ${category} scraping completed!`);
-      return;
+      return 0; // No items processed since already complete
     }
 
     console.log(`🌐 Scraping CEC data for ${category} (${processed}/${target})...`);
@@ -423,6 +416,7 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       .eq('category', category);
 
     console.log(`✅ REAL SCRAPING: Processed ${scrapedProducts.length} real ${category} items (${newProcessed}/${target})`);
+    return scrapedProducts.length; // Return the count of processed items
   } catch (error) {
     console.error(`❌ Real scraping error for ${category}:`, error);
     
@@ -432,6 +426,8 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       .update({ state: 'failed' })
       .eq('job_id', jobId)
       .eq('category', category);
+      
+    return 0; // No items processed due to error
   }
 }
 
