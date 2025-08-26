@@ -202,7 +202,10 @@ export default function DataCollectionPanel() {
           <h2 className="text-xl md:text-2xl font-semibold text-white drop-shadow">Comprehensive Catalog Manager</h2>
           <div className="flex gap-2">
             <button
-              onClick={start}
+              onClick={() => {
+                console.log('🟢 DATA COLLECTION BUTTON CLICKED');
+                start();
+              }}
               disabled={busy || running}
               className={`px-3 py-2 rounded-md text-white ${running ? 'bg-slate-500' : 'bg-blue-600 hover:bg-blue-700'} transition`}
             >

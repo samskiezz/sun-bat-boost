@@ -259,7 +259,10 @@ export default function ComprehensiveCatalogManager() {
 
           <div className="grid gap-4 md:grid-cols-2 mb-6">
             <Button 
-              onClick={startJob}
+              onClick={() => {
+                console.log('🔴 BUTTON CLICKED - startJob function starting');
+                startJob();
+              }}
               disabled={loading || isRunning}
               className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
             >
