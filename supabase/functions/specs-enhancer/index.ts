@@ -203,7 +203,7 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
   console.log(`🔧 Enhancing product specs batch: offset=${offset}, size=${batchSize}`);
   
   try {
-    // Get batch of products without existing specs
+    // Get batch of products without existing specs - but don't exclude products that already have some specs
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -213,7 +213,6 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
         raw
       `)
       .eq('status', 'active')
-      .not('id', 'in', `(SELECT DISTINCT product_id FROM specs WHERE source IN ('direct_extraction', 'ai_enhanced', 'ai_extraction'))`)
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
 
