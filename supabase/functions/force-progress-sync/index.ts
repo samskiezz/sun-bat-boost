@@ -27,7 +27,24 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(1);
     
-    const completedJobId = jobs?.[0]?.id || 'f7d41c80-702d-4f3b-b41d-f6f6fa7e1c8d';
+    if (!jobs || jobs.length === 0) {
+      throw new Error('No jobs found');
+    }
+    
+    const latestJobId = jobs[0].id;
+    console.log(`🎯 Using latest job ID: ${latestJobId}`);
+    
+    // Clean up any duplicate progress entries - keep only the latest job
+    const { error: cleanupError } = await supabase
+      .from('scrape_job_progress')
+      .delete()
+      .neq('job_id', latestJobId);
+    
+    if (cleanupError) {
+      console.warn('⚠️ Cleanup warning:', cleanupError);
+    } else {
+      console.log('🧹 Cleaned up old progress entries');
+    }
     
     // Use RPC to get comprehensive specs counts efficiently
     const { data: specCounts } = await supabase.rpc('get_spec_counts_by_category');
@@ -43,23 +60,28 @@ serve(async (req) => {
       });
     }
     
-    // Update job progress with real data
+    // Update job progress with real data for the latest job
     for (const [category, count] of Object.entries(comprehensiveSpecs)) {
       const target = category === 'PANEL' ? 1348 : category === 'BATTERY_MODULE' ? 513 : 2411;
-      const totalProducts = category === 'PANEL' ? 1348 : category === 'BATTERY_MODULE' ? 513 : 2411;
+      const totalProducts = target;
+      const isCompleted = count >= target;
       
       await supabase
         .from('scrape_job_progress')
-        .update({
+        .upsert({
+          job_id: latestJobId,
+          category: category,
+          target: target,
           specs_done: count,
           processed: totalProducts,
           pdf_done: totalProducts,
-          state: count >= target ? 'completed' : 'running'
-        })
-        .eq('job_id', completedJobId)
-        .eq('category', category);
+          state: isCompleted ? 'completed' : 'running',
+          last_specs_trigger: isCompleted ? 0 : Date.now()
+        }, {
+          onConflict: 'job_id,category'
+        });
       
-      console.log(`🔄 Updated ${category}: ${count}/${target} comprehensive specs`);
+      console.log(`🔄 Updated ${category}: ${count}/${target} comprehensive specs (${isCompleted ? 'COMPLETED' : 'RUNNING'})`);
     }
     
     // Update G3 readiness gates
@@ -72,12 +94,14 @@ serve(async (req) => {
     for (const gate of gateUpdates) {
       const { error } = await supabase
         .from('readiness_gates')
-        .update({
+        .upsert({
+          gate_name: gate.name,
+          required_value: gate.required,
           current_value: gate.value,
           passing: gate.value >= gate.required,
-          last_checked: new Date().toISOString()
-        })
-        .eq('gate_name', gate.name);
+          last_checked: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
       
       if (error) {
         console.error(`❌ Failed to update gate ${gate.name}:`, error);
@@ -86,23 +110,31 @@ serve(async (req) => {
       }
     }
     
-    // Mark completed job as completed
+    // Update job status based on completion
+    const allCompleted = Object.values(comprehensiveSpecs).every((count, index) => {
+      const targets = [1348, 513, 2411]; // PANEL, BATTERY_MODULE, INVERTER
+      return count >= targets[index];
+    });
+    
     await supabase
       .from('scrape_jobs')
       .update({
-        status: 'completed',
-        finished_at: new Date().toISOString()
+        status: allCompleted ? 'completed' : 'running',
+        finished_at: allCompleted ? new Date().toISOString() : null
       })
-      .eq('id', completedJobId);
+      .eq('id', latestJobId);
     
-    console.log('🎉 Force sync completed successfully!');
+    console.log(`📊 Job status: ${allCompleted ? 'COMPLETED' : 'RUNNING'}`);
     console.log(`📊 Final counts - Panels: ${comprehensiveSpecs.PANEL}/1348, Batteries: ${comprehensiveSpecs.BATTERY_MODULE}/513, Inverters: ${comprehensiveSpecs.INVERTER}/2411`);
+    console.log('🎉 Force sync completed successfully!');
     
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Job progress force synced',
-        counts: comprehensiveSpecs
+        message: 'Job progress force synced and cleaned up',
+        counts: comprehensiveSpecs,
+        jobId: latestJobId,
+        allCompleted
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
