@@ -18,13 +18,17 @@ interface ScrapeJob {
 }
 
 interface JobProgress {
+  id: string;
   job_id: string;
   category: string;
-  target: number;
-  processed: number;
-  specs_done: number;
-  pdf_done: number;
-  state: string;
+  total_found: number;
+  total_processed: number;
+  total_with_pdfs: number;
+  total_parsed: number;
+  last_cursor: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ProductCounts {
@@ -180,7 +184,7 @@ export default function ComprehensiveCatalogManager() {
     switch (state) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'running':
+      case 'processing':
         return <Clock className="w-4 h-4 text-blue-600 animate-spin" />;
       case 'pending':
         return <Clock className="w-4 h-4 text-gray-400" />;
@@ -195,7 +199,7 @@ export default function ComprehensiveCatalogManager() {
     switch (state) {
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300';
-      case 'running':
+      case 'processing':
         return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300';
       case 'pending':
         return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-300';
@@ -289,43 +293,43 @@ export default function ComprehensiveCatalogManager() {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-lg flex items-center gap-2">
                         {getCategoryDisplayName(item.category)}
-                        {getStateIcon(item.state)}
+                        {getStateIcon(item.status)}
                       </h3>
-                      <Badge className={getStateColor(item.state)}>
-                        {item.state}
-                      </Badge>
+                       <Badge className={getStateColor(item.status)}>
+                         {item.status}
+                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-blue-600">{item.target}</div>
-                        <div className="text-xs text-muted-foreground">Target</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">{item.processed}</div>
-                        <div className="text-xs text-muted-foreground">Processed</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-purple-600">{item.pdf_done}</div>
-                        <div className="text-xs text-muted-foreground">PDFs</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-orange-600">{item.specs_done}</div>
-                        <div className="text-xs text-muted-foreground">Specs</div>
-                      </div>
-                    </div>
+                     <div className="grid grid-cols-4 gap-4 text-center">
+                       <div>
+                         <div className="text-2xl font-bold text-blue-600">{item.total_found}</div>
+                         <div className="text-xs text-muted-foreground">Target</div>
+                       </div>
+                       <div>
+                         <div className="text-2xl font-bold text-green-600">{item.total_processed}</div>
+                         <div className="text-xs text-muted-foreground">Processed</div>
+                       </div>
+                       <div>
+                         <div className="text-2xl font-bold text-purple-600">{item.total_with_pdfs}</div>
+                         <div className="text-xs text-muted-foreground">PDFs</div>
+                       </div>
+                       <div>
+                         <div className="text-2xl font-bold text-orange-600">{item.total_parsed}</div>
+                         <div className="text-xs text-muted-foreground">Specs</div>
+                       </div>
+                     </div>
 
                     {/* Progress Bars */}
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
                           <span>Processed</span>
-                          <span className="font-mono">{getProgressPercentage(item.processed, item.target)}%</span>
+                          <span className="font-mono">{getProgressPercentage(item.total_processed, item.total_found)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="h-2 bg-green-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.processed, item.target)}%` }}
+                            style={{ width: `${getProgressPercentage(item.total_processed, item.total_found)}%` }}
                           />
                         </div>
                       </div>
@@ -333,12 +337,12 @@ export default function ComprehensiveCatalogManager() {
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
                           <span>PDFs Downloaded</span>
-                          <span className="font-mono">{getProgressPercentage(item.pdf_done, item.target)}%</span>
+                          <span className="font-mono">{getProgressPercentage(item.total_with_pdfs, item.total_found)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="h-2 bg-purple-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.pdf_done, item.target)}%` }}
+                            style={{ width: `${getProgressPercentage(item.total_with_pdfs, item.total_found)}%` }}
                           />
                         </div>
                       </div>
@@ -346,38 +350,38 @@ export default function ComprehensiveCatalogManager() {
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
                           <span>Specs Parsed</span>
-                          <span className="font-mono">{getProgressPercentage(item.specs_done, item.target)}%</span>
+                          <span className="font-mono">{getProgressPercentage(item.total_parsed, item.total_found)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="h-2 bg-orange-500 rounded-full transition-all duration-500"
-                            style={{ width: `${getProgressPercentage(item.specs_done, item.target)}%` }}
+                            style={{ width: `${getProgressPercentage(item.total_parsed, item.total_found)}%` }}
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Status Messages */}
-                    {item.state === 'running' && (
-                      <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
-                        <Clock className="w-4 h-4 animate-spin" />
-                        <span>Processing {getCategoryDisplayName(item.category).toLowerCase()}... {item.processed}/{item.target}</span>
-                      </div>
-                    )}
-                    
-                    {item.state === 'completed' && (
-                      <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-md">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Complete - {item.processed} products with {item.pdf_done} PDFs and {item.specs_done} parsed specs</span>
-                      </div>
-                    )}
-                    
-                    {item.state === 'failed' && (
-                      <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-md">
-                        <XCircle className="w-4 h-4" />
-                        <span>Processing failed - check logs for details</span>
-                      </div>
-                    )}
+                     {item.status === 'processing' && (
+                       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
+                         <Clock className="w-4 h-4 animate-spin" />
+                         <span>Processing {getCategoryDisplayName(item.category).toLowerCase()}... {item.total_processed}/{item.total_found}</span>
+                       </div>
+                     )}
+                     
+                     {item.status === 'completed' && (
+                       <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-md">
+                         <CheckCircle className="w-4 h-4" />
+                         <span>Complete - {item.total_processed} products with {item.total_with_pdfs} PDFs and {item.total_parsed} parsed specs</span>
+                       </div>
+                     )}
+                     
+                     {item.status === 'failed' && (
+                       <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-md">
+                         <XCircle className="w-4 h-4" />
+                         <span>Processing failed - check logs for details</span>
+                       </div>
+                     )}
                   </div>
                 ))
               ) : (
