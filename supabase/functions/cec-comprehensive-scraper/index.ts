@@ -559,21 +559,24 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       productsToInsert.push(productData);
     }
 
-    // Insert new products
+    // Insert new products using UPSERT to handle duplicates
     if (productsToInsert.length > 0) {
       const { data: insertedData, error: insertError } = await supabase
         .from('products')
-        .insert(productsToInsert)
+        .upsert(productsToInsert, { 
+          onConflict: 'manufacturer_id,model',
+          ignoreDuplicates: false 
+        })
         .select('id');
       
       if (insertError) {
-        console.error('❌ Web search insert error:', insertError);
+        console.error('❌ Web search upsert error:', insertError);
         return 0;
       }
       
-      console.log(`✅ Successfully inserted ${productsToInsert.length} web-scraped ${category} products`);
+      console.log(`✅ Successfully upserted ${productsToInsert.length} web-scraped ${category} products`);
       
-      // Create specs entries for each product
+      // Create specs entries for each product using UPSERT
       if (insertedData && insertedData.length > 0) {
         const specsToInsert = [];
         for (let i = 0; i < insertedData.length; i++) {
@@ -593,12 +596,14 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
         if (specsToInsert.length > 0) {
           const { error: specsError } = await supabase
             .from('specs')
-            .insert(specsToInsert);
+            .upsert(specsToInsert, {
+              onConflict: 'product_id,key'
+            });
             
           if (specsError) {
-            console.error('❌ Web search specs insert error:', specsError);
+            console.error('❌ Web search specs upsert error:', specsError);
           } else {
-            console.log(`✅ Inserted ${specsToInsert.length} spec entries for web-scraped ${category} products`);
+            console.log(`✅ Upserted ${specsToInsert.length} spec entries for web-scraped ${category} products`);
           }
         }
       }
@@ -663,14 +668,17 @@ async function generateBasicProducts(supabase: any, jobId: string, category: str
       productsToInsert.push(productData);
     }
 
-    // Insert products
+    // Insert products using UPSERT to handle duplicates
     if (productsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from('products')
-        .insert(productsToInsert);
+        .upsert(productsToInsert, { 
+          onConflict: 'manufacturer_id,model',
+          ignoreDuplicates: false 
+        });
       
       if (insertError) {
-        console.error('❌ Basic generation insert error:', insertError);
+        console.error('❌ Basic generation upsert error:', insertError);
         return 0;
       }
       

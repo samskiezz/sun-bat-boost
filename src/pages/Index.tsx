@@ -13,6 +13,7 @@ import { AIAssistant } from "@/components/AIAssistant";
 import { SEOHead } from "@/components/SEOHead";
 import SystemStatusIndicator from "@/components/SystemStatusIndicator";
 import WorkingScrapingWidget from "@/components/WorkingScrapingWidget";
+import SpecsEnhancementWidget from "@/components/SpecsEnhancementWidget";
 import { useState } from "react";
 
 const Index = () => {
@@ -115,6 +116,7 @@ const Index = () => {
           <TabsContent value="system" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <WorkingScrapingWidget />
+              <SpecsEnhancementWidget />
               
               <Card>
                 <CardHeader>

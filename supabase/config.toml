@@ -27,5 +27,5 @@ verify_jwt = false
 [functions.force-complete-scrape]
 verify_jwt = false
 
-[functions.weekly-data-refresh]
+[functions.specs-enhancer]
 verify_jwt = false
