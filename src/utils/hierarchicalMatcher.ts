@@ -46,9 +46,12 @@ export class HierarchicalMatcher {
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.regex.exec(normalizedText)) !== null) {
-        const brandRaw = match[1];
-        const specRaw = match[2];
+        const brandRaw = match[1] || 'UNKNOWN'; // Handle cases where brand might be missing
+        const specRaw = match[2] || match[0]; // Use full match if no spec group
         const fullMatch = match[0];
+        
+        // Skip if we got a meaningless match
+        if (!brandRaw || brandRaw === 'UNKNOWN') continue;
         
         // Step 1: Get exact brand+spec matches using strict filter
         const searchQuery = this.buildSearchQuery(brandRaw, specRaw, pattern.type);
@@ -58,8 +61,22 @@ export class HierarchicalMatcher {
           // Step 2: Try to find specific model within exact matches
           const contextWindow = this.getContext(normalizedText, match.index!);
           const bestMatch = this.findBestModel(strictResult.filteredProducts, contextWindow, fullMatch);
+          bestMatch.position = match.index!;
           
           results.push(bestMatch);
+        } else {
+          // Fallback: Try just brand matching for batteries with model names
+          if (pattern.type === 'battery') {
+            const brandOnlyResult = brandStrictFilter.filterProducts(this.allProducts, brandRaw);
+            if (brandOnlyResult.filteredProducts.length > 0) {
+              const contextWindow = this.getContext(normalizedText, match.index!);
+              const bestMatch = this.findBestModel(brandOnlyResult.filteredProducts, contextWindow, fullMatch);
+              bestMatch.confidence = Math.max(0.5, bestMatch.confidence - 0.1); // Lower confidence for brand-only
+              bestMatch.position = match.index!;
+              
+              results.push(bestMatch);
+            }
+          }
         }
       }
     }
@@ -87,11 +104,33 @@ export class HierarchicalMatcher {
       type: 'panel'
     });
     
-    // Battery patterns: Brand + kWh (1-100 kWh range)
+    // Enhanced Battery patterns - Multiple formats to catch all battery mentions
+    // Pattern 1: Brand + Capacity (Tesla 13.5, BYD 10, etc.)
     patterns.push({
-      regex: new RegExp(`\\b(${brandPattern})\\s+(\\d{1,2}(?:\\.\\d)??)\\s*KWH?\\b`, 'gi'),
+      regex: new RegExp(`\\b(${brandPattern})\\s+(\\d{1,2}(?:\\.\\d)?)(?:\\s*kWh?)?\\b`, 'gi'),
       type: 'battery'
     });
+    
+    // Pattern 2: Brand + Model + Capacity (Tesla Powerwall 2, BYD HVM 16.6, etc.)
+    patterns.push({
+      regex: new RegExp(`\\b(${brandPattern})\\s+(?:powerwall|lynx|hvm|hvs|sbr|iq|alpha|smile)\\s*(?:\\d+(?:\\.\\d)?)?`, 'gi'),
+      type: 'battery'
+    });
+    
+    // Pattern 3: Standalone capacity with battery context (13.5kWh Battery, 10kWh Storage)
+    patterns.push({
+      regex: new RegExp(`\\b(\\d{1,2}(?:\\.\\d)?)\\s*kWh?\\s*(?:battery|storage|batt)`, 'gi'),
+      type: 'battery'
+    });
+    
+    // Pattern 4: Common battery model names with brands
+    const batteryModels = ['powerwall', 'lynx', 'hvm', 'hvs', 'sbr', 'alpha', 'smile', 'encharge', 'sigenergy', 'pylon'];
+    for (const model of batteryModels) {
+      patterns.push({
+        regex: new RegExp(`\\b(${brandPattern})?\\s*(${model})\\s*(?:\\d+(?:\\.\\d)?)?`, 'gi'),
+        type: 'battery'
+      });
+    }
     
     // Inverter patterns: Brand + kW (1-50 kW range)
     patterns.push({
@@ -106,17 +145,28 @@ export class HierarchicalMatcher {
    * Build search query for strict filtering
    */
   private buildSearchQuery(brand: string, spec: string, type: 'panel' | 'battery' | 'inverter'): string {
-    const specNum = parseFloat(spec);
+    // Clean up brand and spec
+    const cleanBrand = brand.replace(/[^\w\s]/g, '').trim();
+    const cleanSpec = spec.replace(/[^\d.]/g, '');
     
     switch (type) {
       case 'panel':
-        return `${brand} ${specNum}W`;
+        if (cleanSpec && parseFloat(cleanSpec) >= 100) {
+          return `${cleanBrand} ${cleanSpec}W`;
+        }
+        return cleanBrand;
       case 'battery':
-        return `${brand} ${specNum}kWh`;
+        if (cleanSpec && parseFloat(cleanSpec) <= 100) {
+          return `${cleanBrand} ${cleanSpec}kWh`;
+        }
+        return cleanBrand; // For cases like "Tesla Powerwall" without explicit capacity
       case 'inverter':
-        return `${brand} ${specNum}kW`;
+        if (cleanSpec && parseFloat(cleanSpec) <= 50) {
+          return `${cleanBrand} ${cleanSpec}kW`;
+        }
+        return cleanBrand;
       default:
-        return `${brand} ${spec}`;
+        return cleanBrand;
     }
   }
 
@@ -189,7 +239,27 @@ export class HierarchicalMatcher {
       .filter(token => !/^\d+$/.test(token)) // Skip pure numbers (handled by spec matching)
       .filter(token => token.toUpperCase() !== 'SOLAR'); // Skip generic words
     
-    return tokens;
+    // Add common battery model variations
+    const upperModel = model.toUpperCase();
+    const batteryVariants = [];
+    
+    if (upperModel.includes('POWERWALL')) {
+      batteryVariants.push('POWERWALL', 'PW', 'TESLA');
+    }
+    if (upperModel.includes('LYNX')) {
+      batteryVariants.push('LYNX', 'F12', 'F10', 'GOODWE');
+    }
+    if (upperModel.includes('HVM') || upperModel.includes('HVS')) {
+      batteryVariants.push('HVM', 'HVS', 'BYD', 'BATTERY-BOX');
+    }
+    if (upperModel.includes('SBR')) {
+      batteryVariants.push('SBR', 'SUNGROW');
+    }
+    if (upperModel.includes('ALPHA')) {
+      batteryVariants.push('ALPHA', 'SMILE', 'ALPHAESS');
+    }
+    
+    return [...tokens, ...batteryVariants];
   }
 
   /**
@@ -198,14 +268,19 @@ export class HierarchicalMatcher {
   private getTokenWeight(token: string): number {
     const upper = token.toUpperCase();
     
-    // High-value model indicators
-    if (/^(TIGER|NEO|VERTEX|ALPHA|POWERWALL|LYNX|HONEY|DUOMAX|PEAK|MAXX)$/i.test(upper)) {
+    // High-value model indicators (including battery models)
+    if (/^(TIGER|NEO|VERTEX|ALPHA|POWERWALL|LYNX|HONEY|DUOMAX|PEAK|MAXX|HVM|HVS|SBR|SMILE|ENCHARGE)$/i.test(upper)) {
       return 0.15;
     }
     
-    // Medium-value indicators
-    if (/^(HL4|HC|DT|EH|ET|RS|SBR|HVM|HVS|IQ|SG|GW)$/i.test(upper)) {
+    // Medium-value indicators (including battery codes)
+    if (/^(HL4|HC|DT|EH|ET|RS|IQ|SG|GW|F12|F10|PW|PYLON|BOX)$/i.test(upper)) {
       return 0.10;
+    }
+    
+    // Battery-specific indicators
+    if (/^(BATTERY|STORAGE|BATT|KWH|LITHIUM|LFP|LIFEPO4)$/i.test(upper)) {
+      return 0.08;
     }
     
     // Low-value but still meaningful
