@@ -1553,8 +1553,9 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       const updatedProgress = {
         processed: actualCount || 0,
         pdf_done: withPdfCount || 0,
-        specs_done: shouldForceSpecs ? 0 : uniqueProductsWithSpecs, // Real spec count
-        state: shouldForceSpecs ? 'running' : ((actualCount || 0) >= currentProgress.target && uniqueProductsWithSpecs >= currentProgress.target) ? 'completed' : 'running'
+        specs_done: uniqueProductsWithSpecs, // Real spec count
+        // Only mark completed if ALL products have specs extracted (100% coverage required)
+        state: uniqueProductsWithSpecs >= currentProgress.target ? 'completed' : 'running'
       };
       
       console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=${shouldForceSpecs}`);
