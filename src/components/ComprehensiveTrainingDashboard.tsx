@@ -44,16 +44,26 @@ export default function ComprehensiveTrainingDashboard() {
         body: { action: 'get_training_status' }
       });
 
-      if (error) throw error;
-      setStatus(data);
+      if (error) {
+        console.error('Training status error:', error);
+        // Don't throw here to prevent UI crashes - just log and continue
+        return;
+      }
+
+      if (data?.success) {
+        setStatus(data);
+      }
     } catch (error) {
       console.error('Failed to load training status:', error);
+      // Silently handle errors to prevent UI crashes
     } finally {
       setLoading(false);
     }
   }
 
   async function startTraining() {
+    if (isTraining) return;
+    
     setIsTraining(true);
     try {
       const { data, error } = await supabase.functions.invoke('preboot-trainer', {
@@ -64,7 +74,22 @@ export default function ComprehensiveTrainingDashboard() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Training invocation error:', error);
+        throw new Error(error.message || 'Failed to invoke training function');
+      }
+
+      if (!data?.success) {
+        console.error('Training start failed:', data);
+        
+        // Handle specific readiness gate failures
+        if (data?.failingGates && data.failingGates.length > 0) {
+          const gateInfo = data.failingGates.map(g => `${g.gate}: ${(g.current * 100).toFixed(1)}% (needs ${(g.required * 100).toFixed(1)}%)`).join(', ');
+          throw new Error(`Training blocked by readiness gates: ${gateInfo}. Please wait for system to complete all requirements.`);
+        }
+        
+        throw new Error(data?.error || data?.message || 'Training failed to start');
+      }
 
       toast({
         title: "Training Started",
@@ -77,7 +102,7 @@ export default function ComprehensiveTrainingDashboard() {
     } catch (error: any) {
       console.error('Training failed:', error);
       toast({
-        title: "Training Failed",
+        title: "Training Start Failed",
         description: error.message || "Failed to start training",
         variant: "destructive",
       });
@@ -92,13 +117,33 @@ export default function ComprehensiveTrainingDashboard() {
         body: { action: 'check_readiness' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Readiness check error:', error);
+        throw new Error(error.message || 'Failed to check readiness');
+      }
 
-      toast({
-        title: "Readiness Check",
-        description: data.allPassing ? "All gates passing!" : "Some gates need attention",
-        variant: data.allPassing ? "default" : "destructive",
-      });
+      if (!data?.success) {
+        throw new Error(data?.error || 'Readiness check failed');
+      }
+
+      const failingGates = data.gates?.filter((g: any) => !g.passing) || [];
+      
+      if (data.allPassing) {
+        toast({
+          title: "✅ All Gates Passing!",
+          description: "System is ready for training",
+        });
+      } else {
+        const gateInfo = failingGates.map((g: any) => 
+          `${g.gate}: ${typeof g.current === 'number' ? (g.current * 100).toFixed(1) + '%' : g.current}/${typeof g.required === 'number' ? (g.required * 100).toFixed(1) + '%' : g.required}`
+        ).join(', ');
+        
+        toast({
+          title: `❌ ${failingGates.length} Gates Need Attention`,
+          description: `Failing: ${gateInfo}`,
+          variant: "destructive",
+        });
+      }
 
     } catch (error: any) {
       console.error('Readiness check failed:', error);

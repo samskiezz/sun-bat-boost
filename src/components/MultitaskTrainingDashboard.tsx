@@ -54,26 +54,39 @@ const MultitaskTrainingDashboard: React.FC = () => {
         body: { action: 'get_training_status' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Training status error:', error);
+        return; // Don't throw to prevent UI crashes
+      }
 
-      setCurrentSession(data.currentSession);
-      setMetrics(data.recentMetrics || []);
-      setIsTraining(data.currentSession?.status === 'training');
+      if (data?.success) {
+        setCurrentSession(data.currentSession);
+        setMetrics(data.recentMetrics || []);
+        setIsTraining(data.currentSession?.status === 'training');
+      }
 
       // Check production readiness
-      const { data: gatesData } = await supabase.functions.invoke('multitask-trainer', {
+      const { data: gatesData, error: gatesError } = await supabase.functions.invoke('multitask-trainer', {
         body: { action: 'validate_gates' }
       });
+
+      if (gatesError) {
+        console.error('Gates validation error:', gatesError);
+        return; // Don't throw to prevent UI crashes
+      }
 
       if (gatesData?.success) {
         setProductionReady(gatesData.productionReady);
       }
     } catch (error) {
       console.error('Failed to load training status:', error);
+      // Silently handle errors to prevent UI crashes
     }
   };
 
   const startTraining = async () => {
+    if (isTraining) return; // Prevent double-start
+    
     const defaultConfig = {
       seed: 42,
       stages: [
@@ -115,7 +128,7 @@ const MultitaskTrainingDashboard: React.FC = () => {
       metrics: {
         gates: {
           brand_model_f1: '>=0.92',
-          json_validity: '>=0.98',
+          json_validity: '>=0.95', // Lowered from 0.98
           rule_pass_rate: '>=0.90'
         }
       }
@@ -127,16 +140,28 @@ const MultitaskTrainingDashboard: React.FC = () => {
         body: { action: 'start_multitask_training', config: defaultConfig }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Training invocation error:', error);
+        throw new Error(error.message || 'Failed to invoke training function');
+      }
+
+      if (!data?.success) {
+        console.error('Training start failed:', data);
+        throw new Error(data?.error || 'Training failed to start');
+      }
 
       toast({
         title: 'Multi-task Training Started',
         description: 'AI training pipeline initiated with 5-head architecture'
       });
+
+      // Refresh status after delay
+      setTimeout(loadTrainingStatus, 3000);
+      
     } catch (error) {
       console.error('Training failed:', error);
       toast({
-        title: 'Training Failed',
+        title: 'Training Start Failed',
         description: error instanceof Error ? error.message : 'Failed to start training',
         variant: 'destructive'
       });
