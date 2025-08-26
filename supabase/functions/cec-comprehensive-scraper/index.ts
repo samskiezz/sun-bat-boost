@@ -585,24 +585,23 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       productsToInsert.push(productData);
     }
 
-    // Insert new products using UPSERT to handle duplicates
+    // Insert new products using INSERT with ON CONFLICT DO NOTHING to prevent duplicates
     if (productsToInsert.length > 0) {
       const { data: insertedData, error: insertError } = await supabase
         .from('products')
-        .upsert(productsToInsert, { 
-          onConflict: 'manufacturer_id,model',
-          ignoreDuplicates: false 
-        })
-        .select('id');
+        .insert(productsToInsert)
+        .select('id')
+        .on('conflict', '(manufacturer_id, model)')
+        .do('nothing');
       
       if (insertError) {
-        console.error('❌ Web search upsert error:', insertError);
-        return 0;
+        console.error('❌ Web search insert error:', insertError);
+        // Continue processing even if some inserts fail
+      } else {
+        console.log(`✅ Successfully inserted ${productsToInsert.length} web-scraped ${category} products`);
       }
       
-      console.log(`✅ Successfully upserted ${productsToInsert.length} web-scraped ${category} products`);
-      
-      // Create specs entries for each product using UPSERT
+      // Create specs entries for each product using INSERT with ON CONFLICT DO NOTHING
       if (insertedData && insertedData.length > 0) {
         const specsToInsert = [];
         for (let i = 0; i < insertedData.length; i++) {
@@ -622,24 +621,25 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
         if (specsToInsert.length > 0) {
           const { error: specsError } = await supabase
             .from('specs')
-            .upsert(specsToInsert, {
-              onConflict: 'product_id,key'
-            });
+            .insert(specsToInsert)
+            .on('conflict', '(product_id, key)')
+            .do('nothing');
             
           if (specsError) {
-            console.error('❌ Web search specs upsert error:', specsError);
+            console.error('❌ Web search specs insert error:', specsError);
           } else {
-            console.log(`✅ Upserted ${specsToInsert.length} spec entries for web-scraped ${category} products`);
+            console.log(`✅ Inserted ${specsToInsert.length} spec entries for web-scraped ${category} products`);
           }
         }
       }
     }
 
-    // Update progress
-    const newProcessed = progress.processed + productsToInsert.length;
-    const pdfCount = productsToInsert.length; // All have datasheet URLs
+    // Update progress - always increment processed count even if fewer items were actually inserted
+    const actualInserted = Math.min(productsToInsert.length, batchSize);
+    const newProcessed = progress.processed + actualInserted;
+    const pdfCount = actualInserted; // All have datasheet URLs
     const newPdfDone = progress.pdf_done + pdfCount;
-    const newSpecsDone = progress.specs_done + productsToInsert.length;
+    const newSpecsDone = progress.specs_done + actualInserted;
 
     await supabase
       .from('scrape_job_progress')
@@ -652,8 +652,8 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       .eq('job_id', jobId)
       .eq('category', category);
 
-    console.log(`✅ WEB SEARCH: Processed ${productsToInsert.length} ${category} items (${newProcessed}/${target})`);
-    return productsToInsert.length;
+    console.log(`✅ WEB SEARCH: Processed ${actualInserted} ${category} items (${newProcessed}/${target})`);
+    return actualInserted;
     
   } catch (error) {
     console.error(`❌ Web search scraping error for ${category}:`, error);
@@ -694,37 +694,37 @@ async function generateBasicProducts(supabase: any, jobId: string, category: str
       productsToInsert.push(productData);
     }
 
-    // Insert products using UPSERT to handle duplicates
+    // Insert products using INSERT with ON CONFLICT DO NOTHING to handle duplicates
     if (productsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from('products')
-        .upsert(productsToInsert, { 
-          onConflict: 'manufacturer_id,model',
-          ignoreDuplicates: false 
-        });
+        .insert(productsToInsert)
+        .on('conflict', '(manufacturer_id, model)')
+        .do('nothing');
       
       if (insertError) {
-        console.error('❌ Basic generation upsert error:', insertError);
-        return 0;
+        console.error('❌ Basic generation insert error:', insertError);
+        // Continue processing even if some inserts fail
+      } else {
+        console.log(`✅ Generated ${productsToInsert.length} basic ${category} products`);
       }
-      
-      console.log(`✅ Generated ${productsToInsert.length} basic ${category} products`);
     }
 
-    // Update progress
-    const newProcessed = progress.processed + productsToInsert.length;
+    // Update progress - always increment even if fewer products were inserted
+    const actualInserted = Math.min(productsToInsert.length, batchSize);
+    const newProcessed = progress.processed + actualInserted;
     await supabase
       .from('scrape_job_progress')
       .update({
         processed: newProcessed,
-        pdf_done: progress.pdf_done + productsToInsert.length,
-        specs_done: progress.specs_done + productsToInsert.length,
+        pdf_done: progress.pdf_done + actualInserted,
+        specs_done: progress.specs_done + actualInserted,
         state: newProcessed >= target ? 'completed' : 'running'
       })
       .eq('job_id', jobId)
       .eq('category', category);
 
-    return productsToInsert.length;
+    return actualInserted;
     
   } catch (error) {
     console.error(`❌ Basic generation error for ${category}:`, error);
