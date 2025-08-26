@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Brain, FileText, Zap, RotateCcw, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { forceSpecsEnhancement } from '@/utils/forceSpecsEnhancement';
 
 export default function SpecsEnhancementWidget() {
   const [loading, setLoading] = useState(false);

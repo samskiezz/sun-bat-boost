@@ -1629,14 +1629,14 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         const missingSpecs = actualCount - productsWithSpecs;
         console.log(`🚀 Triggering specs enhancement for ${category} - ${missingSpecs} products need specs (${(specsCompletion * 100).toFixed(1)}% complete)`);
         
-        // Throttle the specs enhancement calls - increased to 60 seconds
+        // Throttle the specs enhancement calls - reduced to 10 seconds for faster processing
         const lastTriggered = progress.last_specs_trigger || 0;
-        if (now - lastTriggered > 60000) { // Only trigger every 60 seconds
+        if (now - lastTriggered > 10000) { // Only trigger every 10 seconds
           try {
             await supabase.functions.invoke('specs-enhancer', {
               body: { 
                 action: 'enhance_specs', 
-                batchSize: 25, 
+                batchSize: 50, // Increased batch size for faster processing 
                 offset: 0 
               }
             });
