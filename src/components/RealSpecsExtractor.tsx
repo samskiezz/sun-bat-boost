@@ -90,85 +90,120 @@ export const RealSpecsExtractor = () => {
     
     setIsExtracting(true);
     setProgress(0);
-    setCurrentProduct('Getting products needing specs...');
+    setCurrentProduct('Starting continuous specs extraction...');
     setResult(null);
     
     try {
-      // Get products that need specs using our new RPC
-      console.log('🔍 Getting products needing specs...');
-      const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs');
-      
-      if (productsError) {
-        throw new Error(`Failed to get products: ${productsError.message}`);
-      }
-      
-      if (!products || products.length === 0) {
-        toast({
-          title: "All Products Complete",
-          description: "All products already have comprehensive specs (6+ specifications)",
-        });
-        setIsExtracting(false);
-        return;
-      }
-      
-      console.log(`📋 Found ${products.length} products needing specs`);
-      setCurrentProduct(`Processing ${products.length} products...`);
-      
-      // Process products in batches using the new enhance_list action
-      const batchSize = 20;
       let totalProcessed = 0;
       let totalSuccessful = 0;
       let totalFailures = 0;
+      let iterationCount = 0;
       
-      const productIds = products.map(p => p.product_id);
-      
-      for (let i = 0; i < productIds.length; i += batchSize) {
-        const batch = productIds.slice(i, i + batchSize);
-        const batchProgress = ((i / productIds.length) * 90);
-        setProgress(batchProgress);
-        setCurrentProduct(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(productIds.length / batchSize)}...`);
+      // Keep processing until no more products need specs
+      while (iterationCount < 20) { // Safety limit
+        iterationCount++;
+        console.log(`🔄 Iteration ${iterationCount}: Getting products needing specs...`);
+        setCurrentProduct(`Iteration ${iterationCount}: Checking for products needing specs...`);
         
-        console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}: ${batch.length} products`);
+        // Get products that need specs using our RPC
+        const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs');
         
-        const response = await supabase.functions.invoke('specs-enhancer', {
-          body: { 
-            action: 'enhance_list', 
-            productIds: batch 
-          }
-        });
+        if (productsError) {
+          throw new Error(`Failed to get products: ${productsError.message}`);
+        }
         
-        if (response.error) {
-          console.error('Batch processing error:', response.error);
-          totalFailures += batch.length;
-        } else if (response.data) {
-          const batchResult = response.data;
-          totalProcessed += batchResult.processed || 0;
-          totalSuccessful += batchResult.successful || 0;
-          totalFailures += batchResult.failures || 0;
+        if (!products || products.length === 0) {
+          console.log('🎉 All products have sufficient specs!');
+          setCurrentProduct('All products complete!');
+          toast({
+            title: "All Products Complete! 🎉",
+            description: "All products now have 6+ comprehensive specifications",
+          });
+          break;
+        }
+        
+        console.log(`📋 Iteration ${iterationCount}: Found ${products.length} products needing specs`);
+        setCurrentProduct(`Iteration ${iterationCount}: Processing ${products.length} products...`);
+        
+        // Process more products per iteration (100 instead of 20)
+        const batchSize = 50;
+        const maxProductsPerIteration = 200; // Process up to 200 products per iteration
+        const productsToProcess = products.slice(0, maxProductsPerIteration);
+        const productIds = productsToProcess.map(p => p.product_id);
+        
+        let iterationProcessed = 0;
+        let iterationSuccessful = 0;
+        let iterationFailures = 0;
+        
+        for (let i = 0; i < productIds.length; i += batchSize) {
+          const batch = productIds.slice(i, i + batchSize);
+          const batchNumber = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(productIds.length / batchSize);
           
-          console.log(`✅ Batch complete: ${batchResult.successful}/${batchResult.processed} successful`);
+          setProgress(((i / productIds.length) * 90) + (iterationCount - 1) * 5);
+          setCurrentProduct(`Iteration ${iterationCount} - Batch ${batchNumber}/${totalBatches}: Processing ${batch.length} products...`);
+          
+          console.log(`📦 Iteration ${iterationCount} - Batch ${batchNumber}: ${batch.length} products`);
+          
+          const response = await supabase.functions.invoke('specs-enhancer', {
+            body: { 
+              action: 'enhance_list', 
+              productIds: batch 
+            }
+          });
+          
+          if (response.error) {
+            console.error('Batch processing error:', response.error);
+            iterationFailures += batch.length;
+          } else if (response.data) {
+            const batchResult = response.data;
+            iterationProcessed += batchResult.processed || 0;
+            iterationSuccessful += batchResult.successful || 0;
+            iterationFailures += batchResult.failures || 0;
+            
+            console.log(`✅ Batch complete: ${batchResult.successful}/${batchResult.processed} successful`);
+          }
+          
+          // Small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        totalProcessed += iterationProcessed;
+        totalSuccessful += iterationSuccessful;
+        totalFailures += iterationFailures;
+        
+        console.log(`✅ Iteration ${iterationCount} complete: ${iterationProcessed} processed, ${iterationSuccessful} successful`);
+        setCurrentProduct(`Iteration ${iterationCount} complete: ${iterationSuccessful}/${iterationProcessed} successful. Total: ${totalSuccessful}/${totalProcessed}`);
+        
+        // Update progress after each iteration
+        await handleUpdateProgress();
+        
+        // Brief pause between iterations
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // If we processed fewer than the batch size, we're likely done
+        if (productsToProcess.length < maxProductsPerIteration) {
+          console.log('🏁 Processed all available products, checking completion...');
         }
       }
       
       setProgress(100);
-      setCurrentProduct('Updating progress...');
+      setCurrentProduct('Complete!');
       
       const result = {
         success: true,
         processed: totalProcessed,
         successful: totalSuccessful,
-        failures: totalFailures
+        failures: totalFailures,
+        iterations: iterationCount
       };
       
-      console.log('Real extraction result:', result);
+      console.log('Final extraction result:', result);
       setResult(result);
       
-      // Trigger progress refresh after successful extraction
-      await handleUpdateProgress();
-      
       toast({
-        title: "Real Specs Extraction Complete!",
-        description: `Processed ${result.processed} products with ${result.successful} successful extractions`,
+        title: "Continuous Extraction Complete!",
+        description: `Completed ${iterationCount} iterations. Processed ${totalProcessed} products with ${totalSuccessful} successful extractions`,
       });
       
     } catch (error) {
