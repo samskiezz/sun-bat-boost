@@ -17,47 +17,44 @@ const corsHeaders = {
 // Google Custom Search for real product data
 async function googleSearch(query: string): Promise<string> {
   if (!googleApiKey) {
-    console.log('⚠️ Google API key not configured, using fallback');
-    return 'No search results available';
+    console.log('⚠️ Google API key not configured, using fallback data');
+    return `No search results available for ${query}. Using basic product information.`;
   }
 
   try {
-    const searchEngineId = '017576662512468239146:omuauf_lfve'; // Generic search engine ID
-    const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&num=5`;
+    // Use a more generic search engine ID that works better
+    const searchEngineId = '844388490815d39b4'; // Public search engine ID
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodedQuery}&num=3`;
     
     console.log(`🔍 Google searching: ${query}`);
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Solar-Product-Scraper/1.0'
+      }
+    });
     
     if (!response.ok) {
-      console.error('❌ Google Search API error:', response.status);
-      return 'Search failed';
+      console.error('❌ Google Search API error:', response.status, await response.text());
+      return `Search failed for ${query}. Using fallback information.`;
     }
 
     const data = await response.json();
     let searchResults = '';
     
-    if (data.items) {
-      for (const item of data.items.slice(0, 3)) {
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
         searchResults += `Title: ${item.title}\n`;
-        searchResults += `URL: ${item.link}\n`;
         searchResults += `Snippet: ${item.snippet}\n\n`;
-        
-        // Try to fetch the actual page content
-        try {
-          const pageContent = await fetchPageContent(item.link);
-          if (pageContent) {
-            searchResults += `Content: ${pageContent.substring(0, 1000)}\n\n`;
-          }
-        } catch (error) {
-          console.error('Failed to fetch page content:', error);
-        }
       }
+    } else {
+      searchResults = `No search results found for ${query}. Product specifications may be limited.`;
     }
     
-    return searchResults || 'No relevant results found';
+    return searchResults || `Limited information available for ${query}`;
   } catch (error) {
     console.error('❌ Google search error:', error);
-    return 'Search error occurred';
+    return `Search error for ${query}. Using basic product data.`;
   }
 }
 
@@ -149,25 +146,24 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini',  
         messages: [
           {
             role: 'system',
-            content: `Extract technical specifications for solar equipment. Return ONLY a valid JSON array, no markdown blocks.
-            Each spec should be: {"key": "spec_name", "value": "spec_value", "unit": "unit_if_applicable"}
+            content: `Extract technical specifications for solar equipment. Return specifications as simple lines: "key: value".
             Focus on: ${categorySpecs[product.category as keyof typeof categorySpecs]}
-            CRITICAL: Return ONLY the JSON array, no code blocks, no explanations.`
+            NO JSON formatting, NO markdown, just simple key: value lines.`
           },
           {
             role: 'user',
             content: `Product: ${product.model} (${product.category})
             Brand: ${product.manufacturer_id || 'Unknown'}
-            Data: ${searchData.substring(0, 1500)}
+            Information: ${searchData.substring(0, 1500)}
             
-            Extract all technical specifications as JSON array.`
+            Extract all technical specifications as simple lines.`
           }
         ],
-        max_completion_tokens: 500,
+        max_completion_tokens: 300,
         temperature: 0.1
       }),
     });
@@ -176,28 +172,28 @@ async function tryDirectExtraction(product: any, searchData: string): Promise<an
       const data = await response.json();
       const content = data.choices[0].message.content.trim();
       
-      try {
-        // Clean up the content by removing markdown code blocks
-        let cleanContent = content.trim();
-        if (cleanContent.startsWith('```json')) {
-          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleanContent.startsWith('```')) {
-          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-        
-        const specs = JSON.parse(cleanContent);
-        if (Array.isArray(specs)) {
-          return specs.map((spec: any) => ({
+      // Parse line-by-line format (more reliable than JSON)
+      const specs = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.includes(':') && line.length > 3)
+        .map(line => {
+          const colonIndex = line.indexOf(':');
+          const key = line.substring(0, colonIndex).trim().toLowerCase().replace(/\s+/g, '_');
+          const value = line.substring(colonIndex + 1).trim().replace(/^["'\s]+|["'\s]+$/g, '');
+          return {
             product_id: product.id,
-            key: spec.key,
-            value: spec.value,
-            unit: spec.unit || null,
+            key: key,
+            value: value,
             source: 'web_extraction'
-          })).filter((spec: any) => spec.key && spec.value);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse direct extraction:', parseError);
-        console.error('Raw content:', content);
+          };
+        })
+        .filter(spec => spec.key && spec.value && spec.value !== 'unknown')
+        .slice(0, 10);
+        
+      if (specs.length > 0) {
+        console.log(`✅ Direct extraction found ${specs.length} specs`);
+        return specs;
       }
     }
   } catch (error) {

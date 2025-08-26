@@ -282,7 +282,7 @@ async function tickJob(supabase: any) {
         const { data: currentProgress } = await supabase
           .from('scrape_job_progress')
           .select('category, specs_done, target')
-          .eq('job_id', jobId);
+          .eq('job_id', job.id);
         
         if (currentProgress) {
           const specsPerCategory = Math.ceil(result.enhanced_count / 3);
@@ -291,7 +291,7 @@ async function tickJob(supabase: any) {
             await supabase
               .from('scrape_job_progress')
               .update({ specs_done: newSpecsDone })
-              .eq('job_id', jobId)
+              .eq('job_id', job.id)
               .eq('category', progress.category);
           }
         }

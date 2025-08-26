@@ -30,23 +30,23 @@ async function extractSpecsWithAI(product: any): Promise<any[]> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-nano-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `Extract product specifications. List each spec on a new line as "key: value". 
-For ${product.category}, focus on: ${
+            content: `Extract product specifications. For ${product.category}, focus on: ${
   product.category === 'PANEL' ? 'watts, efficiency_percent, cell_type' : 
   product.category === 'BATTERY_MODULE' ? 'kWh, battery_chemistry, vpp_compatible' : 
   'power_kw, max_efficiency, inverter_topology'
-}. RETURN ONLY PLAIN JSON ARRAY - NO MARKDOWN, NO CODE BLOCKS.`
+}. Return specifications as simple lines: "key: value". NO JSON, NO markdown blocks.`
           },
           {
             role: 'user',  
-            content: `Model: ${product.model}\nData: ${JSON.stringify(product.raw).substring(0, 800)}`
+            content: `Model: ${product.model}\nCategory: ${product.category}\nExtract specifications from: ${JSON.stringify(product.raw).substring(0, 800)}`
           }
         ],
-        max_completion_tokens: 200
+        max_completion_tokens: 200,
+        temperature: 0.1
       }),
     });
 
@@ -209,7 +209,7 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
 }
 
 // Enhanced specs for AI/ML compatibility - much faster parallel processing
-async function enhanceProductSpecs(batchSize = 50, offset = 0) {
+async function enhanceProductSpecs(batchSize = 100, offset = 0) {
   console.log(`🚀 Fast specs enhancement: offset=${offset}, size=${batchSize}`);
   
   try {
@@ -217,6 +217,7 @@ async function enhanceProductSpecs(batchSize = 50, offset = 0) {
       .from('products')
       .select('id, category, model, raw')
       .eq('status', 'active')
+      .is('specs_extracted', null)  // Only get products that haven't been processed
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
 
@@ -235,7 +236,7 @@ async function enhanceProductSpecs(batchSize = 50, offset = 0) {
     let totalEnhanced = 0;
     
     // Process products in smaller batches to avoid timeout
-    const MINI_BATCH_SIZE = 10;
+    const MINI_BATCH_SIZE = 20;  // Increased from 10
     for (let i = 0; i < products.length; i += MINI_BATCH_SIZE) {
       const batch = products.slice(i, i + MINI_BATCH_SIZE);
       
@@ -252,6 +253,13 @@ async function enhanceProductSpecs(batchSize = 50, offset = 0) {
               console.error(`❌ Specs error for ${product.model}:`, specsError.message);
               return false;
             }
+            
+            // Mark product as processed
+            await supabase
+              .from('products')
+              .update({ specs_extracted: new Date().toISOString() })
+              .eq('id', product.id);
+              
             console.log(`✅ Enhanced ${product.model} with ${specs.length} specs`);
             return true;
           }
@@ -267,7 +275,7 @@ async function enhanceProductSpecs(batchSize = 50, offset = 0) {
       
       // Small delay between mini-batches
       if (i + MINI_BATCH_SIZE < products.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 200));  // Reduced delay
       }
     }
     
