@@ -236,7 +236,10 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                     </div>
                     <div className="text-right">
                       <div className="font-mono">
-                        {Math.min(gate.current, gate.required).toLocaleString()} / {gate.required.toLocaleString()}
+                        {gate.current > gate.required 
+                          ? `${gate.current.toLocaleString()} / ${gate.current.toLocaleString()}`
+                          : `${gate.current.toLocaleString()} / ${gate.required.toLocaleString()}`
+                        }
                       </div>
                       <Progress 
                         value={Math.min(100, (gate.current / gate.required) * 100)} 

@@ -588,7 +588,10 @@ export default function ComprehensiveCatalogManager() {
                         </div>
                         <div className="text-right">
                           <div className="font-mono text-sm">
-                            {Math.min(gate.current, gate.required)} / {gate.required}
+                            {gate.current > gate.required 
+                              ? `${gate.current} / ${gate.current}`
+                              : `${gate.current} / ${gate.required}`
+                            }
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {Math.min(100, Math.round((gate.current / gate.required) * 100))}%

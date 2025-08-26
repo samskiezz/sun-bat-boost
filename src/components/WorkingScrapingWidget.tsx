@@ -74,12 +74,11 @@ export default function WorkingScrapingWidget() {
       const panelData = productCounts.find((p: any) => p.category === 'PANEL');
       const panelTarget = dataCollectionGate?.required || 1348;
       const panelCurrent = panelData?.total_count || 0;
-      const normalizedPanelCurrent = Math.min(panelCurrent, panelTarget);
       
       newProgress.push({
         category: 'Panels',
-        current: normalizedPanelCurrent,
-        target: panelTarget,
+        current: panelCurrent > panelTarget ? panelCurrent : panelCurrent,
+        target: panelCurrent > panelTarget ? panelCurrent : panelTarget,
         percentage: Math.min(100, Math.round((panelCurrent / panelTarget) * 100))
       });
 
@@ -87,12 +86,11 @@ export default function WorkingScrapingWidget() {
       const batteryData = productCounts.find((p: any) => p.category === 'BATTERY_MODULE');
       const batteryTarget = pdfProcessingGate?.required || 513;
       const batteryCurrent = batteryData?.total_count || 0;
-      const normalizedBatteryCurrent = Math.min(batteryCurrent, batteryTarget);
       
       newProgress.push({
         category: 'Batteries',
-        current: normalizedBatteryCurrent,
-        target: batteryTarget,
+        current: batteryCurrent > batteryTarget ? batteryCurrent : batteryCurrent,
+        target: batteryCurrent > batteryTarget ? batteryCurrent : batteryTarget,
         percentage: Math.min(100, Math.round((batteryCurrent / batteryTarget) * 100))
       });
 
@@ -100,12 +98,11 @@ export default function WorkingScrapingWidget() {
       const inverterData = productCounts.find((p: any) => p.category === 'INVERTER');
       const inverterTarget = 200;
       const inverterCurrent = inverterData?.total_count || 0;
-      const normalizedInverterCurrent = Math.min(inverterCurrent, inverterTarget);
       
       newProgress.push({
         category: 'Inverters',
-        current: normalizedInverterCurrent,
-        target: inverterTarget,
+        current: inverterCurrent > inverterTarget ? inverterCurrent : inverterCurrent,
+        target: inverterCurrent > inverterTarget ? inverterCurrent : inverterTarget,
         percentage: Math.min(100, Math.round((inverterCurrent / inverterTarget) * 100))
       });
 
