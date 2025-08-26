@@ -165,7 +165,17 @@ async function runScrapingProcess(supabase: any) {
   try {
     const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
     
-    // Initialize all categories first
+    // ABSOLUTELY FORCE CLEAR everything first - no checks, just clear
+    console.log('🗑️ BACKGROUND: FORCE clearing all existing data...');
+    try {
+      await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      console.log('✅ BACKGROUND: Existing progress cleared');
+    } catch (clearError) {
+      console.error('⚠️ BACKGROUND: Clear error (continuing anyway):', clearError);
+    }
+    
+    // Initialize all categories with a small delay to ensure clear completed
+    await new Promise(resolve => setTimeout(resolve, 500));
     await initializeAllCategories(supabase, categories);
     
     // Process each category

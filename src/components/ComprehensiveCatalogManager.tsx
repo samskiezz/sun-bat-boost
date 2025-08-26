@@ -53,16 +53,20 @@ export default function ComprehensiveCatalogManager() {
 
   async function loadStatus() {
     try {
+      console.log('🔄 UI: Loading status...');
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'status' }
       });
 
+      console.log('📊 UI: Status response:', { data, error });
+
       if (error) throw error;
 
+      console.log(`📋 UI: Found ${data.progress?.length || 0} categories:`, data.progress?.map(p => p.category));
       setProgress(data.progress || []);
       setProductCounts(data.productCounts || []);
     } catch (error) {
-      console.error('Failed to load status:', error);
+      console.error('❌ UI: Failed to load status:', error);
     }
   }
 
@@ -188,22 +192,28 @@ export default function ComprehensiveCatalogManager() {
 
           <div className="grid gap-4 md:grid-cols-2 mb-6">
             <Button 
-              onClick={() => handleOperation('scrape_all')}
+              onClick={() => {
+                console.log('🖱️ UI: Start Scraping button clicked');
+                handleOperation('scrape_all');
+              }}
               disabled={loading || isProcessing}
               className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
             >
-              <Database className="w-4 h-4" />
-              {isProcessing ? 'Processing...' : 'Start Scraping'}
+              <Database className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Starting...' : isProcessing ? 'Processing...' : 'Start Scraping'}
             </Button>
             
             <Button 
-              onClick={() => handleOperation('force_complete_reset')}
+              onClick={() => {
+                console.log('🖱️ UI: Complete Reset button clicked');
+                handleOperation('force_complete_reset');
+              }}
               disabled={loading || isProcessing}
               variant="destructive"
               className="flex items-center gap-2"
             >
-              <AlertTriangle className="w-4 h-4" />
-              Complete Reset
+              <AlertTriangle className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Resetting...' : 'Complete Reset'}
             </Button>
           </div>
         </CardContent>
