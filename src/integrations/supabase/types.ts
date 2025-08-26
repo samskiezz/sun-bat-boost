@@ -443,6 +443,7 @@ export type Database = {
         Row: {
           category: string
           job_id: string
+          last_specs_trigger: number | null
           pdf_done: number
           processed: number
           specs_done: number
@@ -452,6 +453,7 @@ export type Database = {
         Insert: {
           category: string
           job_id: string
+          last_specs_trigger?: number | null
           pdf_done?: number
           processed?: number
           specs_done?: number
@@ -461,6 +463,7 @@ export type Database = {
         Update: {
           category?: string
           job_id?: string
+          last_specs_trigger?: number | null
           pdf_done?: number
           processed?: number
           specs_done?: number
