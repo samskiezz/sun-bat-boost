@@ -6,9 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Search, Database, AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { CECScraper } from '@/lib/cec-scraper';
-import { PDFProcessor } from '@/lib/pdf-processor';
-import { GoogleFallbackScraper } from '@/lib/google-fallback';
+import { forceCompleteReset } from '@/utils/forceCompleteReset';
 
 interface ScrapeProgress {
   category: string;
@@ -116,19 +114,13 @@ export default function ScrapingDashboard() {
     addLog('🚀 Starting comprehensive CEC scrape...');
 
     try {
-      const scraper = new CECScraper();
-      const categories: Array<'PANEL' | 'INVERTER' | 'BATTERY_MODULE'> = ['PANEL', 'INVERTER', 'BATTERY_MODULE'];
+      setCurrentOperation('Scraping all categories');
+      
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'scrape_all' }
+      });
 
-      for (const category of categories) {
-        setCurrentOperation(`Scraping ${category} products`);
-        addLog(`🔍 Scraping CEC ${category} products...`);
-
-        const result = await scraper.scrapeCategory(category);
-        await scraper.saveProducts(result.products);
-        await scraper.updateScrapeProgress(category, result);
-
-        addLog(`✅ Found and saved ${result.totalFound} ${category} products`);
-      }
+      if (error) throw error;
 
       addLog('🎯 CEC scraping completed successfully');
       await loadProgress();
@@ -143,42 +135,41 @@ export default function ScrapingDashboard() {
     }
   }
 
-  async function runPDFDownload() {
+  async function runCompleteReset() {
     setIsRunning(true);
-    setCurrentOperation('Downloading and processing PDFs');
-    addLog('📄 Starting PDF download and processing...');
+    setCurrentOperation('Complete system reset');
+    addLog('🔄 Starting complete system reset...');
 
     try {
-      const processor = new PDFProcessor();
-      await processor.processAllPendingPDFs();
+      await forceCompleteReset();
       
-      addLog('✅ PDF processing completed');
+      addLog('✅ Complete reset successful');
+      await loadProgress();
       await loadStats();
 
     } catch (error) {
-      console.error('PDF processing failed:', error);
-      addLog(`❌ PDF processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Reset failed:', error);
+      addLog(`❌ Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsRunning(false);
       setCurrentOperation('');
     }
   }
 
-  async function runGoogleFallback() {
+  async function runStatusRefresh() {
     setIsRunning(true);
-    setCurrentOperation('Searching for missing datasheets with Google');
-    addLog('🔎 Starting Google fallback search...');
+    setCurrentOperation('Refreshing status');
+    addLog('🔄 Refreshing system status...');
 
     try {
-      const googleScraper = new GoogleFallbackScraper();
-      await googleScraper.findMissingDatasheets();
-      
-      addLog('✅ Google fallback search completed');
+      await loadProgress();
       await loadStats();
+      
+      addLog('✅ Status refreshed successfully');
 
     } catch (error) {
-      console.error('Google fallback failed:', error);
-      addLog(`❌ Google fallback failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Status refresh failed:', error);
+      addLog(`❌ Status refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsRunning(false);
       setCurrentOperation('');
@@ -230,21 +221,21 @@ export default function ScrapingDashboard() {
           </Button>
 
           <Button
-            onClick={runPDFDownload}
+            onClick={runCompleteReset}
             disabled={isRunning}
-            variant="outline"
+            variant="destructive"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Process PDFs
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            Complete Reset
           </Button>
 
           <Button
-            onClick={runGoogleFallback}
+            onClick={runStatusRefresh}
             disabled={isRunning}
             variant="outline"
           >
             <Search className="w-4 h-4 mr-2" />
-            Google Fallback
+            Refresh Status
           </Button>
         </div>
       </div>

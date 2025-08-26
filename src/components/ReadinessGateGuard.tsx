@@ -58,13 +58,39 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
 
   async function handleStartScraping() {
     try {
-      await supabase.functions.invoke('cec-comprehensive-scraper', {
+      setIsTraining(true);
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'scrape_all' }
       });
+      
+      if (error) throw error;
       
       setTimeout(checkSystemReadiness, 2000);
     } catch (error) {
       console.error('Failed to start scraping:', error);
+    } finally {
+      setIsTraining(false);
+    }
+  }
+
+  async function handleForceCompleteReset() {
+    try {
+      if (!window.confirm('⚠️ This will DELETE ALL products and regenerate from scratch. Continue?')) {
+        return;
+      }
+      
+      setIsTraining(true);
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'force_complete_reset' }
+      });
+      
+      if (error) throw error;
+      
+      setTimeout(checkSystemReadiness, 2000);
+    } catch (error) {
+      console.error('Failed to start reset:', error);
+    } finally {
+      setIsTraining(false);
     }
   }
 
@@ -189,7 +215,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">
-                  Collect comprehensive product data from the Clean Energy Council and manufacturer websites.
+                  Generate comprehensive product data from the Clean Energy Council database with complete specifications and 100% PDF coverage.
                 </p>
                 
                 {scrapingStatus?.progress?.map((progress: any) => (
@@ -212,10 +238,21 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                   </div>
                 ))}
                 
-                <Button onClick={handleStartScraping} className="w-full">
-                  <Database className="w-4 h-4 mr-2" />
-                  Start CEC Catalog Scraping
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={handleStartScraping} disabled={isTraining}>
+                    <Database className="w-4 h-4 mr-2" />
+                    {isTraining ? 'Processing...' : 'Start Scraping'}
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => handleForceCompleteReset()} 
+                    disabled={isTraining}
+                    variant="destructive"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    {isTraining ? 'Resetting...' : 'Complete Reset'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

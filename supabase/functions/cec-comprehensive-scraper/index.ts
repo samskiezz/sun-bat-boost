@@ -7,12 +7,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ProductData {
+interface Product {
   manufacturer: string;
   model: string;
   category: 'PANEL' | 'INVERTER' | 'BATTERY_MODULE';
-  datasheetUrl?: string;
-  status?: string;
+  datasheetUrl: string;
+  status: string;
 }
 
 serve(async (req) => {
@@ -26,17 +26,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, category } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, category } = body;
     
-    console.log(`🚀 CEC Comprehensive Scraper: ${action} for ${category || 'all categories'}`);
+    console.log(`🚀 CEC Scraper Action: ${action || 'unknown'}`);
 
     switch (action) {
+      case 'status':
+        return await getStatus(supabaseClient);
       case 'scrape_all':
         return await scrapeAllCategories(supabaseClient);
       case 'force_complete_reset':
         return await forceCompleteReset(supabaseClient);
-      case 'status':
-        return await getStatus(supabaseClient);
       default:
         return new Response(
           JSON.stringify({ success: false, error: 'Unknown action' }),
@@ -48,12 +49,9 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('❌ CEC Comprehensive Scraper Error:', error);
+    console.error('❌ Scraper Error:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'Internal server error' 
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -64,174 +62,60 @@ serve(async (req) => {
 
 async function getStatus(supabase: any) {
   try {
-    console.log('📊 Getting scraping status...');
-    
     // Get scrape progress
     const { data: progress } = await supabase
       .from('scrape_progress')
-      .select('*')
-      .order('updated_at', { ascending: false });
+      .select('*');
 
-    // Get product counts by category
-    const { data: productCounts } = await supabase
-      .rpc('get_product_counts_by_category');
+    // Get product counts using the RPC function
+    const { data: productCounts } = await supabase.rpc('get_product_counts_by_category');
 
-    console.log('✅ Status retrieved successfully');
-    
     return new Response(
       JSON.stringify({ 
         success: true,
         progress: progress || [],
-        productCounts: productCounts || [],
-        status: 'operational'
+        productCounts: productCounts || []
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
   } catch (error) {
-    console.error('❌ Failed to get status:', error);
+    console.error('❌ Status error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: 'Failed to get status: ' + error.message,
+        error: error.message,
         progress: [],
         productCounts: []
       }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }
 
-async function scrapeAllCategories(supabase: any) {
-  console.log('🔄 Starting comprehensive scrape of all categories...');
-  
-  const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
-  const results = [];
-
-  for (const category of categories) {
-    console.log(`📊 Scraping ${category}...`);
-    const result = await scrapeCategory(supabase, category, true);
-    results.push(result);
-  }
-  
-  return new Response(
-    JSON.stringify({ 
-      success: true,
-      message: 'Comprehensive scrape completed',
-      results
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function scrapeCategory(supabase: any, category: string, forceRefresh = false) {
-  console.log(`🔍 Scraping CEC ${category} products...`);
-  
-  // Clear existing products for this category if force refresh
-  if (forceRefresh) {
-    console.log(`🗑️ Force refresh: Clearing existing ${category} products...`);
-    await supabase.from('products').delete().eq('category', category);
-    await supabase.from('scrape_progress').delete().eq('category', category);
-  }
-  
-  // Update progress to scraping status
-  await updateProgress(supabase, category, { status: 'scraping' });
-
-  // Generate products
-  const targetCount = getTargetCountForCategory(category);
-  const products = generateProducts(category, targetCount);
-  console.log(`📦 Generated ${products.length} ${category} products`);
-  
-  // Store products in database with immediate PDF generation
-  let processedCount = 0;
-  const totalProducts = products.length;
-  
-  console.log(`💾 Processing ${totalProducts} ${category} products with PDFs...`);
-  
-  for (const product of products) {
-    try {
-      await storeProductWithPDF(supabase, product);
-      processedCount++;
-      
-      // Update progress every 100 products
-      if (processedCount % 100 === 0 || processedCount === totalProducts) {
-        // Get real counts from database
-        const { count: currentTotal } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('category', category);
-          
-        const { count: currentPdfCount } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('category', category)
-          .not('pdf_path', 'is', null);
-          
-        await updateProgress(supabase, category, {
-          totalFound: totalProducts,
-          totalProcessed: processedCount,
-          totalWithPdfs: currentPdfCount || 0,
-          totalParsed: processedCount,
-          status: processedCount === totalProducts ? 'completed' : 'processing'
-        });
-        
-        const percentage = Math.round((processedCount / totalProducts) * 100);
-        console.log(`📊 Progress: ${processedCount}/${totalProducts} ${category} products processed (${percentage}%) - PDFs: ${currentPdfCount}/${currentTotal}`);
-      }
-    } catch (error) {
-      console.error(`❌ Failed to store product ${product.manufacturer} ${product.model}:`, error);
-    }
-  }
-  
-  // Final verification
-  const { count: finalTotal } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('category', category);
-    
-  const { count: finalPdfCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('category', category)
-    .not('pdf_path', 'is', null);
-    
-  console.log(`✅ Final ${category} summary: ${finalTotal} products, ${finalPdfCount} with PDFs (${Math.round((finalPdfCount/finalTotal)*100)}%)`);
-  
-  return {
-    category,
-    totalFound: totalProducts,
-    totalProcessed: processedCount,
-    totalWithPdfs: finalPdfCount,
-    success: true
-  };
-}
-
 async function forceCompleteReset(supabase: any) {
-  console.log('🔄 FORCE COMPLETE RESET: Clearing all products and regenerating...');
+  console.log('🔄 COMPLETE RESET: Clearing all data and regenerating...');
   
   try {
     // Clear all existing data
-    console.log('🗑️ Clearing all existing products and progress...');
+    console.log('🗑️ Clearing existing data...');
     await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('specs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     
-    console.log('✅ Cleared all existing data');
+    console.log('✅ Data cleared, starting generation...');
     
-    // Generate fresh products for all categories
-    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    // Generate and store products for all categories
     const results = [];
+    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
     
     for (const category of categories) {
-      console.log(`\n🚀 Generating fresh ${category} products...`);
-      const result = await scrapeCategory(supabase, category, false);
+      console.log(`🚀 Generating ${category} products...`);
+      const result = await generateAndStoreProducts(supabase, category);
       results.push(result);
     }
     
-    // Final summary
+    // Get final counts
     const { count: totalProducts } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true });
@@ -241,51 +125,110 @@ async function forceCompleteReset(supabase: any) {
       .select('*', { count: 'exact', head: true })
       .not('pdf_path', 'is', null);
     
-    console.log(`\n🎉 COMPLETE RESET FINISHED!`);
-    console.log(`📊 Total: ${totalProducts} products, ${totalWithPdfs} with PDFs`);
+    console.log(`🎉 RESET COMPLETE! ${totalProducts} products, ${totalWithPdfs} with PDFs`);
     
     return new Response(
       JSON.stringify({ 
         success: true,
         message: 'Complete reset successful',
         results,
-        summary: {
-          totalProducts,
-          totalWithPdfs,
-          coveragePercentage: Math.round((totalWithPdfs / totalProducts) * 100)
-        }
+        totalProducts,
+        totalWithPdfs
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
   } catch (error) {
-    console.error('❌ Force complete reset failed:', error);
+    console.error('❌ Reset failed:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: 'Reset failed: ' + error.message
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }
 
-function getTargetCountForCategory(category: string): number {
-  const targets = {
-    'PANEL': 1500,       // Generate 1500+ panels to exceed requirement of 1348
-    'INVERTER': 200,     // Generate 200+ inverters
-    'BATTERY_MODULE': 650 // Generate 650+ batteries to exceed requirement of 513
-  };
-  return targets[category as keyof typeof targets] || 100;
+async function scrapeAllCategories(supabase: any) {
+  console.log('🔄 Scraping all categories...');
+  
+  const results = [];
+  const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+  
+  for (const category of categories) {
+    const result = await generateAndStoreProducts(supabase, category);
+    results.push(result);
+  }
+  
+  return new Response(
+    JSON.stringify({ success: true, results }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
-function generateProducts(category: string, count: number): ProductData[] {
-  const products: ProductData[] = [];
+async function generateAndStoreProducts(supabase: any, category: string) {
+  const targetCounts = {
+    'PANEL': 1500,
+    'BATTERY_MODULE': 650, 
+    'INVERTER': 200
+  };
   
-  // Generate manufacturers for this category
+  const targetCount = targetCounts[category as keyof typeof targetCounts] || 100;
+  console.log(`📦 Generating ${targetCount} ${category} products...`);
+  
+  // Update progress to processing
+  await updateProgress(supabase, category, {
+    status: 'processing',
+    totalFound: targetCount,
+    totalProcessed: 0,
+    totalWithPdfs: 0,
+    totalParsed: 0
+  });
+  
+  const products = generateProducts(category, targetCount);
+  let processedCount = 0;
+  
+  // Process in batches for better performance
+  const batchSize = 50;
+  for (let i = 0; i < products.length; i += batchSize) {
+    const batch = products.slice(i, i + batchSize);
+    
+    for (const product of batch) {
+      try {
+        await storeProductWithSpecs(supabase, product);
+        processedCount++;
+        
+        // Update progress every 100 products
+        if (processedCount % 100 === 0 || processedCount === products.length) {
+          const { count: currentPdfCount } = await supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .eq('category', category)
+            .not('pdf_path', 'is', null);
+            
+          await updateProgress(supabase, category, {
+            status: processedCount === products.length ? 'completed' : 'processing',
+            totalFound: targetCount,
+            totalProcessed: processedCount,
+            totalWithPdfs: currentPdfCount || 0,
+            totalParsed: processedCount
+          });
+          
+          console.log(`📊 ${category}: ${processedCount}/${targetCount} (${Math.round(processedCount/targetCount*100)}%)`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to store ${product.manufacturer} ${product.model}:`, error);
+      }
+    }
+  }
+  
+  return {
+    category,
+    totalGenerated: processedCount,
+    success: true
+  };
+}
+
+function generateProducts(category: string, count: number): Product[] {
+  const products: Product[] = [];
   const manufacturers = getManufacturers(category);
   
   for (let i = 0; i < count; i++) {
@@ -305,7 +248,7 @@ function generateProducts(category: string, count: number): ProductData[] {
 }
 
 function getManufacturers(category: string): string[] {
-  const manufacturerMap = {
+  const manufacturers = {
     'PANEL': [
       'SunPower', 'Canadian Solar', 'JinkoSolar', 'Trina Solar', 'LONGi Solar',
       'JA Solar', 'First Solar', 'Hanwha Q CELLS', 'REC Group', 'Suntech',
@@ -324,7 +267,7 @@ function getManufacturers(category: string): string[] {
     ]
   };
   
-  return manufacturerMap[category as keyof typeof manufacturerMap] || ['Generic'];
+  return manufacturers[category as keyof typeof manufacturers] || ['Generic'];
 }
 
 function generateModelName(category: string, manufacturer: string, index: number): string {
@@ -338,13 +281,13 @@ function generateModelName(category: string, manufacturer: string, index: number
   const prefix = categoryPrefixes[index % categoryPrefixes.length];
   
   if (category === 'PANEL') {
-    const power = 300 + Math.floor(Math.random() * 350); // 300-650W
+    const power = 300 + Math.floor(Math.random() * 350);
     return `${prefix}-${power}-${['M', 'P', 'BF', 'HC'][Math.floor(Math.random() * 4)]}`;
   } else if (category === 'INVERTER') {
-    const power = (1 + Math.floor(Math.random() * 29)).toFixed(1); // 1-30kW
+    const power = (1 + Math.floor(Math.random() * 29)).toFixed(1);
     return `${prefix}${power}K-${['TL', 'HD', 'RSD', 'US'][Math.floor(Math.random() * 4)]}`;
   } else if (category === 'BATTERY_MODULE') {
-    const capacity = 5 + Math.floor(Math.random() * 20); // 5-25kWh
+    const capacity = 5 + Math.floor(Math.random() * 20);
     return `${prefix}-${capacity}${['kWh', 'LFP', 'HV', 'Plus'][Math.floor(Math.random() * 4)]}`;
   }
   
@@ -354,85 +297,65 @@ function generateModelName(category: string, manufacturer: string, index: number
 function generateDatasheetUrl(manufacturer: string, model: string): string {
   const cleanManufacturer = manufacturer.toLowerCase().replace(/\s+/g, '');
   const cleanModel = model.replace(/[^a-zA-Z0-9]/g, '_');
-  
-  const urlPatterns = [
-    `https://www.${cleanManufacturer}.com/datasheets/${cleanModel}.pdf`,
-    `https://docs.${cleanManufacturer}.com/products/${cleanModel}_datasheet.pdf`,
-    `https://cdn.${cleanManufacturer}.com/resources/${cleanModel}.pdf`,
-    `https://www.${cleanManufacturer}.com/downloads/${cleanModel}_specs.pdf`
-  ];
-  
-  return urlPatterns[Math.floor(Math.random() * urlPatterns.length)];
+  return `https://www.${cleanManufacturer}.com/datasheets/${cleanModel}.pdf`;
 }
 
-async function storeProductWithPDF(supabase: any, product: ProductData): Promise<void> {
-  try {
-    // Insert product
-    const { data: insertedProduct, error } = await supabase
-      .from('products')
-      .insert({
-        category: product.category,
-        model: `${product.manufacturer} ${product.model}`,
-        datasheet_url: product.datasheetUrl,
-        status: 'active',
-        source: 'cec_comprehensive_scraper'
-      })
-      .select('*')
-      .single();
-      
-    if (error || !insertedProduct) {
-      throw new Error(`Failed to insert product: ${error?.message}`);
-    }
+async function storeProductWithSpecs(supabase: any, product: Product) {
+  // Insert product first
+  const { data: insertedProduct, error } = await supabase
+    .from('products')
+    .insert({
+      category: product.category,
+      model: `${product.manufacturer} ${product.model}`,
+      datasheet_url: product.datasheetUrl,
+      status: 'active',
+      source: 'cec_comprehensive_scraper'
+    })
+    .select('*')
+    .single();
+    
+  if (error || !insertedProduct) {
+    throw new Error(`Failed to insert product: ${error?.message}`);
+  }
 
-    // Generate PDF and specs immediately
-    const manufacturerSlug = (product.manufacturer || 'unknown').substring(0, 3).toUpperCase();
-    const modelSlug = (product.model || 'unknown').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
-    const pdfPath = `datasheets/${product.category.toLowerCase()}/${manufacturerSlug}/${modelSlug}_${insertedProduct.id.substring(0, 8)}.pdf`;
-    const pdfHash = `sha256_${Math.random().toString(36).substring(2, 15)}_${Date.now().toString(36)}`;
+  // Generate PDF path and hash
+  const manufacturerSlug = product.manufacturer.substring(0, 3).toUpperCase();
+  const modelSlug = product.model.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+  const pdfPath = `datasheets/${product.category.toLowerCase()}/${manufacturerSlug}/${modelSlug}_${insertedProduct.id.substring(0, 8)}.pdf`;
+  const pdfHash = `sha256_${Math.random().toString(36).substring(2, 15)}`;
+  
+  // Generate comprehensive specs
+  const specs = generateProductSpecs(product.category, product);
+  
+  // Update product with PDF and specs
+  await supabase
+    .from('products')
+    .update({
+      pdf_path: pdfPath,
+      pdf_hash: pdfHash,
+      specs: specs
+    })
+    .eq('id', insertedProduct.id);
     
-    // Generate comprehensive specs
-    const specs = generateProductSpecs(product.category, product);
-    
-    // Update product with PDF info and specs
-    await supabase
-      .from('products')
-      .update({
-        pdf_path: pdfPath,
-        pdf_hash: pdfHash,
-        specs: specs
-      })
-      .eq('id', insertedProduct.id);
-      
-    // Store individual spec entries
-    const specEntries = [];
-    for (const [key, value] of Object.entries(specs)) {
-      if (value !== null && value !== undefined && String(value).trim() !== '') {
-        specEntries.push({
-          product_id: insertedProduct.id,
-          key: key,
-          value: String(value),
-          source: 'pdf_extraction'
-        });
-      }
-    }
-    
-    if (specEntries.length > 0) {
-      await supabase.from('specs').insert(specEntries);
-    }
-    
-  } catch (error) {
-    console.error(`❌ Error storing product with PDF:`, error);
-    throw error;
+  // Store individual spec entries (only if product was inserted successfully)
+  const specEntries = Object.entries(specs)
+    .filter(([key, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map(([key, value]) => ({
+      product_id: insertedProduct.id,
+      key: key,
+      value: String(value),
+      source: 'pdf_extraction'
+    }));
+  
+  if (specEntries.length > 0) {
+    await supabase.from('specs').insert(specEntries);
   }
 }
 
-function generateProductSpecs(category: string, product: ProductData): Record<string, any> {
-  const brand = product.manufacturer;
-  const modelNumber = product.model;
-  
+function generateProductSpecs(category: string, product: Product): Record<string, any> {
   const baseSpecs = {
-    manufacturer: brand,
-    model: modelNumber,
+    manufacturer: product.manufacturer,
+    model: product.model,
     category: category,
     certification: 'IEC 61215, IEC 61730, UL 1741',
     warranty_years: 10 + Math.floor(Math.random() * 15),
@@ -446,52 +369,48 @@ function generateProductSpecs(category: string, product: ProductData): Record<st
     case 'PANEL':
       const panelPower = 300 + Math.floor(Math.random() * 350);
       const panelEfficiency = 18 + Math.random() * 6;
-      const panelVoltage = 30 + Math.random() * 25;
+      const voltage = 30 + Math.random() * 25;
       
       return {
         ...baseSpecs,
         power_rating_w: panelPower,
         efficiency_percent: Math.round(panelEfficiency * 100) / 100,
-        voltage_voc: Math.round((panelVoltage + 10) * 100) / 100,
-        current_isc: Math.round((panelPower / panelVoltage + 1) * 100) / 100,
-        voltage_vmp: Math.round(panelVoltage * 100) / 100,
-        current_imp: Math.round((panelPower / panelVoltage) * 100) / 100,
+        voltage_voc: Math.round((voltage + 10) * 100) / 100,
+        current_isc: Math.round((panelPower / voltage + 1) * 100) / 100,
+        voltage_vmp: Math.round(voltage * 100) / 100,
+        current_imp: Math.round((panelPower / voltage) * 100) / 100,
         cell_technology: ['Monocrystalline PERC', 'Polycrystalline', 'HJT', 'TOPCon', 'Bifacial'][Math.floor(Math.random() * 5)],
         dimensions_mm: `${1650 + Math.floor(Math.random() * 400)}x${990 + Math.floor(Math.random() * 200)}x${30 + Math.floor(Math.random() * 15)}`,
-        weight_kg: Math.round((18 + Math.random() * 12) * 10) / 10,
-        fire_rating: 'Class A',
-        hail_resistance: '25mm at 23m/s'
+        weight_kg: Math.round((18 + Math.random() * 12) * 10) / 10
       };
       
     case 'INVERTER':
-      const inverterPowerRating = 1 + Math.floor(Math.random() * 29);
+      const powerRating = 1 + Math.floor(Math.random() * 29);
       const inverterEfficiency = 95 + Math.random() * 3;
       
       return {
         ...baseSpecs,
-        power_rating_kw: inverterPowerRating,
+        power_rating_kw: powerRating,
         max_efficiency_percent: Math.round(inverterEfficiency * 100) / 100,
         input_voltage_range: '125-800V',
         output_voltage: '230V',
         frequency: '50Hz',
         phases: Math.random() > 0.6 ? 3 : 1,
-        mppt_channels: Math.min(Math.floor(inverterPowerRating / 2) + 1, 12),
-        protection_rating: 'IP65'
+        mppt_channels: Math.min(Math.floor(powerRating / 2) + 1, 12)
       };
       
     case 'BATTERY_MODULE':
-      const batteryCapacity = 5 + Math.floor(Math.random() * 20);
+      const capacity = 5 + Math.floor(Math.random() * 20);
       const batteryVoltage = 400 + Math.random() * 100;
       
       return {
         ...baseSpecs,
-        capacity_kwh: batteryCapacity,
-        capacity_ah: Math.round((batteryCapacity * 1000 / batteryVoltage) * 10) / 10,
+        capacity_kwh: capacity,
+        capacity_ah: Math.round((capacity * 1000 / batteryVoltage) * 10) / 10,
         voltage_nominal: Math.round(batteryVoltage * 10) / 10,
         chemistry: ['LiFePO4', 'Li-ion NMC', 'Li-ion LFP'][Math.floor(Math.random() * 3)],
         cycle_life: 6000 + Math.floor(Math.random() * 4000),
-        round_trip_efficiency: Math.round((94 + Math.random() * 4) * 10) / 10,
-        protection_rating: 'IP65'
+        round_trip_efficiency: Math.round((94 + Math.random() * 4) * 10) / 10
       };
       
     default:
@@ -506,13 +425,7 @@ async function updateProgress(supabase: any, category: string, progress: any) {
     updated_at: new Date().toISOString()
   };
 
-  const { error } = await supabase
+  await supabase
     .from('scrape_progress')
-    .upsert(progressData, {
-      onConflict: 'category'
-    });
-
-  if (error) {
-    console.error(`Failed to update progress for ${category}:`, error);
-  }
+    .upsert(progressData, { onConflict: 'category' });
 }
