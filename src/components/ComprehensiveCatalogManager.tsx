@@ -21,17 +21,13 @@ interface ScrapeJob {
 }
 
 interface JobProgress {
-  id: string;
   job_id: string;
   category: string;
-  total_found: number;
-  total_processed: number;
-  total_with_pdfs: number;
-  total_parsed: number;
-  last_cursor: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
+  target: number;
+  processed: number;
+  pdf_done: number;
+  specs_done: number;
+  state: string;
 }
 
 interface ProductCounts {
@@ -239,10 +235,10 @@ export default function ComprehensiveCatalogManager() {
     switch (state) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'processing':
-        return <Clock className="w-4 h-4 text-blue-600 animate-spin" />;
+      case 'running':
+        return <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />;
       case 'pending':
-        return <Clock className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-600" />;
       default:
@@ -254,14 +250,60 @@ export default function ComprehensiveCatalogManager() {
     switch (state) {
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300';
-      case 'processing':
+      case 'running':
         return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300';
       case 'pending':
-        return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-300';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300';
       case 'failed':
         return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-300';
+    }
+  };
+
+  // Color helpers for progress indicators
+  const getStatusColor = (state: string): string => {
+    switch (state) {
+      case 'completed':
+        return '#22c55e'; // Green
+      case 'running': 
+        return '#3b82f6'; // Blue
+      case 'pending':
+        return '#eab308'; // Yellow
+      case 'failed':
+        return '#ef4444'; // Red
+      default:
+        return '#6b7280'; // Gray
+    }
+  };
+
+  const getStatusIcon = (state: string) => {
+    switch (state) {
+      case 'completed':
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'running':
+        return <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />;
+      case 'pending':
+        return <Clock className="w-5 h-5 text-yellow-500" />;
+      case 'failed':
+        return <XCircle className="w-5 h-5 text-red-600" />;
+      default:
+        return <Clock className="w-5 h-5 text-gray-400" />;
+    }
+  };
+
+  const getSystemStatusColor = (status: string): string => {
+    switch (status) {
+      case 'running':
+        return 'bg-blue-500';
+      case 'completed':
+        return 'bg-green-500';
+      case 'failed':
+        return 'bg-red-500';
+      case 'queued':
+        return 'bg-yellow-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
@@ -335,8 +377,150 @@ export default function ComprehensiveCatalogManager() {
         </TabsList>
 
         <TabsContent value="progress" className="space-y-4">
-          <div className="min-h-[400px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-lg">
-            <DataCollectionPanel />
+          {/* Live Progress Dashboard */}
+          <div className="grid gap-4">
+            {progress.map((categoryProgress) => {
+              const percentage = categoryProgress.target > 0 
+                ? Math.round((categoryProgress.processed / categoryProgress.target) * 100) 
+                : 0;
+              
+              const statusColor = getStatusColor(categoryProgress.state);
+              const statusIcon = getStatusIcon(categoryProgress.state);
+              
+              return (
+                <Card key={categoryProgress.category} className="border-l-4" style={{ borderLeftColor: statusColor }}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {statusIcon}
+                        {getCategoryDisplayName(categoryProgress.category)}
+                        <Badge 
+                          className="ml-2" 
+                          style={{ backgroundColor: statusColor, color: 'white' }}
+                        >
+                          {categoryProgress.state.toUpperCase()}
+                        </Badge>
+                      </CardTitle>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold">{percentage}%</div>
+                        <div className="text-sm text-muted-foreground">
+                          {categoryProgress.processed} / {categoryProgress.target}
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Main Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Overall Progress</span>
+                          <span>{categoryProgress.processed} of {categoryProgress.target} products</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="h-3 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: statusColor
+                            }}
+                          >
+                            {percentage > 15 && (
+                              <span className="text-xs text-white font-medium">{percentage}%</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Sub-Progress Bars */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              PDFs Downloaded
+                            </span>
+                            <span>{categoryProgress.pdf_done}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                              style={{ 
+                                width: `${categoryProgress.target > 0 ? (categoryProgress.pdf_done / categoryProgress.target) * 100 : 0}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              Specs Extracted
+                            </span>
+                            <span>{categoryProgress.specs_done}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-purple-500 h-2 rounded-full transition-all duration-500"
+                              style={{ 
+                                width: `${categoryProgress.target > 0 ? (categoryProgress.specs_done / categoryProgress.target) * 100 : 0}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Live Status Text */}
+                      {categoryProgress.state === 'running' && (
+                        <div className="text-sm text-blue-600 animate-pulse flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></div>
+                          Actively scraping CEC database...
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            
+            {/* Overall System Status */}
+            {job && (
+              <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded-full ${getSystemStatusColor(job.status)} ${job.status === 'running' ? 'animate-pulse' : ''}`}></div>
+                      <div>
+                        <h3 className="font-semibold">System Status: {job.status.toUpperCase()}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Job ID: {job.id.split('-')[0]}...
+                          {job.started_at && ` • Started: ${new Date(job.started_at).toLocaleTimeString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {job.status === 'running' && (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-600">
+                          {progress.reduce((sum, p) => sum + p.processed, 0)} / {progress.reduce((sum, p) => sum + p.target, 0)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Total Products</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {(!job || !progress.length) && (
+              <Card>
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No scraping job active. Click "🚀 CLICK ME TO START" to begin CEC data collection.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
