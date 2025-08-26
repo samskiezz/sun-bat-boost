@@ -1341,7 +1341,6 @@ async function processPDFFallback(supabase: any, jobId: string, category: string
     return 0;
   }
 }
-}
 
 // Update readiness gates with current system data
 async function updateReadinessGates(supabase: any) {
