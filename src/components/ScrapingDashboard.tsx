@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Search, Database, AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react';
+import { Download, Search, Database, AlertTriangle, CheckCircle, Clock, Zap, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { forceCompleteReset } from '@/utils/forceCompleteReset';
 
@@ -454,6 +454,35 @@ export default function ScrapingDashboard() {
                         value={(item.total_with_pdfs / item.total_processed) * 100} 
                         className="h-2"
                       />
+                    </div>
+                  )}
+                  
+                  {/* Real-time status indicators */}
+                  {item.status === 'processing' && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950 p-2 rounded-md">
+                      <Clock className="w-4 h-4 animate-spin" />
+                      <span>Processing {item.category.toLowerCase().replace('_', ' ')}s... {item.total_processed}/{item.total_found}</span>
+                    </div>
+                  )}
+                  
+                  {item.status === 'clearing' && (
+                    <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 dark:bg-orange-950 p-2 rounded-md">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Clearing existing data...</span>
+                    </div>
+                  )}
+                  
+                  {item.status === 'completed' && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-2 rounded-md">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Complete - {item.total_processed} products with {item.total_with_pdfs} PDFs</span>
+                    </div>
+                  )}
+                  
+                  {item.status === 'failed' && (
+                    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-2 rounded-md">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Processing failed - check logs</span>
                     </div>
                   )}
                 </CardContent>
