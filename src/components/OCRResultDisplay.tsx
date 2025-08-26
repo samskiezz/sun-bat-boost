@@ -203,36 +203,39 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
       </div>
       
       {/* Action Buttons */}
-      {(result.panels?.best || result.battery?.best) && onExtractComplete && (
+      {(result?.panels?.best || result?.battery?.best) && onExtractComplete && (
         <div className="flex justify-center">
           <Button 
             onClick={() => {
-              // Pre-populate the form with detected values, including synthetic products
-              const panelData = result.panels.best ? {
-                brand: result.panels.best.brand,
-                model: result.panels.best.model,
-                count: result.panels.best.count,
-                wattage: result.panels.best.wattage,
-                arrayKw: result.panels.best.arrayKwDc,
-                syntheticProduct: result.panels.best.syntheticProduct
-              } : null;
-              
-              const batteryData = result.battery.best ? {
-                brand: result.battery.best.brand,
-                model: result.battery.best.model,
-                usableKWh: result.battery.best.usableKWh,
-                syntheticProduct: result.battery.best.syntheticProduct
-              } : null;
-              
-              onExtractComplete({
-                mode: 'ocr',
-                panels: panelData,
-                battery: batteryData,
-                inverter: result.inverter.value || null,
-                extractResult: result
-              });
+              try {
+                const configData = {
+                  panels: result?.panels?.best ? {
+                    brand: result.panels.best.brand || 'Unknown',
+                    model: result.panels.best.model || 'Unknown',
+                    watts: result.panels.best.wattage || 0,
+                    quantity: result.panels.best.count || 0,
+                    totalWatts: (result.panels.best.wattage || 0) * (result.panels.best.count || 0)
+                  } : null,
+                  battery: result?.battery?.best ? {
+                    brand: result.battery.best.brand || 'Unknown',
+                    model: result.battery.best.model || 'Unknown',
+                    usableKWh: result.battery.best.usableKWh || 0,
+                    totalKWh: result.battery.best.usableKWh || 0
+                  } : null,
+                  inverter: result?.inverter?.value ? {
+                    brand: result.inverter.value.brandRaw || 'Unknown',
+                    model: result.inverter.value.modelRaw || 'Unknown',
+                    power: result.inverter.value.ratedKw || 0
+                  } : null
+                };
+                
+                console.log('🔧 Sending config data:', configData);
+                onExtractComplete(configData);
+              } catch (error) {
+                console.error('❌ Error in Use Configuration:', error);
+              }
             }}
-            className="bg-gradient-primary text-white px-8 py-3 text-lg"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             ⚡ Use This Configuration
           </Button>

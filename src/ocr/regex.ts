@@ -1,381 +1,377 @@
-// Regex patterns for OCR extraction
+import { PanelCandidate, BatteryCandidate, InverterExtract } from './extract.types';
 
-export const patterns = {
-  // Brand patterns - more specific to avoid OCR noise
-  brands: {
-    // Panel brands - only match when near panel context
-    solar: /(?:jinko(?:solar)?|trina|longi|canadian\s+solar|ja\s+solar|rec|aiko|qcells|lg|panasonic|sunpower|tier\s*1|monocrystalline|polycrystalline)/gi,
-    // Battery brands - only specific battery manufacturers
-    battery: /(?:sigenergy|sigen|tesla|powerwall|alpha\s*ess|sonnen|byd|pylontech|enphase|lg\s*chem|samsung|bmz)/gi,
-    // Inverter brands - avoid confusion with other components
-    inverter: /(?:sma|fronius|solar\s*edge|growatt|sungrow|huawei|goodwe|abb|schneider\s*electric|delta|kostal|victron)/gi,
-  },
+// Comprehensive brand patterns with OCR variations and keyword detection
+const PANEL_BRANDS = [
+  'jinko|jink0|jinc0|j1nko|j1nc0|jkm\\d+',
+  'trina|tr1na|trtna|trin4|tsm\\d+|tiger\\s+neo',
+  'canadian\\s+solar|canad1an\\s+solar|can4dian\\s+solar|cs\\d+',
+  'lg|l6|16|lg\\s+solar|lg\\s+neon',
+  'sunpower|sun\\s*power|sunp0wer|spwr',
+  'rec|r3c|rec\\s+solar|rec\\s+alpha|rec\\s+twin',
+  'hanwha|hanwh4|h4nwha|q\\s*cells|qcells|q\\.peak',
+  'ja\\s+solar|j4\\s+solar|jasolar|jam\\d+',
+  'longi|l0ngi|longi\\s+solar|lr\\d+|hi\\-mo',
+  'tier\\s*1|t1er\\s*1|first\\s+solar',
+  'sharp|sh4rp|sharp\\s+solar|nu\\d+',
+  'panasonic|p4nasonic|panason1c|hit\\d+',
+  'risen|r1sen|rsm\\d+',
+  'seraphim|ser4phim|srp\\d+',
+  'astronergy|4stronergy|chsm\\d+'
+];
 
-  // Battery patterns
-  battery: {
-    // Stack patterns: "2x16 kWh", "stack of 3 x 13.5 kWh"
-    stack: /(?:stack|module|battery)\s*(?:of)?\s*(\d{1,2})\s*(?:x|×)\s*(\d{1,2}(?:\.\d+)?)\s*(k?wh)/gi,
-    
-    // Capacity patterns: "25 kWh", "13.5kWh usable"
-    capacity: /((?:\d{1,3}(?:\.\d+)?)\s*(?:kwh|kw\s*h|kw h|wh))/gi,
-    
-    // Model with capacity: "SIGENSTOR 25kWh"
-    modelCapacity: /([A-Z][A-Z0-9\-\.]{2,})\s*(\d{1,2}(?:\.\d+)?)\s*(?:kwh|kw\s*h)/gi,
-  },
+const BATTERY_BRANDS = [
+  'tesla|tesl4|t3sla|powerwall',
+  'lg\\s+chem|lg\\s+energy|lg\\s+resu|lgchem|lgresu',
+  'byd|byd\\s+battery|byd\\s+premium|blade\\s+battery',
+  'sonnen|s0nnen|sonnen\\s+battery|sonnencore',
+  'enphase|enph4se|enph45e\\s+battery|iq\\s+battery',
+  'sigen|s1gen|sig3n|sigenergy|s1genergy|sig3nergy|sigenstor',
+  'growatt|gr0watt|grow4tt|arx\\s+battery',
+  'alpha\\s+ess|alphaess|4lpha\\s+ess|smile\\s+battery',
+  'pylontech|pyl0ntech|pylon\\s+tech|us\\d+',
+  'redback|redb4ck|red\\s+back|sb\\d+',
+  'goodwe|g00dwe|good\\s+we|g0odwe|lynx'
+];
 
-  // Panel patterns
-  panel: {
-    // Count x Watts: "24 x 440W", "18×415 watts" - more specific
-    countWatts: /(\d{1,2})\s*(?:x|×)\s*(\d{3,4})\s*w(?:att)?s?(?:\s+(?:panel|module|solar))?/gi,
-    
-    // Array size: "10.56 kW DC", "7.2kW array" - avoid picking up random kW
-    arraySize: /(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:dc|array|system|solar)/gi,
-    
-    // Model patterns: more restrictive to avoid OCR noise
-    model: /\b([A-Z][A-Z0-9]{1,}(?:[-\.][A-Z0-9]+)*)\b/g,
-    
-    // Brand + model + watts: "Jinko JKM440M 440W"
-    brandModelWatts: /(jinko|trina|longi|canadian|ja\s+solar|rec|aiko|qcells|lg|panasonic)\s+([A-Z0-9][\w\-\.]+)\s+(\d{3,4})w/gi,
-  },
+const INVERTER_BRANDS = [
+  'fronius|fron1us|fr0nius|primo|symo|gen24',
+  'sma|sm4|s\\s*m\\s*a|sunny\\s+boy|tripower',
+  'solar\\s*edge|solaredge|s0laredge|se\\d+',
+  'enphase|enph4se|enph45e|iq\\s+inverter|iq\\d+',
+  'goodwe|g00dwe|good\\s+we|g0odwe|gw\\d+',
+  'growatt|gr0watt|grow4tt|mic\\s+\\d+',
+  'sungrow|sungr0w|sun\\s+grow|sg\\d+',
+  'huawei|hu4wei|hua\\s*wei|sun\\d+',
+  'abb|4bb|a\\s*b\\s*b|uno\\s+dm',
+  'delta|delt4|de1ta|rpi\\s+\\d+',
+  'schneider|schneid3r|schn3ider|conext'
+];
 
-  // Inverter patterns - much more specific
-  inverter: {
-    // Brand + model + kW: "SMA Sunny Boy 5kW", "Fronius Primo 8.2kW"
-    brandModelKw: /(sma|fronius|solar\s*edge|growatt|sungrow|huawei|goodwe|abb|schneider)\s+([\w\-\s]+?)\s+(\d{1,2}(?:\.\d+)?)\s*kw\s*(?:inverter)?/gi,
-    
-    // Just kW rating with inverter context: "5kW inverter"
-    kwRating: /(\d{1,2}(?:\.\d+)?)\s*kw\s+(?:inverter|string\s+inverter|micro\s+inverter)/gi,
-    
-    // Phase info
-    phases: /(single\s*phase|three\s*phase|1\s*phase|3\s*phase)/gi,
-  },
+// Enhanced context detection with keyword-based section identification
+const SECTION_KEYWORDS = {
+  solar: /(?:solar\s+power|solar\s+system|pv\s+system|photovoltaic|solar\s+panels?|panel\s+system)/i,
+  battery: /(?:battery\s+storage|energy\s+storage|battery\s+system|storage\s+solution|backup\s+power)/i,
+  inverter: /(?:inverter\s+system|power\s+conversion|dc\s+to\s+ac|inverter\s+power|string\s+inverter|micro\s+inverter)/i,
+};
 
-  // Unit normalization
-  units: {
-    kwh: /k?wh?/gi,
-    kw: /k?w(?!h)/gi,
-    watts: /w(?:att)?s?/gi,
-  },
-
-  // Context detection - more specific
+const PATTERNS = {
   context: {
     table: /\||\t|(?:\s{3,})/,
-    header: /^.{0,100}(?:proposal|quote|system|solar|energy|for|prepared\s+by)/i,
-    footer: /(?:page\s*\d+|total|subtotal|©|copyright|phone|email|\.com|\.au)/i,
+    header: /^.{0,50}(?:proposal\s+for|prepared\s+by|quote\s*#|valid\s+until)/i,
+    footer: /(?:page\s*\d+\/\d+|©|copyright|\.com\.au|phone:|email:)/i,
     noise: /(?:^proposal\s+for|^prepared\s+by|^quote\s*#|^valid\s+until|@\w+\.com|^\d{4}\s+\d{3}\s+\d{3})/i,
+    solarSection: SECTION_KEYWORDS.solar,
+    batterySection: SECTION_KEYWORDS.battery,
+    inverterSection: SECTION_KEYWORDS.inverter,
   },
+};
+
+const extractPanels = (text: string, page: number, context: string): PanelCandidate[] => {
+  console.log('🔍 Panel extraction from text:', text.substring(0, 200) + '...');
+  
+  // Skip noise, headers, footers but be more selective
+  if (PATTERNS.context.noise.test(text) && !PATTERNS.context.solarSection.test(text)) {
+    console.log('⏭️ Skipping panel extraction from noise/header/footer');
+    return [];
+  }
+
+  const candidates: PanelCandidate[] = [];
+  const normalizedText = text.toLowerCase().replace(/[^\w\s\.\-]/g, ' ');
+  
+  // Enhanced extraction with keyword-based context detection
+  const isSolarSection = PATTERNS.context.solarSection.test(text);
+  console.log('🌞 Solar section detected:', isSolarSection);
+  
+  // Look for comprehensive panel patterns
+  const patterns = [
+    // Brand + Model + Wattage (e.g., "JKM440N-54HL4R-BDB 440 Watt")
+    /(?:^|\\s)((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\\w\\s]*?)\\s+([A-Z]{2,4}\\d{3,4}[\\w\\-]*)\\s+(\\d{3,4})\\s*w(?:att)?s?/gi,
+    
+    // Quantity + Brand + Model (e.g., "30 x JKM440N-54HL4R-BDB")
+    /(\\d{1,3})\\s*(?:x|×|pieces?|panels?)\\s+((?:jinko|trina|canadian|lg|sunpower|rec|hanwha|ja\\s+solar|longi|sharp|panasonic|risen|seraphim|astronergy)[\\w\\s]*?)\\s+([A-Z]{2,4}\\d{3,4}[\\w\\-]*)/gi,
+    
+    // System size + "of Solar Power" (e.g., "13.200kW of Solar Power")
+    /(\\d{1,2}\\.?\\d{0,3})\\s*kw\\s+(?:of\\s+)?solar\\s+power/gi,
+    
+    // Model + Wattage patterns (e.g., "TSM-440NEG9R.28 Vertex S+")
+    /([A-Z]{2,4}[\\d\\-\\.]+[\\w\\-]*)\\s+(?:vertex|tiger|neon|alpha|twin|peak|mono|poly)[\\w\\s]*?\\s+(\\d{3,4})\\s*w(?:att)?s?/gi,
+    
+    // Direct wattage mentions near solar keywords
+    /(?:solar|panel|pv)[\\w\\s]*?(\\d{3,4})\\s*w(?:att)?s?/gi,
+    
+    // "X Watt panels" pattern
+    /(\\d{3,4})\\s*w(?:att)?\\s+panels?/gi
+  ];
+  
+  let foundBrands: string[] = [];
+  let foundModels: string[] = [];
+  let foundWattages: number[] = [];
+  let foundQuantities: number[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    const matches = [...text.matchAll(pattern)];
+    console.log(`🔍 Pattern ${index + 1} found ${matches.length} matches`);
+    
+    matches.forEach(match => {
+      console.log('📋 Match details:', match);
+      
+      if (index === 0) { // Brand + Model + Wattage
+        foundBrands.push(match[1]);
+        foundModels.push(match[2]);
+        foundWattages.push(parseInt(match[3]));
+      } else if (index === 1) { // Quantity + Brand + Model
+        foundQuantities.push(parseInt(match[1]));
+        foundBrands.push(match[2]);
+        foundModels.push(match[3]);
+      } else if (index === 2) { // System size
+        const systemKW = parseFloat(match[1]);
+        // Estimate panel count (assuming ~400W average)
+        foundQuantities.push(Math.round(systemKW * 1000 / 400));
+      } else if (index === 3) { // Model + Wattage
+        foundModels.push(match[1]);
+        foundWattages.push(parseInt(match[2]));
+      } else if (index === 4) { // Direct wattage
+        foundWattages.push(parseInt(match[1]));
+      } else if (index === 5) { // "X Watt panels"
+        foundWattages.push(parseInt(match[1]));
+      }
+    });
+  });
+  
+  // Extract additional context - look for brand mentions
+  const brandMatches = PANEL_BRANDS.map(brand => {
+    const regex = new RegExp(brand, 'gi');
+    return [...text.matchAll(regex)].map(m => m[0]);
+  }).flat();
+  
+  foundBrands.push(...brandMatches);
+  
+  // Clean and deduplicate
+  foundBrands = [...new Set(foundBrands.map(b => b.trim().toLowerCase()))];
+  foundModels = [...new Set(foundModels)];
+  foundWattages = [...new Set(foundWattages)];
+  foundQuantities = [...new Set(foundQuantities)];
+  
+  console.log('🏷️ Found panel brands:', foundBrands);
+  console.log('📦 Found models:', foundModels);
+  console.log('⚡ Found wattages:', foundWattages);
+  console.log('🔢 Found quantities:', foundQuantities);
+  
+  // Create candidates from combinations
+  if (foundBrands.length > 0 || foundModels.length > 0 || foundWattages.length > 0) {
+    const brand = foundBrands[0] || 'Unknown';
+    const model = foundModels[0] || 'Unknown';
+    const watts = foundWattages[0] || 0;
+    const quantity = foundQuantities[0] || 0;
+    
+    candidates.push({
+      brand: brand,
+      model,
+      wattage: watts,
+      count: quantity,
+      evidences: [
+        { page, text: `Brand: ${brand}`, context: context as any, weight: 1 },
+        { page, text: `Model: ${model}`, context: context as any, weight: 1 },
+        ...(watts > 0 ? [{ page, text: `Wattage: ${watts}W`, context: context as any, weight: 1 }] : []),
+        ...(quantity > 0 ? [{ page, text: `Quantity: ${quantity}`, context: context as any, weight: 1 }] : []),
+        ...(isSolarSection ? [{ page, text: 'Solar section context', context: context as any, weight: 1 }] : [])
+      ],
+      confidence: (foundBrands.length > 0 ? 0.3 : 0) + 
+                 (foundModels.length > 0 ? 0.3 : 0) + 
+                 (foundWattages.length > 0 ? 0.2 : 0) + 
+                 (foundQuantities.length > 0 ? 0.1 : 0) +
+                 (isSolarSection ? 0.1 : 0),
+    });
+  }
+  
+  console.log('⚡ Total panel candidates found:', candidates.length);
+  return candidates;
+};
+
+const extractBatteries = (text: string, page: number, context: string): BatteryCandidate[] => {
+  console.log('🔍 Battery extraction from text:', text.substring(0, 200) + '...');
+  
+  const candidates: BatteryCandidate[] = [];
+  const isBatterySection = PATTERNS.context.batterySection.test(text);
+  console.log('🔋 Battery section detected:', isBatterySection);
+  
+  // Look for battery patterns with keyword context
+  const patterns = [
+    // "X.XkWh of Battery Storage"
+    /(\\d{1,2}(?:\\.\\d+)?)\\s*kwh\\s+(?:of\\s+)?battery\\s+storage/gi,
+    
+    // Brand + Model + Capacity (e.g., "SigenStor BAT 32.0")
+    /(sigen\\w*|tesla|lg|byd|sonnen|enphase|growatt|alpha|pylontech|redback|goodwe)\\s+([\\w\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)(?:\\s*kwh)?/gi,
+    
+    // "1 x BrandModel Capacity"
+    /(\\d{1,2})\\s*x\\s+(\\w+)\\s+([\\w\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)(?:\\s*kwh)?/gi,
+    
+    // Direct capacity with battery keyword
+    /(\\d{1,2}(?:\\.\\d+)?)\\s*kwh[\\w\\s]*?(?:battery|storage)/gi
+  ];
+  
+  let foundBrands: string[] = [];
+  let foundModels: string[] = [];
+  let foundCapacities: number[] = [];
+  let foundQuantities: number[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    const matches = [...text.matchAll(pattern)];
+    console.log(`🔍 Battery Pattern ${index + 1} found ${matches.length} matches`);
+    
+    matches.forEach(match => {
+      console.log('🔋 Battery Match details:', match);
+      
+      if (index === 0) { // "X.XkWh of Battery Storage"
+        foundCapacities.push(parseFloat(match[1]));
+      } else if (index === 1) { // Brand + Model + Capacity
+        foundBrands.push(match[1]);
+        foundModels.push(match[2]);
+        foundCapacities.push(parseFloat(match[3]));
+      } else if (index === 2) { // "1 x BrandModel Capacity"
+        foundQuantities.push(parseInt(match[1]));
+        foundBrands.push(match[2]);
+        foundModels.push(match[3]);
+        foundCapacities.push(parseFloat(match[4]));
+      } else if (index === 3) { // Direct capacity
+        foundCapacities.push(parseFloat(match[1]));
+      }
+    });
+  });
+  
+  // Extract additional brand mentions
+  const brandMatches = BATTERY_BRANDS.map(brand => {
+    const regex = new RegExp(brand, 'gi');
+    return [...text.matchAll(regex)].map(m => m[0]);
+  }).flat();
+  
+  foundBrands.push(...brandMatches);
+  
+  // Clean and deduplicate
+  foundBrands = [...new Set(foundBrands.map(b => b.trim()))];
+  foundModels = [...new Set(foundModels.map(m => m.trim()))];
+  foundCapacities = [...new Set(foundCapacities)];
+  foundQuantities = [...new Set(foundQuantities)];
+  
+  console.log('🏷️ Found battery brands:', foundBrands);
+  console.log('📦 Found battery models:', foundModels);
+  console.log('⚡ Found capacities:', foundCapacities);
+  console.log('🔢 Found quantities:', foundQuantities);
+  
+  // Create candidates from combinations
+  if (foundBrands.length > 0 || foundCapacities.length > 0) {
+    const brand = foundBrands[0] || 'Unknown';
+    const model = foundModels[0] || 'Unknown';
+    const capacity = foundCapacities[0] || 0;
+    const quantity = foundQuantities[0] || 1;
+    
+    candidates.push({
+      brand: brand,
+      model,
+      usableKWh: capacity,
+      evidences: [
+        { page, text: `Brand: ${brand}`, context: context as any, weight: 1 },
+        { page, text: `Model: ${model}`, context: context as any, weight: 1 },
+        ...(capacity > 0 ? [{ page, text: `Capacity: ${capacity}kWh`, context: context as any, weight: 1 }] : []),
+        ...(quantity > 1 ? [{ page, text: `Quantity: ${quantity}`, context: context as any, weight: 1 }] : []),
+        ...(isBatterySection ? [{ page, text: 'Battery section context', context: context as any, weight: 1 }] : [])
+      ],
+      confidence: (foundBrands.length > 0 ? 0.4 : 0) + 
+                 (foundModels.length > 0 ? 0.2 : 0) + 
+                 (foundCapacities.length > 0 ? 0.3 : 0) +
+                 (isBatterySection ? 0.1 : 0),
+    });
+  }
+  
+  console.log('🔋 Total battery candidates found:', candidates.length);
+  return candidates;
+};
+
+const extractInverter = (text: string, page: number, context: string): InverterExtract | null => {
+  console.log('🔍 Inverter extraction from text:', text.substring(0, 200) + '...');
+  
+  // Skip noise, headers, footers
+  if (PATTERNS.context.noise.test(text) && !PATTERNS.context.inverterSection.test(text)) {
+    console.log('⏭️ Skipping inverter extraction from noise/header/footer');
+    return null;
+  }
+  
+  const isInverterSection = PATTERNS.context.inverterSection.test(text);
+  console.log('🔌 Inverter section detected:', isInverterSection);
+  
+  // Look for inverter patterns
+  const patterns = [
+    // Brand + Model + Power (e.g., "GoodWe GW5000-NS 5kW")
+    /(fronius|sma|solar\\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)\\s+([\\w\\-\\s]+?)\\s+(\\d{1,2}(?:\\.\\d+)?)\\s*kw/gi,
+    
+    // "X kW Inverter"
+    /(\\d{1,2}(?:\\.\\d+)?)\\s*kw\\s+inverter/gi,
+    
+    // Brand mentions near power ratings
+    /(fronius|sma|solar\\s*edge|enphase|goodwe|growatt|sungrow|huawei|abb|delta|schneider)/gi
+  ];
+  
+  let foundBrands: string[] = [];
+  let foundModels: string[] = [];
+  let foundPowers: number[] = [];
+  
+  patterns.forEach((pattern, index) => {
+    const matches = [...text.matchAll(pattern)];
+    console.log(`🔍 Inverter Pattern ${index + 1} found ${matches.length} matches`);
+    
+    matches.forEach(match => {
+      console.log('🔌 Inverter Match details:', match);
+      
+      if (index === 0) { // Brand + Model + Power
+        foundBrands.push(match[1]);
+        foundModels.push(match[2]);
+        foundPowers.push(parseFloat(match[3]));
+      } else if (index === 1) { // "X kW Inverter"
+        foundPowers.push(parseFloat(match[1]));
+      } else if (index === 2) { // Brand mentions
+        foundBrands.push(match[1]);
+      }
+    });
+  });
+  
+  // Clean and deduplicate
+  foundBrands = [...new Set(foundBrands.map(b => b.trim()))];
+  foundModels = [...new Set(foundModels.map(m => m.trim()))];
+  foundPowers = [...new Set(foundPowers)];
+  
+  console.log('🏷️ Found inverter brands:', foundBrands);
+  console.log('📦 Found inverter models:', foundModels);
+  console.log('⚡ Found powers:', foundPowers);
+  
+  // Create result if we have data
+  if (foundBrands.length > 0 || foundPowers.length > 0) {
+    const result: InverterExtract = {
+      brandRaw: foundBrands[0] || 'Unknown',
+      modelRaw: foundModels[0] || 'Unknown',
+      ratedKw: foundPowers[0] || 0,
+      evidences: [
+        { page, text: `Brand: ${foundBrands[0] || 'Unknown'}`, context: context as any, weight: 1 },
+        { page, text: `Model: ${foundModels[0] || 'Unknown'}`, context: context as any, weight: 1 },
+        ...(foundPowers.length > 0 ? [{ page, text: `Power: ${foundPowers[0]}kW`, context: context as any, weight: 1 }] : []),
+        ...(isInverterSection ? [{ page, text: 'Inverter section context', context: context as any, weight: 1 }] : [])
+      ],
+    };
+    
+    console.log('🔌 Inverter extraction result:', result);
+    return result;
+  }
+  
+  console.log('🔌 No inverter data found');
+  return null;
 };
 
 // Helper functions for pattern matching
 export const extractors = {
-  // Extract all battery candidates from text
-  extractBatteries: (text: string, page: number, context: string): any[] => {
-    const candidates = [];
-    console.log('🔍 Battery extraction from text:', text.substring(0, 200));
-    
-    // Find brand matches first
-    const brandMatches = [...text.matchAll(patterns.brands.battery)];
-    console.log('🏷️ Found battery brands:', brandMatches.map(m => m[0]));
-    
-    // Stack patterns with proximity brand matching
-    const stackMatches = [...text.matchAll(patterns.battery.stack)];
-    for (const match of stackMatches) {
-      const modules = parseInt(match[1]);
-      const moduleKWh = parseFloat(match[2]);
-      const unit = match[3].toLowerCase();
-      
-      let totalKWh = modules * moduleKWh;
-      if (unit === 'wh') totalKWh = totalKWh / 1000;
-      
-      // Find nearest brand (within 50 chars before or after)
-      const matchIndex = match.index || 0;
-      const nearbyText = text.substring(Math.max(0, matchIndex - 50), matchIndex + match[0].length + 50);
-      const nearbyBrand = [...nearbyText.matchAll(patterns.brands.battery)][0];
-      
-      candidates.push({
-        brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-        stack: { modules, moduleKWh, totalKWh },
-        usableKWh: totalKWh,
-        evidences: [{
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 5 : 3,
-        }],
-      });
-      
-      console.log('⚡ Stack battery candidate:', { brand: nearbyBrand?.[0], totalKWh, modules, moduleKWh });
-    }
-    
-    // Model + capacity patterns
-    const modelCapMatches = [...text.matchAll(patterns.battery.modelCapacity)];
-    for (const match of modelCapMatches) {
-      const model = match[1];
-      const capacity = parseFloat(match[2]);
-      
-      // Find brand in nearby text
-      const matchIndex = match.index || 0;
-      const nearbyText = text.substring(Math.max(0, matchIndex - 30), matchIndex + match[0].length + 30);
-      const nearbyBrand = [...nearbyText.matchAll(patterns.brands.battery)][0];
-      
-      candidates.push({
-        brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-        model,
-        usableKWh: capacity,
-        evidences: [{
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 5 : 4,
-        }],
-      });
-      
-      console.log('🔋 Model+capacity battery candidate:', { brand: nearbyBrand?.[0], model, capacity });
-    }
-    
-    // Standalone capacity with brand proximity
-    const capacityMatches = [...text.matchAll(patterns.battery.capacity)];
-    for (const match of capacityMatches) {
-      const capacityText = match[1];
-      let capacity = parseFloat(capacityText);
-      
-      // Convert Wh to kWh if needed
-      if (capacityText.toLowerCase().includes('wh') && !capacityText.toLowerCase().includes('kwh')) {
-        capacity = capacity / 1000;
-      }
-      
-      // Only consider reasonable battery sizes
-      if (capacity >= 5 && capacity <= 200) {
-        const matchIndex = match.index || 0;
-        const nearbyText = text.substring(Math.max(0, matchIndex - 50), matchIndex + match[0].length + 50);
-        const nearbyBrand = [...nearbyText.matchAll(patterns.brands.battery)][0];
-        
-        // Check if "battery" keyword is nearby
-        const batteryKeyword = /battery|storage|energy/i.test(nearbyText);
-        
-        if (nearbyBrand || batteryKeyword) {
-          candidates.push({
-            brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-            usableKWh: capacity,
-            evidences: [{
-              page,
-              text: match[0],
-              context: context as any,
-              weight: (context === 'TABLE' ? 4 : 2) + (nearbyBrand ? 2 : 0),
-            }],
-          });
-          
-          console.log('🔋 Capacity-only battery candidate:', { brand: nearbyBrand?.[0], capacity, batteryKeyword });
-        }
-      }
-    }
-    
-    console.log('🔋 Total battery candidates found:', candidates.length);
-    return candidates;
-  },
-  
-  // Extract panel candidates
-  extractPanels: (text: string, page: number, context: string): any[] => {
-    const candidates = [];
-    console.log('🔍 Panel extraction from text:', text.substring(0, 200));
-    
-    // Skip header/footer noise
-    if (context === 'HEADER' || context === 'FOOTER' || patterns.context.noise.test(text)) {
-      console.log('⏭️ Skipping panel extraction from noise/header/footer');
-      return [];
-    }
-    
-    // Brand + Model + Watts patterns (most reliable)
-    const brandModelWattMatches = [...text.matchAll(patterns.panel.brandModelWatts)];
-    for (const match of brandModelWattMatches) {
-      const brand = match[1].trim();
-      const model = match[2].trim();
-      const wattage = parseInt(match[3]);
-      
-      candidates.push({
-        brand,
-        model,
-        wattage,
-        evidences: [{
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 6 : 5,
-        }],
-      });
-      
-      console.log('⚡ Brand+Model+Watts panel candidate:', { brand, model, wattage });
-    }
-    
-    // Count x Watts patterns with strict brand matching
-    const countWattMatches = [...text.matchAll(patterns.panel.countWatts)];
-    for (const match of countWattMatches) {
-      const count = parseInt(match[1]);
-      const wattage = parseInt(match[2]);
-      const arrayKwDc = (count * wattage) / 1000;
-      
-      // Only consider reasonable counts and wattages
-      if (count < 1 || count > 100 || wattage < 250 || wattage > 700) continue;
-      
-      // Find nearest brand within reasonable distance
-      const matchIndex = match.index || 0;
-      const nearbyText = text.substring(Math.max(0, matchIndex - 100), matchIndex + match[0].length + 100);
-      const nearbyBrand = [...nearbyText.matchAll(patterns.brands.solar)][0];
-      
-      // Must have solar context or brand nearby
-      const solarContext = /solar|panel|pv|module|array/i.test(nearbyText);
-      
-      if (nearbyBrand || solarContext) {
-        candidates.push({
-          brand: nearbyBrand ? nearbyBrand[0].trim() : undefined,
-          count,
-          wattage,
-          arrayKwDc,
-          evidences: [{
-            page,
-            text: match[0],
-            context: context as any,
-            weight: (context === 'TABLE' ? 5 : 4) + (nearbyBrand ? 1 : 0),
-          }],
-        });
-        
-        console.log('⚡ Count×Watts panel candidate:', { brand: nearbyBrand?.[0], count, wattage, arrayKwDc });
-      }
-    }
-    
-    // Array size only as fallback
-    const arraySizeMatches = [...text.matchAll(patterns.panel.arraySize)];
-    for (const match of arraySizeMatches) {
-      const arrayKwDc = parseFloat(match[1]);
-      
-      // Only reasonable array sizes
-      if (arrayKwDc < 1 || arrayKwDc > 100) continue;
-      
-      const matchIndex = match.index || 0;
-      const nearbyText = text.substring(Math.max(0, matchIndex - 100), matchIndex + match[0].length + 100);
-      const nearbyBrand = [...nearbyText.matchAll(patterns.brands.solar)][0];
-      
-      // Must have strong solar context
-      const strongSolarContext = /(?:solar|pv)\s*(?:array|system|installation)/i.test(nearbyText);
-      
-      if (strongSolarContext && nearbyBrand) {
-        candidates.push({
-          brand: nearbyBrand[0].trim(),
-          arrayKwDc,
-          evidences: [{
-            page,
-            text: match[0],
-            context: context as any,
-            weight: context === 'TABLE' ? 3 : 2,
-          }],
-        });
-        
-        console.log('⚡ Array size panel candidate:', { brand: nearbyBrand[0], arrayKwDc });
-      }
-    }
-    
-    console.log('⚡ Total panel candidates found:', candidates.length);
-    return candidates;
-  },
-  
-  // Extract inverter info (no DB lookup)
-  extractInverter: (text: string, page: number, context: string): any => {
-    console.log('🔍 Inverter extraction from text:', text.substring(0, 200));
-    
-    // Skip headers/footers/noise that often contain false inverter mentions
-    if (context === 'HEADER' || context === 'FOOTER' || patterns.context.noise.test(text)) {
-      console.log('⏭️ Skipping inverter extraction from noise/header/footer');
-      return null;
-    }
-    
-    const brandModelMatches = [...text.matchAll(patterns.inverter.brandModelKw)];
-    const kwMatches = [...text.matchAll(patterns.inverter.kwRating)];
-    const phaseMatches = [...text.matchAll(patterns.inverter.phases)];
-    const inverterBrandMatches = [...text.matchAll(patterns.brands.inverter)];
-    
-    console.log('🏷️ Found inverter brands:', inverterBrandMatches.map(m => m[0]));
-    console.log('⚡ Found kW ratings:', kwMatches.map(m => m[1]));
-    
-    let result: any = { evidences: [] };
-    
-    // Brand + Model + kW (most reliable)
-    if (brandModelMatches.length > 0) {
-      const match = brandModelMatches[0];
-      const brandRaw = match[1].trim();
-      const modelRaw = match[2].trim();
-      const ratedKw = parseFloat(match[3]);
-      
-      // Validate it's not OCR noise
-      if (brandRaw.length > 2 && modelRaw.length > 2 && ratedKw >= 1 && ratedKw <= 50) {
-        result.brandRaw = brandRaw;
-        result.modelRaw = modelRaw;
-        result.ratedKw = ratedKw;
-        result.evidences.push({
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 6 : 5,
-        });
-        console.log('🔌 Brand+Model+kW match:', { brand: result.brandRaw, model: result.modelRaw, kw: result.ratedKw });
-      }
-    }
-    
-    // Brand + kW rating (separate matches)
-    if (!result.brandRaw && inverterBrandMatches.length > 0 && kwMatches.length > 0) {
-      const brand = inverterBrandMatches[0];
-      const kwMatch = kwMatches[0];
-      const kw = parseFloat(kwMatch[1]);
-      
-      // Check proximity and validate values
-      const brandIndex = brand.index || 0;
-      const kwIndex = kwMatch.index || 0;
-      
-      if (Math.abs(brandIndex - kwIndex) < 80 && kw >= 1 && kw <= 50) {
-        // Ensure inverter context
-        const combinedText = text.substring(
-          Math.min(brandIndex, kwIndex) - 20, 
-          Math.max(brandIndex + brand[0].length, kwIndex + kwMatch[0].length) + 20
-        );
-        const hasInverterContext = /inverter|string|micro/i.test(combinedText);
-        
-        if (hasInverterContext) {
-          result.brandRaw = brand[0].trim();
-          result.ratedKw = kw;
-          result.evidences.push({
-            page,
-            text: `${brand[0]} ... ${kwMatch[0]}`,
-            context: context as any,
-            weight: context === 'TABLE' ? 4 : 3,
-          });
-          console.log('🔌 Separate brand+kW match:', { brand: result.brandRaw, kw: result.ratedKw });
-        }
-      }
-    }
-    
-    // kW with inverter keyword (fallback)
-    if (!result.ratedKw && kwMatches.length > 0) {
-      const match = kwMatches[0];
-      const kw = parseFloat(match[1]);
-      
-      if (kw >= 1 && kw <= 50) {
-        result.ratedKw = kw;
-        result.evidences.push({
-          page,
-          text: match[0],
-          context: context as any,
-          weight: context === 'TABLE' ? 3 : 2,
-        });
-        console.log('🔌 kW-only inverter match:', { kw });
-      }
-    }
-    
-    // Phase detection
-    if (phaseMatches.length > 0) {
-      const match = phaseMatches[0];
-      result.phases = match[0].includes('3') || match[0].toLowerCase().includes('three') ? 'THREE' : 'SINGLE';
-    }
-    
-    console.log('🔌 Inverter extraction result:', result.evidences.length > 0 ? result : 'none');
-    return result.evidences.length > 0 ? result : null;
-  },
+  extractPanels,
+  extractBatteries,
+  extractInverter,
+};
+
+export const patterns = {
+  context: PATTERNS.context,
 };
