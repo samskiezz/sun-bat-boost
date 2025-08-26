@@ -77,6 +77,51 @@ export type Database = {
         }
         Relationships: []
       }
+      compat: {
+        Row: {
+          battery_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          inverter_id: string
+          ok: boolean
+          rule_code: string
+        }
+        Insert: {
+          battery_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          inverter_id: string
+          ok: boolean
+          rule_code: string
+        }
+        Update: {
+          battery_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          inverter_id?: string
+          ok?: boolean
+          rule_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compat_battery_id_fkey"
+            columns: ["battery_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compat_inverter_id_fkey"
+            columns: ["inverter_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_update_tracking: {
         Row: {
           created_at: string
@@ -137,6 +182,33 @@ export type Database = {
         }
         Relationships: []
       }
+      manufacturers: {
+        Row: {
+          aliases: string[] | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          urls: string[] | null
+        }
+        Insert: {
+          aliases?: string[] | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          urls?: string[] | null
+        }
+        Update: {
+          aliases?: string[] | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          urls?: string[] | null
+        }
+        Relationships: []
+      }
       postcode_zones: {
         Row: {
           created_at: string
@@ -187,6 +259,71 @@ export type Database = {
           product_type?: string
         }
         Relationships: []
+      }
+      products: {
+        Row: {
+          category: Database["public"]["Enums"]["product_category"] | null
+          cec_ref: string | null
+          created_at: string
+          datasheet_url: string | null
+          id: string
+          manufacturer_id: string | null
+          model: string
+          pdf_hash: string | null
+          pdf_path: string | null
+          product_url: string | null
+          raw: Json | null
+          series: string | null
+          sku: string | null
+          source: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["product_category"] | null
+          cec_ref?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          id?: string
+          manufacturer_id?: string | null
+          model: string
+          pdf_hash?: string | null
+          pdf_path?: string | null
+          product_url?: string | null
+          raw?: Json | null
+          series?: string | null
+          sku?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["product_category"] | null
+          cec_ref?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          id?: string
+          manufacturer_id?: string | null
+          model?: string
+          pdf_hash?: string | null
+          pdf_path?: string | null
+          product_url?: string | null
+          raw?: Json | null
+          series?: string | null
+          sku?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_manufacturer_id_fkey"
+            columns: ["manufacturer_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pv_modules: {
         Row: {
@@ -262,6 +399,86 @@ export type Database = {
           processed?: boolean
         }
         Relationships: []
+      }
+      scrape_progress: {
+        Row: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at: string
+          id: string
+          last_cursor: string | null
+          status: string | null
+          total_found: number | null
+          total_parsed: number | null
+          total_processed: number | null
+          total_with_pdfs: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          id?: string
+          last_cursor?: string | null
+          status?: string | null
+          total_found?: number | null
+          total_parsed?: number | null
+          total_processed?: number | null
+          total_with_pdfs?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          id?: string
+          last_cursor?: string | null
+          status?: string | null
+          total_found?: number | null
+          total_parsed?: number | null
+          total_processed?: number | null
+          total_with_pdfs?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      specs: {
+        Row: {
+          created_at: string
+          doc_span_id: string | null
+          id: string
+          key: string
+          product_id: string
+          source: string | null
+          unit: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          doc_span_id?: string | null
+          id?: string
+          key: string
+          product_id: string
+          source?: string | null
+          unit?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          doc_span_id?: string | null
+          id?: string
+          key?: string
+          product_id?: string
+          source?: string | null
+          unit?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       train_episodes: {
         Row: {
@@ -456,7 +673,11 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      product_category:
+        | "PANEL"
+        | "INVERTER"
+        | "BATTERY_MODULE"
+        | "BATTERY_STACK"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -583,6 +804,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      product_category: [
+        "PANEL",
+        "INVERTER",
+        "BATTERY_MODULE",
+        "BATTERY_STACK",
+      ],
+    },
   },
 } as const
