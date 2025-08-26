@@ -13,6 +13,25 @@ export const ReliableSpecsExtractor = () => {
   const [results, setResults] = useState<any>(null);
   const { toast } = useToast();
 
+  const handleForceSync = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('force-progress-sync');
+      if (error) throw error;
+      
+      toast({
+        title: "Progress Synced! ✅",
+        description: "Readiness gates updated successfully",
+      });
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast({
+        title: "Sync Error",
+        description: error.message || 'Failed to sync progress',
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleReliableExtraction = async () => {
     if (isExtracting) return;
     
@@ -202,24 +221,36 @@ export const ReliableSpecsExtractor = () => {
           </div>
         )}
 
-        <Button 
-          onClick={handleReliableExtraction}
-          disabled={isExtracting}
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
-          size="lg"
-        >
-          {isExtracting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Extracting with GPT-5...
-            </>
-          ) : (
-            <>
-              <Zap className="mr-2 h-4 w-4" />
-              Extract Specs (Reliable & Efficient)
-            </>
-          )}
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            onClick={handleReliableExtraction}
+            disabled={isExtracting}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            size="lg"
+          >
+            {isExtracting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Extracting with GPT-5...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />
+                Extract Specs (Reliable & Efficient)
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={handleForceSync}
+            variant="outline"
+            className="w-full border-blue-200 text-blue-700 hover:bg-blue-50"
+            size="sm"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Force Sync Progress & Update Gates
+          </Button>
+        </div>
         
         <div className="text-xs text-center text-muted-foreground">
           Multi-model fallback system • Guaranteed saves • 443 batteries + 444 panels remaining<br/>
