@@ -242,7 +242,10 @@ export default function ScrapingWidget() {
           {order.map(cat => {
             const r = rows.find(x => x.category === cat);
             const state = r?.state ?? 'pending';
-            const progress = r?.target ? Math.round((r.specs_done / r.target) * 100) : 0;
+            // Calculate combined progress: 50% for PDFs, 50% for specs extraction
+            const pdfProgress = r?.target ? (r.pdf_done / r.target) * 50 : 0;
+            const specsProgress = r?.target ? (r.specs_done / r.target) * 50 : 0;
+            const progress = Math.round(pdfProgress + specsProgress);
 
             return (
               <div key={cat} className="space-y-1">
@@ -254,7 +257,7 @@ export default function ScrapingWidget() {
                 </div>
                 <Progress value={progress} className="h-2" />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{r?.specs_done ?? 0} / {r?.target ?? 0}</span>
+                  <span>PDFs: {r?.pdf_done ?? 0} | Specs: {r?.specs_done ?? 0} / {r?.target ?? 0}</span>
                   <span>{progress}%</span>
                 </div>
               </div>

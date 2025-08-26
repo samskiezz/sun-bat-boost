@@ -345,9 +345,14 @@ export default function ComprehensiveCatalogManager() {
           {/* Live Progress Dashboard */}
           <div className="grid gap-4">
             {progress.map((categoryProgress) => {
-              const percentage = categoryProgress.target > 0 
-                ? Math.round((categoryProgress.specs_done / categoryProgress.target) * 100) 
+              // Calculate combined progress: 50% for PDFs, 50% for specs extraction
+              const pdfProgress = categoryProgress.target > 0 
+                ? (categoryProgress.pdf_done / categoryProgress.target) * 50 
                 : 0;
+              const specsProgress = categoryProgress.target > 0 
+                ? (categoryProgress.specs_done / categoryProgress.target) * 50 
+                : 0;
+              const percentage = Math.round(pdfProgress + specsProgress);
               
               const statusColor = getStatusColor(categoryProgress.state);
               const statusIcon = getStatusIcon(categoryProgress.state);
