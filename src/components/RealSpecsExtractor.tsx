@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { extractRealSpecsForProducts, updateProgressOnly } from '@/utils/realSpecsExtractor';
+import { updateProgressAndGatesNow } from '@/utils/directProgressUpdater';
 import { Loader2, Search, Globe, Zap, Brain, RefreshCw } from 'lucide-react';
 
 export const RealSpecsExtractor = () => {
@@ -16,16 +17,16 @@ export const RealSpecsExtractor = () => {
 
   // Auto-update progress on component mount to fix stuck displays
   useEffect(() => {
-    updateProgressOnly().catch(console.error);
+    updateProgressAndGatesNow().catch(console.error);
   }, []);
 
   const handleUpdateProgress = async () => {
     setIsUpdating(true);
     try {
-      await updateProgressOnly();
+      await updateProgressAndGatesNow();
       toast({
         title: "Progress Updated!",
-        description: "Job progress and readiness gates have been refreshed",
+        description: "Job progress and readiness gates have been refreshed with current data",
         duration: 3000,
       });
     } catch (error) {
