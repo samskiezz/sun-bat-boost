@@ -41,9 +41,17 @@ export default function ScrapingWidget() {
   const { toast } = useToast();
   const running = status?.job?.status === 'running';
 
+  console.log('🏗️ ScrapingWidget mounted/re-rendered. Status:', status);
+
   React.useEffect(() => {
+    console.log('📂 Loading saved job ID from localStorage...');
     const saved = localStorage.getItem('scrape_job_id');
-    if (saved) setJobId(saved);
+    if (saved) {
+      console.log('📂 Found saved job ID:', saved);
+      setJobId(saved);
+    } else {
+      console.log('📂 No saved job ID found');
+    }
   }, []);
 
   React.useEffect(() => {
@@ -87,14 +95,17 @@ export default function ScrapingWidget() {
   }, [jobId]);
 
   async function start() {
+    console.log('🚀🚀🚀 SCRAPING WIDGET START BUTTON CLICKED! 🚀🚀🚀');
     setBusy(true);
     try {
+      console.log('🔍 Checking if job is already running...');
       // Check if job is already running
       const { data: statusData, error: statusError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'status' }
       });
       
       if (statusError) throw statusError;
+      console.log('📊 Status data received:', statusData);
       
       if (statusData?.job?.status === 'running') {
         console.log('⚠️ Job already running, using existing job');
@@ -102,7 +113,9 @@ export default function ScrapingWidget() {
         localStorage.setItem('scrape_job_id', statusData.job.id);
         
         // Set the status immediately so UI updates
+        console.log('🔄 Calling adaptStatus with data:', statusData);
         const adapted = adaptStatus(statusData);
+        console.log('✅ Adapted status result:', adapted);
         setStatus(adapted);
         
         toast({
@@ -112,12 +125,14 @@ export default function ScrapingWidget() {
         return;
       }
       
+      console.log('🆕 Starting new job...');
       // Start new job
       const { data: startData, error: startError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'start' }
       });
       
       if (startError) throw startError;
+      console.log('📈 Start data received:', startData);
       
       const newJobId = startData?.job_id || startData?.id;
       if (!newJobId) {
@@ -129,7 +144,9 @@ export default function ScrapingWidget() {
       
       // If we got progress data back, set it immediately
       if (startData.progress) {
+        console.log('🔄 Calling adaptStatus with start data:', startData);
         const adapted = adaptStatus(startData);
+        console.log('✅ Adapted start status result:', adapted);
         setStatus(adapted);
       }
       
@@ -139,6 +156,7 @@ export default function ScrapingWidget() {
       });
       
     } catch (e) {
+      console.error('❌ Start function error:', e);
       toast({
         title: "Start Failed", 
         description: (e as Error).message,
