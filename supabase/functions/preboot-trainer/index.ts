@@ -468,14 +468,14 @@ async function learnFromEpisodes(supabase: any, episodes: TrainingResult[]) {
   const avgDesignPassRate = episodes.reduce((sum, e) => sum + e.design.rulesPassRate, 0) / episodes.length;
   
   // Store learning metrics
-  await supabase.from('metrics').insert([
+  await supabase.from('training_metrics').insert([
     {
-      name: 'ocr_accuracy_batch',
+      metric_type: 'ocr_accuracy_batch',
       value: avgOcrAccuracy,
       metadata: { batchSize: episodes.length }
     },
     {
-      name: 'design_pass_rate_batch', 
+      metric_type: 'design_pass_rate_batch', 
       value: avgDesignPassRate,
       metadata: { batchSize: episodes.length }
     }
@@ -590,9 +590,9 @@ async function getTrainingStatus(supabase: any) {
     .select('*', { count: 'exact', head: true });
     
   const { data: recentMetrics } = await supabase
-    .from('metrics')
+    .from('training_metrics')
     .select('*')
-    .in('name', ['ocr_accuracy_batch', 'design_pass_rate_batch'])
+    .in('metric_type', ['ocr_accuracy_batch', 'design_pass_rate_batch'])
     .order('created_at', { ascending: false })
     .limit(10);
     
