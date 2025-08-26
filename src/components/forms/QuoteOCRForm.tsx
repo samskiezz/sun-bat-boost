@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Upload, Check, AlertCircle, Edit3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Upload, Check, AlertCircle, Edit3, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { processAdvancedDocument, validateAdvancedExtractedData } from "@/utils/advancedDocumentProcessor";
 
@@ -19,9 +20,11 @@ interface ExtractedData {
   solarKw?: number;
   batteryKwh?: number;
   inverter?: { make?: string; model?: string; confidence: number };
-  panel?: { make?: string; model?: string; confidence: number };
-  battery?: { make?: string; model?: string; confidence: number };
+  panels?: Array<{ make?: string; model?: string; confidence: number; watts?: number; }>;
+  batteries?: Array<{ make?: string; model?: string; confidence: number; capacity_kwh?: number; }>;
   priceAud?: number;
+  selectedPanelIndex?: number;
+  selectedBatteryIndex?: number;
 }
 
 export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
@@ -53,30 +56,34 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
       if (result.success && result.extractedData) {
         const data = result.extractedData;
         
-        // Convert to expected format
+        // Convert to expected format with all detected options
         const mockData: ExtractedData = {
           postcode: data.postcode?.value,
           solarKw: data.systemSize?.value,
           batteryKwh: data.batteries?.[0]?.capacity_kwh,
           inverter: undefined, // Inverters not currently processed
-          panel: data.panels?.[0] ? { 
-            make: data.panels[0].suggestedMatch?.brand || 'Unknown', 
-            model: data.panels[0].suggestedMatch?.model || 'Unknown', 
-            confidence: data.panels[0].confidence 
-          } : undefined,
-          battery: data.batteries?.[0] ? { 
-            make: data.batteries[0].suggestedMatch?.brand || 'Unknown', 
-            model: data.batteries[0].suggestedMatch?.model || 'Unknown', 
-            confidence: data.batteries[0].confidence 
-          } : undefined,
-          priceAud: data.totalCost?.value
+          panels: data.panels?.map(panel => ({
+            make: panel.suggestedMatch?.brand || 'Unknown',
+            model: panel.suggestedMatch?.model || 'Unknown',
+            confidence: panel.confidence,
+            watts: panel.suggestedMatch?.watts
+          })),
+          batteries: data.batteries?.map(battery => ({
+            make: battery.suggestedMatch?.brand || 'Unknown',
+            model: battery.suggestedMatch?.model || 'Unknown',
+            confidence: battery.confidence,
+            capacity_kwh: battery.suggestedMatch?.capacity_kwh
+          })),
+          priceAud: data.totalCost?.value,
+          selectedPanelIndex: 0,
+          selectedBatteryIndex: 0
         };
         
         setExtractedData(mockData);
         setManualData({
           postcode: mockData.postcode || "",
           solarKw: mockData.solarKw?.toString() || "",
-          batteryKwh: mockData.batteryKwh?.toString() || "",
+          batteryKwh: mockData.batteries?.[0]?.capacity_kwh?.toString() || "",
           stcPrice: "38"
         });
         
@@ -176,16 +183,99 @@ export const QuoteOCRForm = ({ onSubmit }: QuoteOCRFormProps) => {
               <span className="font-medium">Data extracted successfully</span>
             </div>
 
-            {/* Confidence indicators */}
-            <div className="flex flex-wrap gap-2">
-              {extractedData.inverter && (
-                <ConfidenceChip confidence={extractedData.inverter.confidence} label="Inverter" />
+            {/* Smart Extraction Results */}
+            <div className="space-y-4 p-4 bg-green-50/50 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-600" />
+                <span className="font-medium text-green-800">Smart Extraction Results</span>
+                <Badge variant="secondary" className="text-xs">native • 990ms</Badge>
+              </div>
+
+              {/* Solar Panels */}
+              {extractedData.panels && extractedData.panels.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="flex items-center gap-2 font-medium text-sm">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    Solar Panels ({extractedData.panels.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {extractedData.panels.map((panel, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          extractedData.selectedPanelIndex === index 
+                            ? 'bg-green-100 border-green-300' 
+                            : 'bg-green-50 border-green-200 hover:bg-green-100'
+                        }`}
+                        onClick={() => setExtractedData({...extractedData, selectedPanelIndex: index})}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-sm text-green-800">
+                              {panel.make} {panel.model}
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                              Found: "{panel.model}"
+                            </div>
+                            {panel.watts && (
+                              <div className="text-blue-600 font-medium text-sm mt-1">
+                                {panel.watts}W
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="secondary" className="text-purple-700 bg-purple-100">
+                            {Math.round(panel.confidence * 100)}%
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-              {extractedData.panel && (
-                <ConfidenceChip confidence={extractedData.panel.confidence} label="Panel" />
-              )}
-              {extractedData.battery && (
-                <ConfidenceChip confidence={extractedData.battery.confidence} label="Battery" />
+
+              {/* Batteries */}
+              {extractedData.batteries && extractedData.batteries.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="flex items-center gap-2 font-medium text-sm">
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                    Batteries ({extractedData.batteries.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {extractedData.batteries.map((battery, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          extractedData.selectedBatteryIndex === index 
+                            ? 'bg-green-100 border-green-300' 
+                            : 'bg-green-50 border-green-200 hover:bg-green-100'
+                        }`}
+                        onClick={() => {
+                          setExtractedData({...extractedData, selectedBatteryIndex: index});
+                          setManualData({...manualData, batteryKwh: battery.capacity_kwh?.toString() || ""});
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-sm text-green-800">
+                              {battery.make} {battery.model}
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                              Found: "{battery.model}"
+                            </div>
+                            {battery.capacity_kwh && (
+                              <div className="text-blue-600 font-medium text-sm mt-1">
+                                {battery.capacity_kwh}kWh
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="secondary" className="text-purple-700 bg-purple-100">
+                            {Math.round(battery.confidence * 100)}%
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

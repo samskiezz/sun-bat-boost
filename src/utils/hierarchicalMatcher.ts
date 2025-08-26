@@ -237,16 +237,18 @@ export class HierarchicalMatcher {
    * Enhanced battery model finder with accurate capacity extraction
    */
   private findBestModelWithCapacity(candidates: Product[], context: string, rawMatch: string): HierarchicalMatch {
-    // Extract capacity from context more accurately
+    // Extract capacity from context more accurately - support up to 100kWh batteries
     const capacityPatterns = [
-      /(\d{1,2}(?:\.\d)?)\s*kWh/i,
-      /(\d{1,2}(?:\.\d)?)\s*kwh/i,
-      /(\d{1,2}(?:\.\d)?)\s*KWH/i,
-      /LYNX[-\s]?F[-\s]?(\d{1,2}(?:\.\d)?)/i,  // Goodwe Lynx F12.8
+      /(\d{1,3}(?:\.\d{1,2})?)\s*kWh/i,  // Support 1-100kWh (was 1-12)
+      /(\d{1,3}(?:\.\d{1,2})?)\s*kwh/i,
+      /(\d{1,3}(?:\.\d{1,2})?)\s*KWH/i,
+      /LYNX[-\s]?F[-\s]?(\d{1,3}(?:\.\d)?)/i,  // Goodwe Lynx F12.8
       /SBR(\d{2,3})/i,  // Sungrow SBR096 → 9.6kWh
-      /HVM[-\s]?(\d{1,2}(?:\.\d)?)/i,  // BYD HVM 16.6
-      /HVS[-\s]?(\d{1,2}(?:\.\d)?)/i,  // BYD HVS 10.2
-      /POWERWALL[-\s]?(\d)/i  // Tesla Powerwall 2/3
+      /HVM[-\s]?(\d{1,3}(?:\.\d)?)/i,  // BYD HVM 16.6
+      /HVS[-\s]?(\d{1,3}(?:\.\d)?)/i,  // BYD HVS 10.2
+      /POWERWALL[-\s]?(\d)/i,  // Tesla Powerwall 2/3
+      /SIGENERGY\s+(\d{1,3}(?:\.\d{1,2})?)/i,  // Sigenergy 32.4kWh
+      /(\d{1,3}(?:\.\d{1,2})?)\s*kWh?\s*(?:battery|storage|batt)/i  // 32kWh battery
     ];
     
     let extractedCapacity: number | undefined;
@@ -344,9 +346,9 @@ export class HierarchicalMatcher {
     });
     
     // Enhanced Battery patterns - Multiple formats to catch all battery mentions
-    // Pattern 1: Brand + Capacity (Tesla 13.5, BYD 10, etc.)
+    // Pattern 1: Brand + Capacity (Tesla 13.5, BYD 10, Sigenergy 32, etc.)
     patterns.push({
-      regex: new RegExp(`\\b(${brandPattern})\\s+(\\d{1,2}(?:\\.\\d)?)(?:\\s*kWh?)?\\b`, 'gi'),
+      regex: new RegExp(`\\b(${brandPattern})\\s+(\\d{1,3}(?:\\.\\d{1,2})?)(?:\\s*kWh?)?\\b`, 'gi'),
       type: 'battery'
     });
     
@@ -356,9 +358,9 @@ export class HierarchicalMatcher {
       type: 'battery'
     });
     
-    // Pattern 3: Standalone capacity with battery context (13.5kWh Battery, 10kWh Storage)
+    // Pattern 3: Standalone capacity with battery context (13.5kWh Battery, 32kWh Storage)
     patterns.push({
-      regex: new RegExp(`\\b(\\d{1,2}(?:\\.\\d)?)\\s*kWh?\\s*(?:battery|storage|batt)`, 'gi'),
+      regex: new RegExp(`\\b(\\d{1,3}(?:\\.\\d{1,2})?)\\s*kWh?\\s*(?:battery|storage|batt)`, 'gi'),
       type: 'battery'
     });
     
@@ -395,7 +397,7 @@ export class HierarchicalMatcher {
         }
         return cleanBrand;
       case 'battery':
-        if (cleanSpec && parseFloat(cleanSpec) <= 100) {
+        if (cleanSpec && parseFloat(cleanSpec) <= 200) {  // Support up to 200kWh commercial batteries
           return `${cleanBrand} ${cleanSpec}kWh`;
         }
         return cleanBrand; // For cases like "Tesla Powerwall" without explicit capacity
