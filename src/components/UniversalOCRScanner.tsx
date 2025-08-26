@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { universalOCRPipeline, OCRResult } from '@/utils/ocrPipeline_noInverterDB';
+import { masterOCRPipeline, OCRResult } from '@/utils/masterOCRPipeline';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -46,7 +46,7 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
         setProgress(prev => Math.min(prev + Math.random() * 15, 90));
       }, 500);
 
-      const extractedResult = await universalOCRPipeline.process(file);
+      const extractedResult = await masterOCRPipeline.process(file);
       
       clearInterval(progressInterval);
       setProgress(100);

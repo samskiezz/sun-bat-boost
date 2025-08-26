@@ -1,5 +1,5 @@
 import UniversalOCRScanner from './UniversalOCRScanner';
-import { OCRResult } from '@/utils/ocrPipeline_noInverterDB';
+import { OCRResult } from '@/utils/masterOCRPipeline';
 
 interface SmartOCRScannerProps {
   onDataExtracted: (data: OCRResult) => void;
