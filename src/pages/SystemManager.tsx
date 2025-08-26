@@ -9,6 +9,7 @@ import { useState } from 'react';
 import MasterTrainingControl from '@/components/MasterTrainingControl';
 import OneCatalogManager from '@/components/OneCatalogManager';
 import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
+import TrainingAutomation from '@/components/TrainingAutomation';
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -93,7 +94,7 @@ export default function SystemManager() {
       </Card>
 
       <Tabs defaultValue="catalog" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="catalog" className="flex items-center gap-2">
             <Database className="w-4 h-4" />
             Catalog Management
@@ -101,6 +102,10 @@ export default function SystemManager() {
           <TabsTrigger value="training" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
             Training System
+          </TabsTrigger>
+          <TabsTrigger value="automation" className="flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Automation
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
@@ -118,6 +123,10 @@ export default function SystemManager() {
 
         <TabsContent value="training">
           <MasterTrainingControl />
+        </TabsContent>
+
+        <TabsContent value="automation">
+          <TrainingAutomation />
         </TabsContent>
 
         <TabsContent value="analytics">
