@@ -276,6 +276,7 @@ export type Database = {
           series: string | null
           sku: string | null
           source: string | null
+          specs: Json | null
           status: string | null
           updated_at: string
         }
@@ -294,6 +295,7 @@ export type Database = {
           series?: string | null
           sku?: string | null
           source?: string | null
+          specs?: Json | null
           status?: string | null
           updated_at?: string
         }
@@ -312,6 +314,7 @@ export type Database = {
           series?: string | null
           sku?: string | null
           source?: string | null
+          specs?: Json | null
           status?: string | null
           updated_at?: string
         }
@@ -693,6 +696,16 @@ export type Database = {
       check_data_freshness: {
         Args: { table_name_param: string }
         Returns: boolean
+      }
+      get_product_counts_by_category: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_count: number
+          category: string
+          total_count: number
+          with_datasheet_count: number
+          with_pdf_count: number
+        }[]
       }
       refresh_battery_data: {
         Args: Record<PropertyKey, never>
