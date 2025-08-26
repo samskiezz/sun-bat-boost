@@ -262,14 +262,19 @@ async function tickJob(supabase: any) {
 
     // If all categories are complete, trigger specs enhancement and readiness update
     if (allCategoriesComplete) {
-      console.log('🚀 All categories complete - triggering specs enhancement...');
+      console.log('🚀 All categories complete - triggering FULL specs enhancement...');
       
-      // Enhance specs for AI/ML compatibility
+      // Enhance specs for AI/ML compatibility - FULL EXTRACTION FOR ALL PRODUCTS
       try {
+        console.log('🔥 CRITICAL: Triggering complete specs extraction for ALL products...');
         await supabase.functions.invoke('specs-enhancer', {
-          body: { action: 'full_enhancement' }
+          body: { 
+            action: 'full_enhancement',
+            force_all_categories: true,
+            extract_all_specs: true
+          }
         });
-        console.log('✅ Specs enhancement triggered');
+        console.log('✅ Full specs enhancement triggered for ALL products');
       } catch (error) {
         console.error('❌ Specs enhancement error:', error);
       }
