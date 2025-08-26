@@ -34,19 +34,25 @@ async function extractSpecsWithAI(product: any): Promise<any[]> {
         messages: [
           {
             role: 'system',
-            content: `Extract product specifications. For ${product.category}, focus on: ${
-  product.category === 'PANEL' ? 'watts, efficiency_percent, cell_type' : 
-  product.category === 'BATTERY_MODULE' ? 'kWh, battery_chemistry, vpp_compatible' : 
-  'power_kw, max_efficiency, inverter_topology'
-}. Return specifications as simple lines: "key: value". NO JSON, NO markdown blocks.`
+            content: `You are a technical specification expert. Extract COMPREHENSIVE product specifications from the provided data.
+
+REQUIREMENTS: Extract at least 8-12 detailed specifications. Be thorough and precise.
+
+For ${product.category}, extract ALL available specs including: ${
+  product.category === 'PANEL' ? 'watts, efficiency_percent, cell_type, voltage_open_circuit, current_short_circuit, voltage_max_power, current_max_power, dimensions, weight, temperature_coefficient, warranty_years, frame_material, connector_type, cell_count' : 
+  product.category === 'BATTERY_MODULE' ? 'capacity_kwh, usable_capacity, battery_chemistry, nominal_voltage, max_charge_current, max_discharge_current, cycle_life, warranty_years, dimensions, weight, operating_temperature, vpp_compatible, round_trip_efficiency' : 
+  'power_kw, max_efficiency, input_voltage_range, max_input_current, output_voltage, frequency, inverter_topology, protection_class, dimensions, weight, operating_temperature, warranty_years, thd_rating'
+}
+
+CRITICAL: Extract EVERY specification you can find. Return specifications as simple lines: "key: value". NO JSON, NO markdown blocks. Be comprehensive - aim for 10+ specs per product.`
           },
           {
             role: 'user',  
-            content: `Model: ${product.model}\nCategory: ${product.category}\nExtract specifications from: ${JSON.stringify(product.raw).substring(0, 800)}`
+            content: `Model: ${product.model}\nBrand: ${product.manufacturer?.name || 'Unknown'}\nCategory: ${product.category}\n\nRaw Data: ${JSON.stringify(product.raw).substring(0, 1200)}\n\nDatasheet URL: ${product.datasheet_url || 'None'}\n\nExtract ALL specifications comprehensively.`
           }
         ],
-        max_completion_tokens: 200,
-        temperature: 0.1
+        max_completion_tokens: 400, // Increased for more comprehensive specs
+        temperature: 0.05 // Lower temperature for more consistency
       }),
     });
 
@@ -71,9 +77,9 @@ async function extractSpecsWithAI(product: any): Promise<any[]> {
           };
         })
         .filter(spec => spec.key.length > 0 && spec.value.length > 0 && spec.value !== 'unknown')
-        .slice(0, 8);
+        .slice(0, 15); // Increased from 8 to 15 specs
       
-      if (specs.length >= 3) {
+      if (specs.length >= 6) { // Require at least 6 comprehensive specs
         console.log(`✅ AI extracted ${specs.length} specs for ${product.model}`);
         return specs;
       } else {
