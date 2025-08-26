@@ -1609,8 +1609,8 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         processed: actualCount,
         pdf_done: withPdfCount,
         specs_done: productsWithSpecs,
-        state: 'running', // Keep running to allow continuous specs extraction
-        last_specs_trigger: now // Update sync timestamp
+        state: 'running' // Keep running to allow continuous specs extraction
+        // Don't update last_specs_trigger here - it should only be updated when specs enhancement is actually triggered
       };
       
       console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=false`);
@@ -1640,6 +1640,13 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
                 offset: 0 
               }
             });
+            
+            // Update the last_specs_trigger timestamp after successful trigger
+            await supabase
+              .from('scrape_job_progress')
+              .update({ last_specs_trigger: now })
+              .eq('job_id', jobId)
+              .eq('category', category);
             
             console.log(`✅ Specs enhancement triggered for ${category}`);
           } catch (error) {
