@@ -1,4 +1,4 @@
-import { processBattleTestedDocument } from './battleTestedDocumentProcessor';
+import { processSmartDocument } from './smartDocumentProcessor';
 
 export interface AdvancedProcessorResult {
   success: boolean;
@@ -57,14 +57,14 @@ export interface AdvancedProcessorResult {
   error?: string;
 }
 
-// Main processing function - now using battle-tested approach
+// Main processing function - now using smart self-learning approach
 export const processAdvancedDocument = async (file: File): Promise<AdvancedProcessorResult> => {
-  console.log('🚀 Using Battle-Tested Document Processor for maximum accuracy...');
+  console.log('🧠 Using Smart Self-Learning Document Processor...');
   
   try {
-    const result = await processBattleTestedDocument(file);
+    const result = await processSmartDocument(file);
     
-    // Convert battle-tested result to legacy format for compatibility
+    // Convert smart result to legacy format for compatibility
     return {
       success: result.success,
       extractedData: result.extractedData,
@@ -72,7 +72,7 @@ export const processAdvancedDocument = async (file: File): Promise<AdvancedProce
       error: result.error,
     };
   } catch (error) {
-    console.error('Failed to process with battle-tested processor:', error);
+    console.error('Failed to process with smart processor:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Processing failed',
