@@ -17,7 +17,7 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
   console.log(`🔧 Enhancing product specs batch: offset=${offset}, size=${batchSize}`);
   
   try {
-    // Get batch of products with their specs - using smaller queries for performance
+    // Get batch of products with their specs - only active products without existing specs
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -26,6 +26,7 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
         model,
         raw
       `)
+      .eq('status', 'active')
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
 
@@ -136,6 +137,19 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
           });
         }
 
+        // Verify product still exists before inserting specs
+        const { data: productExists } = await supabase
+          .from('products')
+          .select('id')
+          .eq('id', product.id)
+          .eq('status', 'active')
+          .single();
+
+        if (!productExists) {
+          console.log(`⏭️ Skipping deleted/inactive product ${product.id}`);
+          continue;
+        }
+
         // Insert enhanced specs using UPSERT - single query per product
         if (enhancedSpecs.length > 0) {
           const { error: specsError } = await supabase
@@ -146,6 +160,7 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
 
           if (specsError) {
             console.error(`❌ Specs error for ${product.id}:`, specsError.message);
+            // Continue processing other products instead of failing
           } else {
             totalEnhanced++;
           }
