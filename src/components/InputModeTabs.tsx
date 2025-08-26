@@ -36,7 +36,7 @@ export const InputModeTabs = ({ onCalculate }: InputModeTabsProps) => {
             postcode: data.postcode?.value || "",
             installDate: new Date().toISOString().split('T')[0],
             solarKw: data.systemSize?.value || 0,
-            batteryKwh: data.batteries?.[0]?.suggestedMatch?.capacity_kwh || 0,
+            batteryKwh: data.batteries?.[0]?.specs?.kWh || 0,
             stcPrice: 38,
             vppProvider: "",
             extractedData: data

@@ -1,8 +1,8 @@
 import SmartOCRScanner from './SmartOCRScanner';
-import { AdvancedProcessorResult } from '@/utils/advancedDocumentProcessor';
+import { OCRResult } from '@/utils/ocrPipeline_noInverterDB';
 
 interface OCRScannerProps {
-  onDataExtracted: (data: AdvancedProcessorResult['extractedData']) => void;
+  onDataExtracted: (data: OCRResult) => void;
 }
 
 export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
