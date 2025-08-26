@@ -106,23 +106,13 @@ async function handleGetStatus(supabase: any) {
 }
 
 async function handleScrapeAll(supabase: any) {
-  // Check if already processing
-  const { data: activeProgress } = await supabase
-    .from('scrape_progress')
-    .select('*')
-    .in('status', ['processing', 'clearing']);
-    
-  if (activeProgress && activeProgress.length > 0) {
-    console.log('⚠️ Scraping already in progress');
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Scraping already in progress',
-        status: 'already_running'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+  console.log('🚀 EDGE: handleScrapeAll called');
+  
+  // FORCE CLEAR any existing progress to prevent blocking
+  console.log('🗑️ EDGE: Force clearing ALL existing progress...');
+  await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  
+  console.log('✅ EDGE: Progress cleared, starting background processing...');
   
   // Start background processing
   EdgeRuntime.waitUntil(runScrapingProcess(supabase));

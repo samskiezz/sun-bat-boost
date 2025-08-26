@@ -67,6 +67,7 @@ export default function ComprehensiveCatalogManager() {
   }
 
   async function handleOperation(action: string) {
+    console.log(`🚀 UI: Starting operation: ${action}`);
     setLoading(true);
 
     try {
@@ -80,13 +81,20 @@ export default function ComprehensiveCatalogManager() {
         }
       }
       
+      console.log(`📡 UI: Calling edge function with action: ${action}`);
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action }
       });
 
-      if (error) throw error;
+      console.log(`📡 UI: Edge function response:`, { data, error });
 
-      if (data.status === 'already_running') {
+      if (error) {
+        console.error('❌ UI: Edge function error:', error);
+        throw error;
+      }
+
+      if (data?.status === 'already_running') {
+        console.log('⚠️ UI: Operation already running');
         toast({
           title: "Already Running",
           description: "Operation is already in progress. Please wait.",
@@ -95,6 +103,7 @@ export default function ComprehensiveCatalogManager() {
         return;
       }
 
+      console.log('✅ UI: Operation started successfully');
       toast({
         title: "Operation Started",
         description: action === 'force_complete_reset' 
@@ -102,11 +111,14 @@ export default function ComprehensiveCatalogManager() {
           : 'Scraping operation initiated successfully',
       });
 
-      // Immediately refresh status
-      setTimeout(loadStatus, 1000);
+      // Force immediate status refresh
+      console.log('🔄 UI: Forcing immediate status refresh...');
+      setTimeout(() => {
+        loadStatus();
+      }, 500);
 
     } catch (error: any) {
-      console.error(`Operation ${action} failed:`, error);
+      console.error(`❌ UI: Operation ${action} failed:`, error);
       toast({
         title: "Operation Failed",
         description: error.message || `Failed to execute ${action}`,
