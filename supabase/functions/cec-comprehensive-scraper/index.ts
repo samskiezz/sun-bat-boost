@@ -264,48 +264,72 @@ async function tickJob(supabase: any) {
     if (allCategoriesComplete) {
       console.log('🚀 All categories complete - triggering FULL specs enhancement...');
       
-      // Enhance specs for AI/ML compatibility - BATCH PROCESSING to avoid timeouts
-      try {
-        console.log('🔥 CRITICAL: Triggering complete specs extraction for ALL products...');
-        
-        let offset = 0;
-        let batchSize = 50;
-        let totalProcessed = 0;
-        let completed = false;
-        
-        while (!completed) {
-          const { data: result, error } = await supabase.functions.invoke('specs-enhancer', {
-            body: { 
-              action: 'full_enhancement',
-              batchSize: batchSize,
-              offset: offset
+        // Enhance specs for AI/ML compatibility - BATCH PROCESSING to avoid timeouts
+        try {
+          console.log('🔥 CRITICAL: Triggering complete specs extraction for ALL products...');
+          
+          let offset = 0;
+          let batchSize = 25; // Smaller batch size to prevent timeouts
+          let totalProcessed = 0;
+          let completed = false;
+          let maxIterations = 200; // Safety limit - max 200 * 25 = 5000 products
+          let currentIteration = 0;
+          
+          while (!completed && currentIteration < maxIterations) {
+            console.log(`🔄 Specs batch ${currentIteration + 1}: offset=${offset}, batchSize=${batchSize}`);
+            
+            const { data: result, error } = await supabase.functions.invoke('specs-enhancer', {
+              body: { 
+                action: 'full_enhancement',
+                batchSize: batchSize,
+                offset: offset
+              }
+            });
+            
+            if (error) {
+              console.error(`❌ Specs enhancement error at offset ${offset}:`, error);
+              break;
             }
-          });
-          
-          if (error) {
-            console.error(`❌ Specs enhancement error at offset ${offset}:`, error);
-            break;
+            
+            if (result?.specs_result?.enhanced_count) {
+              totalProcessed += result.specs_result.enhanced_count;
+              console.log(`✅ Processed ${result.specs_result.enhanced_count} products (total: ${totalProcessed})`);
+            }
+            
+            // Check if completed - either no more products or explicit completion flag
+            completed = result?.specs_result?.completed || 
+                      result?.specs_result?.total_products === 0 ||
+                      result?.specs_result?.enhanced_count === 0;
+            
+            if (!completed) {
+              offset += batchSize;
+              currentIteration++;
+            }
+            
+            // Update progress tracking in database
+            if (result?.specs_result?.enhanced_count > 0) {
+              // Update specs_done for all categories
+              await supabase
+                .from('scrape_job_progress')
+                .update({
+                  specs_done: supabase.raw(`specs_done + ${result.specs_result.enhanced_count}`)
+                })
+                .eq('job_id', jobId);
+            }
+            
+            // Small delay to prevent overwhelming the system
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
           
-          if (result?.specs_result?.enhanced_count) {
-            totalProcessed += result.specs_result.enhanced_count;
-            console.log(`✅ Processed ${result.specs_result.enhanced_count} products (total: ${totalProcessed})`);
+          console.log(`✅ Full specs enhancement completed - processed ${totalProcessed} products total in ${currentIteration} iterations`);
+          
+          if (currentIteration >= maxIterations) {
+            console.log('⚠️ Reached maximum iterations limit, stopping batch processing');
           }
           
-          completed = result?.specs_result?.completed || false;
-          offset += batchSize;
-          
-          // Safety limit to prevent infinite loops
-          if (offset > 10000) {
-            console.log('⚠️ Reached safety limit, stopping batch processing');
-            break;
-          }
+        } catch (error) {
+          console.error('❌ Specs enhancement error:', error);
         }
-        
-        console.log(`✅ Full specs enhancement completed - processed ${totalProcessed} products total`);
-      } catch (error) {
-        console.error('❌ Specs enhancement error:', error);
-      }
       
       // Update readiness gates
       await updateReadinessGates(supabase);
