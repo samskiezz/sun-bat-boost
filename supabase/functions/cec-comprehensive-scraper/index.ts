@@ -1356,35 +1356,27 @@ async function updateReadinessGates(supabase: any) {
       .select('product_id')
       .not('product_id', 'is', null);
     
-    // Count products with 6+ specs by category
-    const { data: panelSpecs } = await supabase
-      .from('products')
+    // Count products with 6+ specs by category - use proper counting query
+    const { data: specsCount } = await supabase
+      .from('specs')
       .select(`
-        id,
-        specs!inner(key)
-      `)
-      .eq('category', 'PANEL');
+        product_id,
+        products!inner(category)
+      `);
     
-    const { data: batterySpecs } = await supabase
-      .from('products')
-      .select(`
-        id,
-        specs!inner(key)
-      `)
-      .eq('category', 'BATTERY_MODULE');
-    
-    const { data: inverterSpecs } = await supabase
-      .from('products')
-      .select(`
-        id,
-        specs!inner(key)
-      `)
-      .eq('category', 'INVERTER');
+    // Group specs by category and count products with ≥6 specs
+    const specsByCategory = specsCount?.reduce((acc, spec) => {
+      const category = spec.products.category;
+      if (!acc[category]) acc[category] = {};
+      if (!acc[category][spec.product_id]) acc[category][spec.product_id] = 0;
+      acc[category][spec.product_id]++;
+      return acc;
+    }, {} as Record<string, Record<string, number>>) || {};
 
     // Count products with sufficient specs (≥6)
-    const panelSpecsComplete = panelSpecs?.filter(p => p.specs?.length >= 6).length || 0;
-    const batterySpecsComplete = batterySpecs?.filter(p => p.specs?.length >= 6).length || 0;
-    const inverterSpecsComplete = inverterSpecs?.filter(p => p.specs?.length >= 6).length || 0;
+    const panelSpecsComplete = Object.values(specsByCategory.PANEL || {}).filter(count => count >= 6).length;
+    const batterySpecsComplete = Object.values(specsByCategory.BATTERY_MODULE || {}).filter(count => count >= 6).length;
+    const inverterSpecsComplete = Object.values(specsByCategory.INVERTER || {}).filter(count => count >= 6).length;
 
     // Update readiness gates
     const gateUpdates = [
