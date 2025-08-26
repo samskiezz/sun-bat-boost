@@ -512,15 +512,15 @@ async function getScrapingStatus(supabase: any) {
     .select('*')
     .order('updated_at', { ascending: false });
     
-  const { data: productCounts } = await supabase
-    .rpc('get_product_counts_by_category');
+    const { data: productCounts } = await supabase
+      .functions.invoke('get-product-counts');
     
-  return new Response(
-    JSON.stringify({ 
-      success: true,
-      progress: progress || [],
-      productCounts: productCounts || []
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        progress: progress || [],
+        productCounts: productCounts?.productCounts || []
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 }
