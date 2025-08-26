@@ -256,87 +256,31 @@ export class UniversalOCRPipeline {
     type: 'panel' | 'battery', 
     fullText: string
   ): boolean {
-    // Use larger context window for more flexible validation
-    const context = this.getContext(fullText, match.position, 600);
+    const context = this.getContext(fullText, match.position, 400);
     
     if (type === 'panel') {
-      // More flexible panel validation - allow if no conflicting evidence
-      const wattsPatterns = [
-        /\b(\d{3,4})\s*W\b/gi,           // 400W, 450W etc
-        /\b(\d{1,2}\.?\d*)\s*kW\b/gi     // 6.6kW, 13.2kW etc (convert to watts)
-      ];
-      
-      let foundWatts = 0;
-      for (const pattern of wattsPatterns) {
-        const matches = [...context.matchAll(pattern)];
-        if (matches.length > 0) {
-          if (pattern.source.includes('kW')) {
-            // Convert kW to watts - but be careful about system size vs panel size
-            const kWValue = parseFloat(matches[0][1]);
-            if (kWValue <= 1.0) { // Individual panel unlikely to be >1kW
-              foundWatts = kWValue * 1000;
-            }
-          } else {
-            foundWatts = parseInt(matches[0][1]);
-          }
-          break;
-        }
-      }
-      
-      // Don't reject if no watts found - specs might be elsewhere
-      if (foundWatts > 0) {
-        const expectedWatts = product.specs.watts;
-        if (expectedWatts && Math.abs(foundWatts - expectedWatts) > 100) return false; // Increased tolerance
-      }
-      
-      // Reject if this looks like a battery (has kWh nearby)
-      if (/\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi.test(context)) {
-        return false;
-      }
-      
-      // Optional cell group validation - don't enforce strictly
-      if (product.specs.cellGroup) {
-        const cellPattern = new RegExp(`-${product.specs.cellGroup}-`, 'i');
-        // Give bonus points but don't reject if missing
+      // Very lenient panel validation - mainly avoid battery conflicts
+      const kwhPattern = /\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi;
+      if (kwhPattern.test(context)) {
+        return false; // Reject if looks like battery
       }
     }
     
     if (type === 'battery') {
-      // More flexible battery patterns
-      const kwhPatterns = [
-        /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh?\b/gi,    // 25kWh, 13.5kwh
-        /\b(\d{1,3}(?:\.\d{1,2})?)\s*KWH?\b/gi,    // 25KWH, 13.5KWH
-        /\b(\d{1,2})\b(?=\s*(?:SIGEN|BATTERY|kWh))/gi, // Just numbers near battery brands
-        /(\d{1,3}(?:\.\d{1,2})?)\s*(?:kilo\s*watt?\s*hour|kilowatt\s*hour)/gi
-      ];
+      // Very lenient battery validation - mainly avoid inverter conflicts  
+      const kwPattern = /\b\d{1,2}(?:\.\d)?\s*kW\b(?!\s*h)/gi; // kW but not kWh
+      const kwhPattern = /\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi; // kWh pattern
       
-      let foundKwh = 0;
-      for (const pattern of kwhPatterns) {
-        const matches = [...context.matchAll(pattern)];
-        if (matches.length > 0) {
-          foundKwh = parseFloat(matches[0][1]);
-          break;
-        }
-      }
+      const hasKW = kwPattern.test(context);
+      const hasKWH = kwhPattern.test(context);
       
-      // Don't require kWh to be found - specs might be elsewhere
-      if (foundKwh > 0) {
-        const expectedKwh = product.specs.kWh;
-        if (expectedKwh) {
-          const tolerance = Math.max(2.0, expectedKwh * 0.25); // More tolerance: ±25% or 2kWh minimum
-          if (Math.abs(foundKwh - expectedKwh) > tolerance) return false;
-        }
-      }
-      
-      // Reject if this looks like an inverter (has kW but no kWh)
-      const hasKW = /\b\d{1,2}(?:\.\d)?\s*kW\b/gi.test(context);
-      const hasKWH = /\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi.test(context);
+      // Reject if only kW (inverter) but no kWh
       if (hasKW && !hasKWH) {
         return false;
       }
     }
     
-    return true;
+    return true; // Much more lenient - let scoring decide
   }
 
   private matchInverters(text: string, anchorPositions: number[]): InverterCandidate[] {
