@@ -256,19 +256,33 @@ export class UniversalOCRPipeline {
     type: 'panel' | 'battery', 
     fullText: string
   ): boolean {
-    const context = this.getContext(fullText, match.position, 240);
+    const context = this.getContext(fullText, match.position, 300);
     
     if (type === 'panel') {
-      // Require watts within ±120 chars
-      const wattsPattern = /\b(\d{3,4})\s*W\b/gi;
-      const wattsMatches = [...context.matchAll(wattsPattern)];
+      // Enhanced panel detection: Look for both watts and kW patterns
+      const wattsPatterns = [
+        /\b(\d{3,4})\s*W\b/gi,           // 400W, 450W etc
+        /\b(\d{1,2}\.?\d*)\s*kW\b/gi     // 6.6kW, 13.2kW etc (convert to watts)
+      ];
       
-      if (wattsMatches.length === 0) return false;
+      let foundWatts = 0;
+      for (const pattern of wattsPatterns) {
+        const matches = [...context.matchAll(pattern)];
+        if (matches.length > 0) {
+          if (pattern.source.includes('kW')) {
+            // Convert kW to watts
+            foundWatts = parseFloat(matches[0][1]) * 1000;
+          } else {
+            foundWatts = parseInt(matches[0][1]);
+          }
+          break;
+        }
+      }
       
-      const foundWatts = parseInt(wattsMatches[0][1]);
+      if (foundWatts === 0) return false;
+      
       const expectedWatts = product.specs.watts;
-      
-      if (expectedWatts && Math.abs(foundWatts - expectedWatts) > 5) return false;
+      if (expectedWatts && Math.abs(foundWatts - expectedWatts) > 50) return false; // More tolerance for kW conversions
       
       // If product has cell group, enforce match
       if (product.specs.cellGroup) {
@@ -278,17 +292,27 @@ export class UniversalOCRPipeline {
     }
     
     if (type === 'battery') {
-      // Require kWh within ±120 chars
-      const kwhPattern = /\b(\d{1,3}(?:\.\d{1,2})?)\s*KWH\b/gi;
-      const kwhMatches = [...context.matchAll(kwhPattern)];
+      // Enhanced battery detection: Multiple kWh patterns
+      const kwhPatterns = [
+        /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh?\b/gi,    // 25kWh, 13.5kwh
+        /\b(\d{1,3}(?:\.\d{1,2})?)\s*KWH?\b/gi,    // 25KWH, 13.5KWH
+        /(\d{1,3}(?:\.\d{1,2})?)\s*(?:kilo\s*watt?\s*hour|kilowatt\s*hour)/gi
+      ];
       
-      if (kwhMatches.length === 0) return false;
+      let foundKwh = 0;
+      for (const pattern of kwhPatterns) {
+        const matches = [...context.matchAll(pattern)];
+        if (matches.length > 0) {
+          foundKwh = parseFloat(matches[0][1]);
+          break;
+        }
+      }
       
-      const foundKwh = parseFloat(kwhMatches[0][1]);
+      if (foundKwh === 0) return false;
+      
       const expectedKwh = product.specs.kWh;
-      
       if (expectedKwh) {
-        const tolerance = Math.max(0.5, expectedKwh * 0.08); // ±8% or 0.5 kWh minimum
+        const tolerance = Math.max(1.0, expectedKwh * 0.15); // More tolerance: ±15% or 1kWh minimum
         if (Math.abs(foundKwh - expectedKwh) > tolerance) return false;
       }
     }
@@ -303,18 +327,34 @@ export class UniversalOCRPipeline {
     
     for (const inverterBrand of INVERTER_BRANDS) {
       for (const pattern of inverterBrand.patterns) {
-        // Model pattern: Brand + Model + kW
-        const modelRegex = new RegExp(`\\b${pattern}\\s*([A-Z]{1,10}[A-Z0-9]*(?:[ -]?\\d{1,4}(?:\\.\\d)?[A-Z]{0,3})[A-Z0-9-]{0,8})\\b`, 'gi');
+        // More specific inverter pattern - avoid catching batteries
+        const modelRegex = new RegExp(`\\b${pattern}\\s*([A-Z]{2,}[A-Z0-9]*(?:[ -]?[A-Z]{2,}|[ -]?\\d{2,4}[A-Z]{2,})[A-Z0-9-]{0,8})\\b`, 'gi');
         
         const matches = this.findMatches(text, modelRegex);
         
         for (const match of matches) {
+          // Skip if this looks like a battery capacity (just a number like "25")
+          const modelPart = match.text.replace(pattern, '').trim();
+          if (/^\d{1,3}$/.test(modelPart)) {
+            console.log(`🚫 Skipping "${match.text}" - looks like battery capacity`);
+            continue;
+          }
+          
           if (this.isNearAnchor(match.position, anchorPositions)) {
             const context = this.getContext(text, match.position, 360);
             
-            // Must have kW within same window
+            // Must have kW within same window AND not have kWh (to avoid batteries)
             const kwPattern = /\b(\d{1,2}(?:\.\d{1,2})?)\s*KW\b/gi;
+            const kwhPattern = /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh?\b/gi;
+            
             const kwMatches = [...context.matchAll(kwPattern)];
+            const kwhMatches = [...context.matchAll(kwhPattern)];
+            
+            // Skip if we find kWh patterns (likely a battery)
+            if (kwhMatches.length > 0) {
+              console.log(`🚫 Skipping "${match.text}" - found kWh pattern (battery)`);
+              continue;
+            }
             
             if (kwMatches.length > 0) {
               const kW = parseFloat(kwMatches[0][1]);
@@ -358,16 +398,26 @@ export class UniversalOCRPipeline {
     type: 'panel' | 'battery', 
     fullText: string
   ): boolean {
-    const context = this.getContext(fullText, match.position, 240);
+    const context = this.getContext(fullText, match.position, 300);
     
     if (type === 'panel' && product.specs.watts) {
-      const wattsPattern = new RegExp(`\\b${product.specs.watts}\\s*W\\b`, 'i');
-      return wattsPattern.test(context);
+      // Check for both watts and kW patterns
+      const wattsPatterns = [
+        new RegExp(`\\b${product.specs.watts}\\s*W\\b`, 'i'),
+        new RegExp(`\\b${(product.specs.watts / 1000).toFixed(1)}\\s*kW\\b`, 'i')
+      ];
+      
+      return wattsPatterns.some(pattern => pattern.test(context));
     }
     
     if (type === 'battery' && product.specs.kWh) {
-      const kwhPattern = new RegExp(`\\b${product.specs.kWh}\\s*KWH\\b`, 'i');
-      return kwhPattern.test(context);
+      // More flexible kWh pattern matching
+      const kwhPatterns = [
+        new RegExp(`\\b${product.specs.kWh}\\s*kWh?\\b`, 'i'),
+        new RegExp(`\\b${product.specs.kWh}\\s*KWH?\\b`, 'i')
+      ];
+      
+      return kwhPatterns.some(pattern => pattern.test(context));
     }
     
     return false;
