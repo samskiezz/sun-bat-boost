@@ -86,20 +86,33 @@ export default function DataCollectionPanel() {
   async function start() {
     setBusy(true);
     try {
-      console.log('Starting scraper...');
+      console.log('🚀 Starting scraper...');
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'start' }
       });
       
-      console.log('Scraper response:', { data, error });
+      console.log('📊 Scraper response:', { data, error });
+      console.log('📊 Raw response data:', JSON.stringify(data, null, 2));
       
-      if (error) throw error;
-      
-      const newJobId = data?.job_id;
-      if (!newJobId) {
-        throw new Error('No job_id returned from scraper');
+      if (error) {
+        console.error('❌ Supabase function error:', error);
+        throw error;
       }
       
+      if (!data) {
+        console.error('❌ No data returned from function');
+        throw new Error('No data returned from scraper function');
+      }
+      
+      const newJobId = data?.job_id;
+      console.log('🔍 Extracted job_id:', newJobId);
+      
+      if (!newJobId) {
+        console.error('❌ No job_id in response. Full data:', data);
+        throw new Error('No job_id returned from scraper - check edge function logs');
+      }
+      
+      console.log('💾 Saving job_id to localStorage:', newJobId);
       localStorage.setItem('scrape_job_id', newJobId);
       setJobId(newJobId);
       
@@ -107,8 +120,10 @@ export default function DataCollectionPanel() {
         title: "Scraping Started",
         description: "Data collection job has been initiated successfully.",
       });
+      
+      console.log('✅ Start scraping completed successfully');
     } catch (e) {
-      console.error('Start scraper error:', e);
+      console.error('❌ Start scraper error:', e);
       toast({
         title: "Start Failed",
         description: (e as Error).message,
