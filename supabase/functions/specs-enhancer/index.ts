@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -12,8 +13,125 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AI-powered product matching using NLP
+async function findProductAliases(productName: string, category: string): Promise<string[]> {
+  if (!openAIApiKey) {
+    console.log('⚠️ OpenAI API key not configured, using basic matching');
+    return [productName];
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert in solar energy products. Given a product name and category, generate all possible aliases, variations, marketing names, and model variations that could refer to the same product. Include:
+            - Different spellings and abbreviations
+            - Marketing names vs technical names  
+            - Model number variations (with/without spaces, dashes, etc.)
+            - Brand variations
+            - Series names
+            Return ONLY a JSON array of strings, no other text.`
+          },
+          {
+            role: 'user',
+            content: `Product: "${productName}" Category: "${category}"`
+          }
+        ],
+        max_tokens: 300,
+        temperature: 0.3
+      }),
+    });
+
+    const data = await response.json();
+    const aliases = JSON.parse(data.choices[0].message.content);
+    console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
+    return Array.isArray(aliases) ? aliases : [productName];
+  } catch (error) {
+    console.error('❌ Error generating aliases:', error);
+    return [productName];
+  }
+}
+
+// AI-powered specs extraction using product catalog cross-reference
+async function extractIntelligentSpecs(product: any): Promise<any[]> {
+  if (!openAIApiKey) {
+    console.log(`⚠️ OpenAI API key not configured, using fallback specs for ${product.id}`);
+    return generateFallbackSpecs(product);
+  }
+
+  try {
+    // Get product aliases
+    const aliases = await findProductAliases(product.model, product.category);
+    
+    // Search for similar products in catalog
+    const { data: catalogProducts } = await supabase
+      .from('products')
+      .select('model, raw, specs')
+      .eq('category', product.category)
+      .neq('id', product.id)
+      .limit(10);
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a solar product specification expert. Analyze the target product and similar catalog products to extract accurate specifications. Use NLP matching to identify if products are the same despite name variations.
+
+            For ${product.category}:
+            ${product.category === 'PANEL' ? '- watts (power rating)\n- efficiency_percent\n- cell_type\n- dimensions\n- warranty_years' : ''}
+            ${product.category === 'BATTERY_MODULE' ? '- kWh (capacity)\n- battery_chemistry\n- vpp_compatible\n- warranty_years\n- cycles' : ''}
+            ${product.category === 'INVERTER' ? '- power_kw\n- max_efficiency\n- inverter_topology\n- warranty_years' : ''}
+
+            Return JSON array of specs: [{"key": "spec_name", "value": "value", "source": "ai_extraction"}]`
+          },
+          {
+            role: 'user',
+            content: `Target Product: ${JSON.stringify(product)}
+            
+            Aliases: ${JSON.stringify(aliases)}
+            
+            Similar Catalog Products: ${JSON.stringify(catalogProducts?.slice(0, 5) || [])}`
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0.2
+      }),
+    });
+
+    const data = await response.json();
+    const specs = JSON.parse(data.choices[0].message.content);
+    console.log(`🤖 Extracted ${specs.length} AI specs for ${product.model}`);
+    
+    return Array.isArray(specs) ? specs.map(spec => ({
+      product_id: product.id,
+      key: spec.key,
+      value: spec.value.toString(),
+      source: 'ai_extraction'
+    })) : generateFallbackSpecs(product);
+
+  } catch (error) {
+    console.error('❌ Error extracting intelligent specs:', error);
+    return generateFallbackSpecs(product);
+  }
+}
+
 // Enhanced specs for AI/ML compatibility - process in smaller batches to avoid CPU timeout
-async function enhanceProductSpecs(batchSize = 25, offset = 0) {
+async function enhanceProductSpecs(batchSize = 15, offset = 0) {
   console.log(`🔧 Enhancing product specs batch: offset=${offset}, size=${batchSize}`);
   
   try {
@@ -50,92 +168,8 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
       const subBatch = products.slice(i, i + subBatchSize);
       
       for (const product of subBatch) {
-        // Create enhanced specs structure for AI/ML compatibility
-        const enhancedSpecs = [];
-        
-        // Add basic specs that all products need
-        enhancedSpecs.push({
-          product_id: product.id,
-          key: 'brand_name',
-          value: 'Generic',
-          source: 'ai_compatibility'
-        });
-
-        enhancedSpecs.push({
-          product_id: product.id,  
-          key: 'model_number',
-          value: product.model || 'Unknown',
-          source: 'ai_compatibility'
-        });
-
-        // Add category-specific specs
-        if (product.category === 'PANEL') {
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'watts',
-            value: (product.raw?.power_rating || 400).toString(),
-            source: 'ai_compatibility'
-          });
-          
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'efficiency_percent',
-            value: (product.raw?.efficiency || 20.5).toString(),
-            source: 'ai_compatibility'
-          });
-
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'cell_type',
-            value: product.raw?.technology || 'Monocrystalline',
-            source: 'ai_compatibility'
-          });
-
-        } else if (product.category === 'BATTERY_MODULE') {
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'kWh',
-            value: (product.raw?.capacity_kwh || 10.0).toString(),
-            source: 'ai_compatibility'
-          });
-
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'battery_chemistry',
-            value: product.raw?.chemistry || 'Lithium Ion',
-            source: 'ai_compatibility'
-          });
-
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'vpp_compatible',
-            value: (product.raw?.vpp_capable || false).toString(),
-            source: 'ai_compatibility'
-          });
-
-        } else if (product.category === 'INVERTER') {
-          const powerRating = product.raw?.power_rating || 5000;
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'power_kw',
-            value: (powerRating / 1000).toString(),
-            source: 'ai_compatibility'
-          });
-
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'max_efficiency',
-            value: (product.raw?.efficiency || 97.0).toString(),
-            source: 'ai_compatibility'
-          });
-
-          enhancedSpecs.push({
-            product_id: product.id,
-            key: 'inverter_topology',
-            value: product.raw?.type || 'String',
-            source: 'ai_compatibility'
-          });
-        }
+        // Use AI-powered intelligent specs extraction
+        const enhancedSpecs = await extractIntelligentSpecs(product);
 
         // Verify product still exists before inserting specs
         const { data: productExists } = await supabase
@@ -184,6 +218,97 @@ async function enhanceProductSpecs(batchSize = 25, offset = 0) {
     console.error('❌ Specs enhancement error:', error);
     return { success: false, error: error.message };
   }
+}
+
+// Fallback specs generation when AI is not available
+function generateFallbackSpecs(product: any): any[] {
+  const specs = [];
+  
+  // Add basic specs
+  specs.push({
+    product_id: product.id,
+    key: 'brand_name',
+    value: 'Generic',
+    source: 'fallback'
+  });
+
+  specs.push({
+    product_id: product.id,
+    key: 'model_number',
+    value: product.model || 'Unknown',
+    source: 'fallback'
+  });
+
+  // Add category-specific specs
+  if (product.category === 'PANEL') {
+    specs.push({
+      product_id: product.id,
+      key: 'watts',
+      value: (product.raw?.power_rating || 400).toString(),
+      source: 'fallback'
+    });
+    
+    specs.push({
+      product_id: product.id,
+      key: 'efficiency_percent',
+      value: (product.raw?.efficiency || 20.5).toString(),
+      source: 'fallback'
+    });
+
+    specs.push({
+      product_id: product.id,
+      key: 'cell_type',
+      value: product.raw?.technology || 'Monocrystalline',
+      source: 'fallback'
+    });
+
+  } else if (product.category === 'BATTERY_MODULE') {
+    specs.push({
+      product_id: product.id,
+      key: 'kWh',
+      value: (product.raw?.capacity_kwh || 10.0).toString(),
+      source: 'fallback'
+    });
+
+    specs.push({
+      product_id: product.id,
+      key: 'battery_chemistry',
+      value: product.raw?.chemistry || 'Lithium Ion',
+      source: 'fallback'
+    });
+
+    specs.push({
+      product_id: product.id,
+      key: 'vpp_compatible',
+      value: (product.raw?.vpp_capable || false).toString(),
+      source: 'fallback'
+    });
+
+  } else if (product.category === 'INVERTER') {
+    const powerRating = product.raw?.power_rating || 5000;
+    specs.push({
+      product_id: product.id,
+      key: 'power_kw',
+      value: (powerRating / 1000).toString(),
+      source: 'fallback'
+    });
+
+    specs.push({
+      product_id: product.id,
+      key: 'max_efficiency',
+      value: (product.raw?.efficiency || 97.0).toString(),
+      source: 'fallback'
+    });
+
+    specs.push({
+      product_id: product.id,
+      key: 'inverter_topology',
+      value: product.raw?.type || 'String',
+      source: 'fallback'
+    });
+  }
+
+  return specs;
 }
 
 // Generate missing PDFs for battery and inverter products
