@@ -35,15 +35,21 @@ export default function ScrapingDashboard() {
   useEffect(() => {
     loadProgress();
     loadStats();
-    const interval = setInterval(() => {
-      if (isRunning) {
+    
+    // Set up intelligent polling - more frequent when scraping is active
+    const setupPolling = () => {
+      const isActiveProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
+      const interval = isActiveProcessing || isRunning ? 2000 : 10000; // 2s when active, 10s when idle
+      
+      return setInterval(() => {
         loadProgress();
         loadStats();
-      }
-    }, 5000);
+      }, interval);
+    };
 
-    return () => clearInterval(interval);
-  }, [isRunning]);
+    const intervalId = setupPolling();
+    return () => clearInterval(intervalId);
+  }, [isRunning, progress]);
 
   async function loadProgress() {
     try {
@@ -208,15 +214,18 @@ export default function ScrapingDashboard() {
             onClick={runFullScrape}
             disabled={isRunning}
             variant="default"
+            className="flex items-center gap-2"
           >
-            <Search className="w-4 h-4 mr-2" />
             {isRunning && currentOperation.includes('Scraping') ? (
               <>
-                <Clock className="w-4 h-4 mr-2 animate-spin" />
+                <Clock className="w-4 h-4 animate-spin" />
                 Scraping...
               </>
             ) : (
-              'Scrape CEC'
+              <>
+                <Search className="w-4 h-4" />
+                Scrape All Categories
+              </>
             )}
           </Button>
 
@@ -224,18 +233,19 @@ export default function ScrapingDashboard() {
             onClick={runCompleteReset}
             disabled={isRunning}
             variant="destructive"
+            className="flex items-center gap-2"
           >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Complete Reset
-          </Button>
-
-          <Button
-            onClick={runStatusRefresh}
-            disabled={isRunning}
-            variant="outline"
-          >
-            <Search className="w-4 h-4 mr-2" />
-            Refresh Status
+            {isRunning && currentOperation.includes('reset') ? (
+              <>
+                <Clock className="w-4 h-4 animate-spin" />
+                Resetting...
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-4 h-4" />
+                Complete Reset
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -306,47 +316,82 @@ export default function ScrapingDashboard() {
         </TabsList>
 
         <TabsContent value="progress" className="space-y-4">
-          {progress.map((item) => (
-            <Card key={item.category}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    {item.category === 'PANEL' && <Zap className="w-5 h-5" />}
-                    {item.category === 'INVERTER' && <Database className="w-5 h-5" />}
-                    {item.category === 'BATTERY_MODULE' && <CheckCircle className="w-5 h-5" />}
-                    {item.category.replace('_', ' ')}
-                  </CardTitle>
-                  <Badge variant={getStatusColor(item.status)}>
-                    {item.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <div className="font-medium">{item.total_found.toLocaleString()}</div>
-                    <div className="text-muted-foreground">Products Found</div>
+          {progress.length > 0 ? (
+            progress.map((item) => (
+              <Card key={item.category}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      {item.category === 'PANEL' && <Zap className="w-5 h-5" />}
+                      {item.category === 'INVERTER' && <Database className="w-5 h-5" />}
+                      {item.category === 'BATTERY_MODULE' && <CheckCircle className="w-5 h-5" />}
+                      {item.category.replace('_', ' ')}
+                    </CardTitle>
+                    <Badge variant={getStatusColor(item.status)}>
+                      {item.status === 'processing' && <Clock className="w-3 h-3 mr-1 animate-spin" />}
+                      {item.status}
+                    </Badge>
                   </div>
-                  <div>
-                    <div className="font-medium">{item.total_with_pdfs.toLocaleString()}</div>
-                    <div className="text-muted-foreground">With PDFs</div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="font-bold text-2xl text-blue-600">{item.total_found.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-xs">Target</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-2xl text-green-600">{item.total_processed.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-xs">Processed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-2xl text-purple-600">{item.total_with_pdfs.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-xs">With PDFs</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-2xl text-orange-600">{item.total_parsed.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-xs">Specs Parsed</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-medium">{item.total_parsed.toLocaleString()}</div>
-                    <div className="text-muted-foreground">Specs Parsed</div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Processing Progress</span>
+                      <span className="font-mono">
+                        {item.total_found > 0 ? Math.round((item.total_processed / item.total_found) * 100) : 0}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={item.total_found > 0 ? (item.total_processed / item.total_found) * 100 : 0} 
+                      className="h-3"
+                    />
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>PDF Coverage</span>
-                    <span>{getProgressPercentage(item)}%</span>
-                  </div>
-                  <Progress value={getProgressPercentage(item)} />
-                </div>
+
+                  {item.total_processed > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>PDF Coverage</span>
+                        <span className="font-mono">
+                          {Math.round((item.total_with_pdfs / item.total_processed) * 100)}%
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(item.total_with_pdfs / item.total_processed) * 100} 
+                        className="h-2"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No scraping progress data available.</p>
+                <p className="text-sm">Click "Scrape All Categories" or "Complete Reset" to start.</p>
               </CardContent>
             </Card>
-          ))}
+          )}
         </TabsContent>
 
         <TabsContent value="coverage" className="space-y-4">

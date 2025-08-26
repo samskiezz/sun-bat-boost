@@ -43,11 +43,19 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
       const trainingResult = await getTrainingStatus();
       setTrainingStatus(trainingResult);
       
-      // Get scraping status
-      const { data: scrapingResult } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'status' }
-      });
-      setScrapingStatus(scrapingResult);
+      // Get scraping status with proper error handling
+      try {
+        const { data: scrapingResult, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+          body: { action: 'status' }
+        });
+        
+        if (!error && scrapingResult) {
+          setScrapingStatus(scrapingResult);
+        }
+      } catch (scrapingError) {
+        console.log('Scraping status not available yet');
+        // Don't fail the whole check if scraping status fails
+      }
       
     } catch (error) {
       console.error('Failed to check system readiness:', error);
