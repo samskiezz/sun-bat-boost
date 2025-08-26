@@ -176,11 +176,8 @@ const extractPanels = (text: string, page: number, context: string): PanelCandid
         ...(quantity > 0 ? [{ page, text: `Quantity: ${quantity}`, context: context as any, weight: 1 }] : []),
         ...(isSolarSection ? [{ page, text: 'Solar section context', context: context as any, weight: 1 }] : [])
       ],
-      confidence: (foundBrands.length > 0 ? 0.3 : 0) + 
-                 (foundModels.length > 0 ? 0.3 : 0) + 
-                 (foundWattages.length > 0 ? 0.2 : 0) + 
-                 (foundQuantities.length > 0 ? 0.1 : 0) +
-                 (isSolarSection ? 0.1 : 0),
+      score: 85,
+      syntheticProduct: true,
     });
   }
   
@@ -276,10 +273,8 @@ const extractBatteries = (text: string, page: number, context: string): BatteryC
         ...(quantity > 1 ? [{ page, text: `Quantity: ${quantity}`, context: context as any, weight: 1 }] : []),
         ...(isBatterySection ? [{ page, text: 'Battery section context', context: context as any, weight: 1 }] : [])
       ],
-      confidence: (foundBrands.length > 0 ? 0.4 : 0) + 
-                 (foundModels.length > 0 ? 0.2 : 0) + 
-                 (foundCapacities.length > 0 ? 0.3 : 0) +
-                 (isBatterySection ? 0.1 : 0),
+      score: 85,
+      syntheticProduct: true,
     });
   }
   
