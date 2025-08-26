@@ -624,9 +624,7 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       const { data: insertedData, error: insertError } = await supabase
         .from('products')
         .insert(productsToInsert)
-        .select('id')
-        .on('conflict', '(manufacturer_id, model)')
-        .do('nothing');
+        .select('id');
       
       if (insertError) {
         console.error('❌ Web search insert error:', insertError);
@@ -655,9 +653,7 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
         if (specsToInsert.length > 0) {
           const { error: specsError } = await supabase
             .from('specs')
-            .insert(specsToInsert)
-            .on('conflict', '(product_id, key)')
-            .do('nothing');
+            .insert(specsToInsert);
             
           if (specsError) {
             console.error('❌ Web search specs insert error:', specsError);
@@ -732,9 +728,7 @@ async function generateBasicProducts(supabase: any, jobId: string, category: str
     if (productsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from('products')
-        .insert(productsToInsert)
-        .on('conflict', '(manufacturer_id, model)')
-        .do('nothing');
+        .insert(productsToInsert);
       
       if (insertError) {
         console.error('❌ Basic generation insert error:', insertError);
