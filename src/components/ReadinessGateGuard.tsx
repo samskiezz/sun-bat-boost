@@ -43,7 +43,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
       const trainingResult = await getTrainingStatus();
       setTrainingStatus(trainingResult);
       
-      // Get scraping status with proper error handling
+      // Get scraping status with proper error handling and update readiness gates
       try {
         const { data: scrapingResult, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
           body: { action: 'status' }
@@ -51,6 +51,33 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
         
         if (!error && scrapingResult) {
           setScrapingStatus(scrapingResult);
+          
+          // Update readiness gates based on actual product counts
+          const productCounts = scrapingResult.productCounts || [];
+          const totalProducts = productCounts.reduce((sum: number, p: any) => sum + (p.total_count || 0), 0);
+          const totalWithPdfs = productCounts.reduce((sum: number, p: any) => sum + (p.with_pdf_count || 0), 0);
+          
+          console.log(`📊 Updating readiness: ${totalProducts} total products, ${totalWithPdfs} with PDFs`);
+          
+          // Update readiness gates with actual data
+          if (totalProducts > 0 || totalWithPdfs > 0) {
+            await supabase.from('readiness_gates').upsert([
+              {
+                gate_name: 'data_collection',
+                required_value: 1000,
+                current_value: totalProducts,
+                passing: totalProducts >= 1000,
+                details: { description: 'Minimum product data collected', source: 'product_counts' }
+              },
+              {
+                gate_name: 'pdf_processing', 
+                required_value: 500,
+                current_value: totalWithPdfs,
+                passing: totalWithPdfs >= 500,
+                details: { description: 'Product PDFs processed', source: 'pdf_counts' }
+              }
+            ], { onConflict: 'gate_name' });
+          }
         }
       } catch (scrapingError) {
         console.log('Scraping status not available yet');
