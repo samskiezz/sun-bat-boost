@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Database, Play, RotateCcw, StopCircle, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { checkReadinessGates, type ReadinessGate } from '@/lib/readiness-gates';
 
 interface JobData {
   id: string;
@@ -22,6 +23,7 @@ export default function WorkingScrapingWidget() {
   const [job, setJob] = useState<JobData | null>(null);
   const [progress, setProgress] = useState<CategoryProgress[]>([]);
   const [loading, setLoading] = useState(false);
+  const [readinessGates, setReadinessGates] = useState<ReadinessGate[]>([]);
   const { toast } = useToast();
 
   // Load data immediately when component mounts
@@ -59,62 +61,63 @@ export default function WorkingScrapingWidget() {
         localStorage.setItem('scrape_job_id', statusData.job.id);
       }
 
-      // Calculate real progress using productCounts
+      // Calculate real progress using productCounts and dynamic targets from readiness gates
+      const readinessStatus = await checkReadinessGates();
       const productCounts = statusData?.productCounts || [];
       const newProgress: CategoryProgress[] = [];
 
-      // Panel progress
+      // Find target values from readiness gates
+      const dataCollectionGate = readinessStatus.gates.find(g => g.gate === 'data_collection');
+      const pdfProcessingGate = readinessStatus.gates.find(g => g.gate === 'pdf_processing');
+
+      // Panel progress - use data_collection gate target
       const panelData = productCounts.find((p: any) => p.category === 'PANEL');
-      if (panelData) {
-        newProgress.push({
-          category: 'Panels',
-          current: Math.min(panelData.total_count || 0, 1348),
-          target: 1348,
-          percentage: Math.min(100, Math.round(((panelData.total_count || 0) / 1348) * 100))
-        });
-      } else {
-        newProgress.push({
-          category: 'Panels',
-          current: 0,
-          target: 1348,
-          percentage: 0
-        });
-      }
+      const panelTarget = dataCollectionGate?.required || 1348;
+      const panelCurrent = panelData?.total_count || 0;
+      const normalizedPanelCurrent = Math.min(panelCurrent, panelTarget);
+      
+      newProgress.push({
+        category: 'Panels',
+        current: normalizedPanelCurrent,
+        target: panelTarget,
+        percentage: Math.min(100, Math.round((panelCurrent / panelTarget) * 100))
+      });
 
-      // Battery progress
+      // Battery progress - use pdf_processing gate target  
       const batteryData = productCounts.find((p: any) => p.category === 'BATTERY_MODULE');
-      if (batteryData) {
-        newProgress.push({
-          category: 'Batteries',
-          current: Math.min(batteryData.total_count || 0, 513),
-          target: 513,
-          percentage: Math.min(100, Math.round(((batteryData.total_count || 0) / 513) * 100))
-        });
-      } else {
-        newProgress.push({
-          category: 'Batteries',
-          current: 0,
-          target: 513,
-          percentage: 0
-        });
-      }
+      const batteryTarget = pdfProcessingGate?.required || 513;
+      const batteryCurrent = batteryData?.total_count || 0;
+      const normalizedBatteryCurrent = Math.min(batteryCurrent, batteryTarget);
+      
+      newProgress.push({
+        category: 'Batteries',
+        current: normalizedBatteryCurrent,
+        target: batteryTarget,
+        percentage: Math.min(100, Math.round((batteryCurrent / batteryTarget) * 100))
+      });
 
-      // Inverter progress
+      // Inverter progress - use fixed target for now
       const inverterData = productCounts.find((p: any) => p.category === 'INVERTER');
-      if (inverterData) {
-        newProgress.push({
-          category: 'Inverters',
-          current: Math.min(inverterData.total_count || 0, 200),
-          target: 200,
-          percentage: Math.min(100, Math.round(((inverterData.total_count || 0) / 200) * 100))
-        });
-      } else {
-        newProgress.push({
-          category: 'Inverters',
-          current: 0,
-          target: 200,
-          percentage: 0
-        });
+      const inverterTarget = 200;
+      const inverterCurrent = inverterData?.total_count || 0;
+      const normalizedInverterCurrent = Math.min(inverterCurrent, inverterTarget);
+      
+      newProgress.push({
+        category: 'Inverters',
+        current: normalizedInverterCurrent,
+        target: inverterTarget,
+        percentage: Math.min(100, Math.round((inverterCurrent / inverterTarget) * 100))
+      });
+
+      // Log overshoot warnings for debugging
+      if (panelCurrent > panelTarget) {
+        console.warn(`⚠️ Gate overshoot - Panels: rawCurrent=${panelCurrent}, target=${panelTarget}`);
+      }
+      if (batteryCurrent > batteryTarget) {
+        console.warn(`⚠️ Gate overshoot - Batteries: rawCurrent=${batteryCurrent}, target=${batteryTarget}`);
+      }
+      if (inverterCurrent > inverterTarget) {
+        console.warn(`⚠️ Gate overshoot - Inverters: rawCurrent=${inverterCurrent}, target=${inverterTarget}`);
       }
 
       console.log('📈 Calculated progress:', newProgress);
