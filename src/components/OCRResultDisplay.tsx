@@ -16,7 +16,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
       <div className="grid gap-4 md:grid-cols-3">
         
         {/* Solar Panels */}
-        {result.panels.best && (
+        {result.panels?.best && (
           <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-blue-800">
@@ -68,7 +68,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
                 </Badge>
               )}
               
-              {result.panels.warnings.length > 0 && (
+              {result.panels?.warnings && result.panels.warnings.length > 0 && (
                 <div className="space-y-1">
                   {result.panels.warnings.map((warning, i) => (
                     <div key={i} className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
@@ -82,7 +82,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
         )}
         
         {/* Battery Storage */}
-        {result.battery.best && (
+        {result.battery?.best && (
           <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-green-800">
@@ -128,7 +128,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
                 </Badge>
               )}
               
-              {result.battery.warnings.length > 0 && (
+              {result.battery?.warnings && result.battery.warnings.length > 0 && (
                 <div className="space-y-1">
                   {result.battery.warnings.map((warning, i) => (
                     <div key={i} className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
@@ -142,7 +142,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
         )}
         
         {/* Inverter */}
-        {result.inverter.value && (
+        {result.inverter?.value && (
           <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-orange-800">
@@ -188,7 +188,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
                 📝 Raw Text (No DB Match)
               </Badge>
               
-              {result.inverter.warnings.length > 0 && (
+              {result.inverter?.warnings && result.inverter.warnings.length > 0 && (
                 <div className="space-y-1">
                   {result.inverter.warnings.map((warning, i) => (
                     <div key={i} className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
