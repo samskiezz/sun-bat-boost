@@ -36,20 +36,57 @@ export default function ScrapingDashboard() {
     loadProgress();
     loadStats();
     
-    // Set up intelligent polling - more frequent when scraping is active
-    const setupPolling = () => {
-      const isActiveProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
-      const interval = isActiveProcessing || isRunning ? 2000 : 10000; // 2s when active, 10s when idle
-      
-      return setInterval(() => {
-        loadProgress();
-        loadStats();
-      }, interval);
+    // Check if any operations are currently running on mount
+    const checkRunningOperations = async () => {
+      try {
+        const { data } = await supabase
+          .from('scrape_progress')
+          .select('*')
+          .in('status', ['processing', 'clearing']);
+          
+        if (data && data.length > 0) {
+          setIsRunning(true);
+          const activeCategory = data.find(p => p.status === 'processing' || p.status === 'clearing');
+          if (activeCategory) {
+            setCurrentOperation(`Resuming ${activeCategory.category.toLowerCase()} processing...`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check running operations:', error);
+      }
     };
+    
+    checkRunningOperations();
+    
+    // Set up real-time polling every 2 seconds
+    const intervalId = setInterval(async () => {
+      await loadProgress();
+      
+      // Check if operations are still running
+      const activeProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
+      if (!activeProcessing && isRunning) {
+        setIsRunning(false);
+        setCurrentOperation('');
+        await loadStats();
+      }
+    }, 2000);
 
-    const intervalId = setupPolling();
     return () => clearInterval(intervalId);
-  }, [isRunning, progress]);
+  }, []);
+
+  // Separate effect for handling progress updates
+  useEffect(() => {
+    if (progress.length > 0 && isRunning) {
+      const activeCategory = progress.find(p => p.status === 'processing' || p.status === 'clearing');
+      if (activeCategory) {
+        const statusText = activeCategory.status === 'clearing' ? 'Clearing' : 'Processing';
+        const progressText = activeCategory.total_found > 0 ? 
+          `${activeCategory.total_processed}/${activeCategory.total_found} (${Math.round((activeCategory.total_processed / activeCategory.total_found) * 100)}%)` : 
+          'initializing...';
+        setCurrentOperation(`${statusText} ${activeCategory.category.toLowerCase().replace('_', ' ')}s: ${progressText}`);
+      }
+    }
+  }, [progress, isRunning]);
 
   async function loadProgress() {
     try {
@@ -123,10 +160,9 @@ export default function ScrapingDashboard() {
     setIsRunning(true);
     setLogs([]);
     addLog('🚀 Starting comprehensive CEC scrape...');
+    setCurrentOperation('Initializing scrape process...');
 
     try {
-      setCurrentOperation('Starting scrape process');
-      
       // Start the background scraping process
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'scrape_all' }
@@ -142,45 +178,10 @@ export default function ScrapingDashboard() {
       }
 
       addLog('✅ Scraping process started in background');
-      addLog('📊 Monitoring progress in real-time...');
+      addLog('📊 Monitoring all categories: PANELS, BATTERIES, INVERTERS');
       
-      // Start aggressive polling for progress updates every 1 second
-      const pollInterval = setInterval(async () => {
-        try {
-          await loadProgress();
-          
-          // Check if all categories are completed
-          const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
-          const hasActiveProcessing = progress.some(p => p.status === 'processing');
-          
-          if (allCompleted && !hasActiveProcessing) {
-            clearInterval(pollInterval);
-            addLog('🎯 All scraping operations completed');
-            setIsRunning(false);
-            setCurrentOperation('');
-            await loadStats();
-          } else {
-            // Update operation status based on current progress
-            const activeCategory = progress.find(p => p.status === 'processing');
-            if (activeCategory) {
-              setCurrentOperation(`Processing ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found} (${Math.round((activeCategory.total_processed / activeCategory.total_found) * 100)}%)`);
-            }
-          }
-        } catch (pollError) {
-          console.error('Progress polling error:', pollError);
-        }
-      }, 1000); // Poll every 1 second for better responsiveness
-
-      // Safety timeout after 10 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (isRunning) {
-          addLog('⚠️ Scraping timeout - stopping progress monitoring');
-          setIsRunning(false);
-          setCurrentOperation('');
-        }
-      }, 600000);
-
+      // Don't set up additional polling here - let the useEffect handle it
+      
     } catch (error) {
       console.error('Scraping failed:', error);
       addLog(`❌ Scraping failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -196,7 +197,7 @@ export default function ScrapingDashboard() {
     }
     
     setIsRunning(true);
-    setCurrentOperation('Starting complete system reset');
+    setCurrentOperation('Starting complete system reset...');
     addLog('🔄 Starting complete system reset...');
 
     try {
@@ -215,50 +216,10 @@ export default function ScrapingDashboard() {
       }
 
       addLog('✅ Reset process started in background');
-      addLog('📊 Monitoring progress in real-time...');
+      addLog('📊 Will generate exactly: 1348 panels, 513 batteries, 200 inverters');
       
-      // Start aggressive polling for progress updates every 1 second
-      const pollInterval = setInterval(async () => {
-        try {
-          await loadProgress();
-          
-          // Check if all categories are completed (reset generates new data)
-          const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
-          const hasData = progress.some(p => p.total_processed > 0);
-          const hasActiveProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
-          
-          if (allCompleted && hasData && !hasActiveProcessing) {
-            clearInterval(pollInterval);
-            addLog('🎯 Complete reset finished successfully');
-            setIsRunning(false);
-            setCurrentOperation('');
-            await loadStats();
-          } else {
-            // Update operation status based on current progress
-            const activeCategory = progress.find(p => p.status === 'processing' || p.status === 'clearing');
-            if (activeCategory) {
-              const statusText = activeCategory.status === 'clearing' ? 'Clearing' : 'Processing';
-              const progressText = activeCategory.total_found > 0 ? 
-                `${activeCategory.total_processed}/${activeCategory.total_found} (${Math.round((activeCategory.total_processed / activeCategory.total_found) * 100)}%)` : 
-                'preparing...';
-              setCurrentOperation(`${statusText} ${activeCategory.category.toLowerCase()}s: ${progressText}`);
-            }
-          }
-        } catch (pollError) {
-          console.error('Progress polling error:', pollError);
-        }
-      }, 1000); // Poll every 1 second for better responsiveness
-
-      // Safety timeout after 15 minutes (reset takes longer)
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (isRunning) {
-          addLog('⚠️ Reset timeout - stopping progress monitoring');
-          setIsRunning(false);
-          setCurrentOperation('');
-        }
-      }, 900000);
-
+      // Don't set up additional polling here - let the useEffect handle it
+      
     } catch (error) {
       console.error('Reset failed:', error);
       addLog(`❌ Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

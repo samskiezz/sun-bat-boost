@@ -209,7 +209,7 @@ async function forceCompleteResetInBackground(supabase: any) {
 }
 
 async function processAllCategoriesInBackground(supabase: any) {
-  console.log('🔄 BACKGROUND: Scraping all categories...');
+  console.log('🔄 BACKGROUND: Starting scraping all categories...');
   
   try {
     const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
@@ -225,18 +225,40 @@ async function processAllCategoriesInBackground(supabase: any) {
       return;
     }
     
+    console.log('📋 Processing categories in sequence:', categories);
+    
     const results = [];
     
     for (const category of categories) {
-      console.log(`🚀 BACKGROUND: Processing ${category}...`);
-      const result = await generateAndStoreProducts(supabase, category);
-      results.push(result);
+      console.log(`🚀 BACKGROUND: Starting ${category} processing...`);
+      
+      try {
+        const result = await generateAndStoreProducts(supabase, category);
+        results.push(result);
+        console.log(`✅ BACKGROUND: ${category} completed - Generated: ${result.totalGenerated}, PDFs: ${result.totalPdfs}, Specs: ${result.totalSpecs}`);
+        
+        // Small delay between categories to prevent overwhelming
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (categoryError) {
+        console.error(`❌ BACKGROUND: ${category} processing failed:`, categoryError);
+        
+        // Mark this category as failed but continue with others
+        await updateProgress(supabase, category, {
+          status: 'failed',
+          total_found: 0,
+          total_processed: 0,
+          total_with_pdfs: 0,
+          total_parsed: 0
+        });
+      }
     }
     
-    console.log('🎉 BACKGROUND: All categories processed');
+    console.log('🎉 BACKGROUND: All categories processing completed');
+    console.log('📊 BACKGROUND: Final results:', results);
     
   } catch (error) {
-    console.error('❌ BACKGROUND: Processing failed:', error);
+    console.error('❌ BACKGROUND: Overall processing failed:', error);
   }
 }
 
