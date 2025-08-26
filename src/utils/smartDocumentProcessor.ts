@@ -1,7 +1,7 @@
 import { extractTextFromFile } from './pdfTextExtractor';
 import { SmartMatcher, Product, MatchHit } from './smartMatcher';
 import { generateComprehensiveProducts } from './comprehensiveProductGenerator';
-import { brandStrictFilter } from './brandStrictFilter';
+import { createHierarchicalMatcher } from './hierarchicalMatcher';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SmartProcessorResult {
@@ -133,19 +133,22 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
       allProducts = await generateComprehensiveProducts();
     }
     
-    // Step 3: Initialize hierarchical smart matcher
-    const matcher = new SmartMatcher(allProducts);
-    await matcher.init();
+    // Step 3: Initialize comprehensive hierarchical matcher for ALL products
+    const hierarchicalMatcher = createHierarchicalMatcher(allProducts);
+    const smartMatcher = new SmartMatcher(allProducts); // Keep for fallback/learning
+    await smartMatcher.init();
     
-    console.log(`🏭 Loaded ${allProducts.length} products for smart matching`);
+    console.log(`🏭 Loaded ${allProducts.length} products for hierarchical matching`);
     
-    // Step 4: Run hierarchical matching (Brand → Wattage/kWh → Model)
-    const hits = matchHierarchically(text, allProducts, matcher);
+    // Step 4: Run comprehensive hierarchical matching (Brand → Wattage/kWh → Model)
+    console.log('🎯 Processing ALL ~2000 products with hierarchical priority...');
+    const hierarchicalMatches = hierarchicalMatcher.match(text);
+    const hits = hierarchicalMatcher.convertToMatchHits(hierarchicalMatches);
     
-    console.log(`🎯 Hierarchical matcher found ${hits.length} potential matches`);
+    console.log(`🎯 Comprehensive hierarchical matcher found ${hits.length} matches across all products`);
     
     // Step 5: Process hits by type and determine what needs confirmation
-    const extractedData = await processMatchHits(hits, text, matcher);
+    const extractedData = await processMatchHits(hits, text, smartMatcher);
     
     const processingTime = Date.now() - startTime;
     
@@ -155,7 +158,7 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
       rawText: text,
       detectionMethod: method,
       processingTime,
-      matcher,
+      matcher: smartMatcher,
       allProducts: allProducts,
     };
     
@@ -171,129 +174,8 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
   }
 };
 
-// Hierarchical matching: Brand → Wattage/kWh → Model
-function matchHierarchically(text: string, allProducts: Product[], matcher: SmartMatcher): MatchHit[] {
-  console.log('🔄 Using hierarchical matching: Brand → Wattage → Model');
-  
-  const normalizedText = text.toUpperCase();
-  const results: MatchHit[] = [];
-  
-  // Extract all potential brand+spec combinations from text
-  const brandSpecPatterns = [
-    // Panel patterns: "JINKO 440W", "TRINA 580", "LONGI 450W"
-    /\b(JINKO|TRINA|LONGI|JA|CANADIAN|REC|QCELLS|MAXEON|SUNPOWER)\s+(\d{3,4})W?\b/gi,
-    // Battery patterns: "TESLA 13.5KWH", "BYD 10KWH", "PYLONTECH 5KWH"
-    /\b(TESLA|BYD|PYLONTECH|ALPHAESS|SUNGROW|GOODWE|SOLAREDGE|ENPHASE)\s+(\d{1,2}(?:\.\d)?)\s*KWH?\b/gi,
-    // Inverter patterns: "GOODWE 6KW", "SUNGROW 10KW", "SOLAREDGE 5KW"
-    /\b(GOODWE|SUNGROW|SOLAREDGE|FRONIUS|SMA|SOLIS|ENPHASE|GROWATT)\s+(\d{1,2}(?:\.\d)?)\s*KW\b/gi
-  ];
-  
-  for (const pattern of brandSpecPatterns) {
-    let match;
-    while ((match = pattern.exec(normalizedText)) !== null) {
-      const brand = match[1].toUpperCase();
-      const spec = parseFloat(match[2]);
-      const fullMatch = match[0];
-      
-      console.log(`🎯 Found brand+spec: ${brand} ${spec} (${fullMatch})`);
-      
-      // Use strict filtering to get exact brand+spec matches
-      let searchQuery: string;
-      let expectedType: 'panel' | 'battery' | 'inverter';
-      
-      if (spec >= 100) { // Panel wattage
-        searchQuery = `${brand} ${spec}W`;
-        expectedType = 'panel';
-      } else if (spec < 50) { // Battery/Inverter capacity/power
-        // Determine if it's battery or inverter based on context
-        const contextWindow = normalizedText.slice(Math.max(0, match.index! - 50), match.index! + 50);
-        if (/KWH|BATTERY|STORAGE/i.test(contextWindow)) {
-          searchQuery = `${brand} ${spec}kWh`;
-          expectedType = 'battery';
-        } else {
-          searchQuery = `${brand} ${spec}kW`;
-          expectedType = 'inverter';
-        }
-      } else {
-        continue; // Skip ambiguous specs
-      }
-      
-      const strictResult = brandStrictFilter.filterProducts(allProducts, searchQuery);
-      
-      if (strictResult.filteredProducts.length > 0) {
-        console.log(`✅ Found ${strictResult.filteredProducts.length} exact ${brand} products with ${spec}`);
-        
-        // Now try to find the specific model within these exact matches
-        const contextWindow = normalizedText.slice(Math.max(0, match.index! - 100), match.index! + 100);
-        
-        let bestMatch = strictResult.filteredProducts[0]; // Default to first exact match
-        let modelScore = 0.6; // Base score for brand+spec match
-        
-        // Try to find model-specific keywords in context
-        for (const product of strictResult.filteredProducts) {
-          const modelWords = product.model.toUpperCase().split(/[\s-_]+/);
-          let foundModelWords = 0;
-          
-          for (const word of modelWords) {
-            if (word.length >= 3 && contextWindow.includes(word)) {
-              foundModelWords++;
-            }
-          }
-          
-          if (foundModelWords > 0) {
-            const newScore = 0.6 + (foundModelWords * 0.15);
-            if (newScore > modelScore) {
-              bestMatch = product;
-              modelScore = newScore;
-              console.log(`🎯 Found model match: ${product.model} (score: ${newScore})`);
-            }
-          }
-        }
-        
-        // Create match hit
-        const hit: MatchHit = {
-          productId: bestMatch.id,
-          product: bestMatch,
-          score: modelScore,
-          evidence: {
-            regexHit: true, // Brand+spec is like a regex hit
-            aliasHit: false,
-            sectionBoost: 0,
-            qtyBoost: 0,
-            brandNearby: true,
-            specNearby: true,
-            ocrRiskPenalty: 0
-          },
-          at: match.index!,
-          raw: fullMatch
-        };
-        
-        // If score is lower than 0.8, mark for confirmation and include alternatives
-        if (modelScore < 0.8) {
-          (hit as any).needsConfirmation = true;
-          (hit as any).alternatives = strictResult.filteredProducts.slice(0, 10);
-        }
-        
-        results.push(hit);
-      } else {
-        console.log(`❌ No products found for ${brand} ${spec}`);
-      }
-    }
-  }
-  
-  // Fallback to original smart matcher for patterns not caught by hierarchical matching
-  const originalMatches = matcher.match(text);
-  const hierarchicalPositions = new Set(results.map(r => r.at));
-  
-  for (const match of originalMatches) {
-    if (!hierarchicalPositions.has(match.at)) {
-      results.push(match);
-    }
-  }
-  
-  console.log(`🏁 Hierarchical matching found ${results.length} total matches`);
-  return results.sort((a, b) => b.score - a.score);
-}
+// This function is now replaced by the comprehensive HierarchicalMatcher class
+// which handles ALL ~2000 products automatically
 
 // This function has been replaced by generateComprehensiveProducts() from comprehensiveProductGenerator.ts
 
