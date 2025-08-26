@@ -8,7 +8,7 @@ export async function extractRealSpecsForProducts() {
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id, model, category, datasheet_url, pdf_path, raw')
-      .in('category', ['PANEL', 'BATTERY_MODULE'])
+      .in('category', ['PANEL', 'BATTERY_MODULE', 'INVERTER'])
       .eq('status', 'active')
       .not('datasheet_url', 'is', null)
       .not('pdf_path', 'is', null);
@@ -99,7 +99,7 @@ export async function extractRealSpecsForProducts() {
     }
 
     // Check final results
-    let finalStats = { panels: 0, batteries: 0 };
+    let finalStats = { panels: 0, batteries: 0, inverters: 0 };
     for (const product of productsNeedingSpecs) {
       const { count } = await supabase
         .from('specs')
@@ -109,12 +109,13 @@ export async function extractRealSpecsForProducts() {
       if ((count || 0) >= 6) {
         if (product.category === 'PANEL') finalStats.panels++;
         if (product.category === 'BATTERY_MODULE') finalStats.batteries++;
+        if (product.category === 'INVERTER') finalStats.inverters++;
       }
     }
 
     console.log(`🎉 Real specs extraction completed!`);
     console.log(`📊 Results: ${processed} processed, ${successful} successful API calls`);
-    console.log(`✅ Final comprehensive specs: ${finalStats.panels} panels, ${finalStats.batteries} batteries`);
+    console.log(`✅ Final comprehensive specs: ${finalStats.panels} panels, ${finalStats.batteries} batteries, ${finalStats.inverters} inverters`);
     
     // Update job progress if significant progress was made
     if (successful > 10) {
@@ -160,9 +161,19 @@ async function updateJobProgressRealTime() {
       .eq('category', 'BATTERY_MODULE')
       .eq('status', 'active');
 
+    const { data: inverterSpecs } = await supabase
+      .from('products')
+      .select(`
+        id,
+        specs!inner(product_id) 
+      `)
+      .eq('category', 'INVERTER')
+      .eq('status', 'active');
+
     // Count products with 6+ specs
     let panelCount = 0;
     let batteryCount = 0;
+    let inverterCount = 0;
 
     if (panelSpecs) {
       for (const product of panelSpecs) {
@@ -184,6 +195,16 @@ async function updateJobProgressRealTime() {
       }
     }
 
+    if (inverterSpecs) {
+      for (const product of inverterSpecs) {
+        const { count } = await supabase
+          .from('specs')
+          .select('*', { count: 'exact', head: true })
+          .eq('product_id', product.id);
+        if ((count || 0) >= 6) inverterCount++;
+      }
+    }
+
     // Update progress with real counts
     const { error: updateError1 } = await supabase
       .from('scrape_job_progress')
@@ -201,10 +222,18 @@ async function updateJobProgressRealTime() {
       })
       .eq('category', 'BATTERY_MODULE');
 
-    if (updateError1 || updateError2) {
-      console.error('❌ Error updating job progress:', updateError1 || updateError2);
+    const { error: updateError3 } = await supabase
+      .from('scrape_job_progress')
+      .update({
+        specs_done: inverterCount,
+        state: inverterCount >= 2411 ? 'completed' : 'running'
+      })
+      .eq('category', 'INVERTER');
+
+    if (updateError1 || updateError2 || updateError3) {
+      console.error('❌ Error updating job progress:', updateError1 || updateError2 || updateError3);
     } else {
-      console.log(`✅ Progress updated - Panels: ${panelCount}/1348, Batteries: ${batteryCount}/513`);
+      console.log(`✅ Progress updated - Panels: ${panelCount}/1348, Batteries: ${batteryCount}/513, Inverters: ${inverterCount}/2411`);
     }
 
   } catch (error) {

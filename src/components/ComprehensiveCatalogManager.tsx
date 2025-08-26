@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useReadinessGates } from '@/lib/readiness-gates';
 import DataCollectionPanel from './DataCollectionPanel';
-import { DirectSpecsProcessor } from './DirectSpecsProcessor';
 import { RealSpecsExtractor } from './RealSpecsExtractor';
 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms";
@@ -627,11 +626,6 @@ export default function ComprehensiveCatalogManager() {
       {/* Real Specs Extraction */}
       <div className="mt-6">
         <RealSpecsExtractor />
-      </div>
-      
-      {/* Direct Specs Processing (Fallback) */}
-      <div className="mt-6">
-        <DirectSpecsProcessor />
       </div>
     </div>
   );

@@ -74,7 +74,7 @@ export const RealSpecsExtractor = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-muted-foreground">
-          <p className="mb-2 font-medium text-blue-600">This uses the SAME system that worked for inverters:</p>
+          <p className="mb-2 font-medium text-blue-600">This uses the SAME system that worked for all 2,411 inverters:</p>
           <ul className="list-disc list-inside space-y-1">
             <li className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-purple-500" />
@@ -90,7 +90,7 @@ export const RealSpecsExtractor = () => {
             </li>
             <li className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-yellow-500" />
-              Multi-strategy extraction (same as inverters)
+              Processes ALL categories: Panels, Batteries & Inverters
             </li>
           </ul>
         </div>
@@ -131,6 +131,9 @@ export const RealSpecsExtractor = () => {
                 <div className="ml-4">
                   • Batteries: {result.finalStats?.batteries || 0} with 6+ specs
                 </div>
+                <div className="ml-4">
+                  • Inverters: {result.finalStats?.inverters || 0} with 6+ specs
+                </div>
               </div>
             ) : (
               <div className="text-red-700">Error: {result.error}</div>
@@ -152,13 +155,14 @@ export const RealSpecsExtractor = () => {
           ) : (
             <>
               <Brain className="mr-2 h-4 w-4" />
-              Extract REAL Specs (Like Inverters)
+              Extract REAL Specs (All Categories)
             </>
           )}
         </Button>
         
         <div className="text-xs text-center text-muted-foreground">
           This uses OpenAI GPT-4 + Google Search + Web Scraping<br/>
+          Works for ALL categories: Panels, Batteries & Inverters<br/>
           The exact same extraction pipeline that worked for all 2,411 inverters
         </div>
       </CardContent>
