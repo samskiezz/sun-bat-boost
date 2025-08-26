@@ -376,6 +376,42 @@ export type Database = {
         }
         Relationships: []
       }
+      readiness_gates: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          details: Json | null
+          gate_name: string
+          id: string
+          last_checked: string | null
+          passing: boolean | null
+          required_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          details?: Json | null
+          gate_name: string
+          id?: string
+          last_checked?: string | null
+          passing?: boolean | null
+          required_value: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          details?: Json | null
+          gate_name?: string
+          id?: string
+          last_checked?: string | null
+          passing?: boolean | null
+          required_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       replay_items: {
         Row: {
           created_at: string
