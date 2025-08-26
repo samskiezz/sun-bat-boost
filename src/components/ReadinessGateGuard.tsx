@@ -23,13 +23,17 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
   useEffect(() => {
     checkSystemReadiness();
     
-    const interval = setInterval(checkSystemReadiness, 10000); // Check every 10 seconds
+    // Check less frequently to avoid annoying flickering
+    const interval = setInterval(checkSystemReadiness, 60000); // Check every 60 seconds
     return () => clearInterval(interval);
   }, []);
 
   async function checkSystemReadiness() {
     try {
-      setLoading(true);
+      // Only show loading on first check, not subsequent ones to avoid flickering
+      if (!readiness) {
+        setLoading(true);
+      }
       
       // Check readiness gates
       const gatesResult = await checkReadinessGates();
