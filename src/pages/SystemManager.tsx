@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import MasterTrainingControl from '@/components/MasterTrainingControl';
 import OneCatalogManager from '@/components/OneCatalogManager';
-import TrainingDashboard from '@/train/dashboard';
+import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -121,7 +121,7 @@ export default function SystemManager() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <TrainingDashboard />
+          <TrainingImprovementsDashboard />
         </TabsContent>
 
         <TabsContent value="monitoring">
