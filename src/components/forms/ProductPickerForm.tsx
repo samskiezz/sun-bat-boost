@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Zap, Battery, MapPin, Calendar, Check, RefreshCw } from "lucide-react";
 import { useCECData } from "@/hooks/useCECData";
 import { useToast } from "@/hooks/use-toast";
+import { brandStrictFilter } from "@/utils/brandStrictFilter";
 
 interface ProductPickerFormProps {
   onSubmit: (data: any) => void;
@@ -50,7 +51,7 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
   const [showPanelResults, setShowPanelResults] = useState(false);
   const [showBatteryResults, setShowBatteryResults] = useState(false);
 
-  // Enhanced search function for panels with multiple search strategies
+  // FIXED: Brand-first strict search to prevent cross-brand contamination
   const filteredPanels = useMemo(() => {
     if (!panelSearch.trim()) return [];
     
@@ -62,104 +63,34 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
       return [];
     }
     
-    // Advanced multi-strategy search
-    const results = panels.filter(panel => {
-      if (!panel) return false;
-      
-      const brand = (panel.brand || '').toLowerCase();
-      const model = (panel.model || '').toLowerCase();
-      const tech = (panel.technology || '').toLowerCase();
-      const desc = (panel.description || '').toLowerCase();
-      const powerRating = (panel.power_rating || '').toString();
-      
-      // Create comprehensive searchable text
-      const fullText = `${brand} ${model} ${tech} ${desc} ${powerRating}`.toLowerCase();
-      
-      // Multiple search strategies - return true if ANY match
-      const strategies = [
-        // 1. Exact brand match
-        brand === searchTerm,
-        
-        // 2. Exact model match
-        model === searchTerm,
-        
-        // 3. Brand contains search term
-        brand.includes(searchTerm),
-        
-        // 4. Model contains search term
-        model.includes(searchTerm),
-        
-        // 5. Full text contains search term
-        fullText.includes(searchTerm),
-        
-        // 6. Multi-word search (e.g., "jinko 440")
-        searchTerm.includes(' ') && (() => {
-          const words = searchTerm.split(' ').filter(w => w.length > 0);
-          return words.every(word => fullText.includes(word));
-        })(),
-        
-        // 7. Power rating match (handle "440", "440w", etc.)
-        (() => {
-          const numericSearch = searchTerm.replace(/[^\d]/g, ''); // Extract numbers only
-          return numericSearch && powerRating.includes(numericSearch);
-        })(),
-        
-        // 8. Technology match
-        tech.includes(searchTerm),
-        
-        // 9. Special brand shortcuts
-        (searchTerm === 'trina' && brand.includes('trina')),
-        (searchTerm === 'jinko' && brand.includes('jinko')),
-        (searchTerm === 'canadian' && brand.includes('canadian')),
-        (searchTerm === 'lg' && brand.includes('lg')),
-        (searchTerm === 'rec' && brand.includes('rec')),
-        (searchTerm === 'sunpower' && brand.includes('sunpower')),
-      ];
-      
-      return strategies.some(Boolean);
+    // Use brand-strict filtering
+    const filterResult = brandStrictFilter.filterProducts(panels, searchTerm);
+    
+    console.log(`✅ STRICT FILTER RESULTS: ${filterResult.filteredProducts.length} matches`, {
+      brand: filterResult.brand,
+      wattage: filterResult.wattage,
+      confidence: filterResult.confidence
     });
     
-    // Sort results by relevance (exact matches first)
-    const sortedResults = results.sort((a, b) => {
-      const aBrand = (a.brand || '').toLowerCase();
-      const aModel = (a.model || '').toLowerCase();
-      const bBrand = (b.brand || '').toLowerCase();
-      const bModel = (b.model || '').toLowerCase();
+    // Sort results by relevance
+    const sortedResults = filterResult.filteredProducts.sort((a, b) => {
+      // Exact wattage matches first
+      if (filterResult.wattage) {
+        const aExact = a.power_rating === filterResult.wattage ? 1 : 0;
+        const bExact = b.power_rating === filterResult.wattage ? 1 : 0;
+        if (aExact !== bExact) return bExact - aExact;
+      }
       
-      // Prioritize exact brand matches
-      if (aBrand === searchTerm && bBrand !== searchTerm) return -1;
-      if (bBrand === searchTerm && aBrand !== searchTerm) return 1;
-      
-      // Then exact model matches
-      if (aModel === searchTerm && bModel !== searchTerm) return -1;
-      if (bModel === searchTerm && aModel !== searchTerm) return 1;
-      
-      // Then brand starts with search term
-      if (aBrand.startsWith(searchTerm) && !bBrand.startsWith(searchTerm)) return -1;
-      if (bBrand.startsWith(searchTerm) && !aBrand.startsWith(searchTerm)) return 1;
-      
-      return 0;
-    }).slice(0, 100); // Show top 100 matches
-    
-    console.log(`✅ PANEL SEARCH RESULTS: ${sortedResults.length} matches for "${searchTerm}"`);
+      // Then by power rating ascending
+      return (a.power_rating || 0) - (b.power_rating || 0);
+    }).slice(0, 100);
     
     // Enhanced debugging for specific searches
-    if (searchTerm.includes('trina')) {
-      const trinaCount = sortedResults.filter(p => p.brand?.toLowerCase().includes('trina')).length;
-      console.log(`🏭 Trina Solar results: ${trinaCount}`);
-    }
-    
     if (searchTerm.includes('jinko')) {
-      const jinkoCount = sortedResults.filter(p => p.brand?.toLowerCase().includes('jinko')).length;
-      console.log(`🏭 Jinko Solar results: ${jinkoCount}`);
-      
-      if (searchTerm.includes('440')) {
-        const jinko440 = sortedResults.filter(p => 
-          p.brand?.toLowerCase().includes('jinko') && 
-          (p.model?.toLowerCase().includes('440') || p.power_rating?.toString().includes('440'))
-        );
-        console.log(`🎯 Jinko 440W specific matches: ${jinko440.length}`);
-      }    
+      const jinko440 = sortedResults.filter(p => 
+        p.brand?.toLowerCase().includes('jinko') && p.power_rating === 440
+      );
+      console.log(`🎯 Jinko 440W exact matches: ${jinko440.length}`);
     }
     
     return sortedResults;

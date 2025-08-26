@@ -176,12 +176,20 @@ export class SmartMatcher {
 
       let best: MatchHit | null = null;
 
-      // 1) regex pass
+      // 1) regex pass with strict validation
       for (const r of regexList){
         const re = new RegExp(r, "gi");
         let m;
         while ((m = re.exec(T)) !== null) {
           const at = m.index, raw = m[0];
+          
+          // STRICT VALIDATION: Prevent cross-wattage matches
+          const extractedWatts = this.extractWattsFromMatch(raw);
+          if (extractedWatts && p.power_rating && Math.abs(extractedWatts - p.power_rating) > 5) {
+            console.log(`❌ Watts mismatch rejected: ${extractedWatts}W vs ${p.power_rating}W for ${p.brand} ${p.model}`);
+            continue; // Skip this match - wattage doesn't align
+          }
+          
           const win = windowAround(T, at);
           const ev = {
             regexHit: true,
@@ -380,5 +388,10 @@ export class SmartMatcher {
       brandThresholds: this.brandThresholds,
       products: this.products.length
     };
+  }
+
+  private extractWattsFromMatch(matchedText: string): number | undefined {
+    const wattsMatch = matchedText.match(/(\d{3,4})W?/i);
+    return wattsMatch ? parseInt(wattsMatch[1]) : undefined;
   }
 }
