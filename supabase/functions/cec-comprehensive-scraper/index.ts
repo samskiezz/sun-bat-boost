@@ -1567,20 +1567,13 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       }
     }
     
-    // Get actual counts from database in a single atomic operation
-    const [productsResult, specsResult, pdfsResult, currentProgress] = await Promise.all([
+    // Get actual counts from database
+    const [productsResult, pdfsResult, currentProgress] = await Promise.all([
       supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
         .eq('category', category)
         .eq('status', 'active'),
-      supabase
-        .from('products')
-        .select('id')
-        .eq('category', category)
-        .eq('status', 'active')
-        .not('specs', 'is', null)
-        .neq('specs', '{}'),
       supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
@@ -1595,8 +1588,29 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .single()
     ]);
     
+    // Count products with comprehensive specs (6+) from separate specs table
+    const { data: products } = await supabase
+      .from('products')
+      .select('id')
+      .eq('category', category)
+      .eq('status', 'active');
+    
+    let comprehensiveSpecsCount = 0;
+    if (products) {
+      for (const product of products) {
+        const { count: specCount } = await supabase
+          .from('specs')
+          .select('*', { count: 'exact', head: true })
+          .eq('product_id', product.id);
+        
+        if ((specCount || 0) >= 6) {
+          comprehensiveSpecsCount++;
+        }
+      }
+    }
+    
     const actualCount = productsResult.count || 0;
-    const productsWithSpecs = specsResult.data?.length || 0;
+    const productsWithSpecs = comprehensiveSpecsCount;
     const withPdfCount = pdfsResult.count || 0;
     
     console.log(`📊 ${category} actual stats: ${actualCount} products, ${productsWithSpecs} with specs, ${withPdfCount} with PDFs`);

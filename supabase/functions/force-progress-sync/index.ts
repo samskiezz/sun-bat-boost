@@ -20,8 +20,14 @@ serve(async (req) => {
 
     console.log('🚀 Force syncing job progress with database...');
     
-    // Get the completed job ID
-    const completedJobId = 'f3376479-2c9c-4e25-8351-c03e72981661';
+    // Get the most recent job ID
+    const { data: jobs } = await supabase
+      .from('scrape_jobs')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    const completedJobId = jobs?.[0]?.id || 'f7d41c80-702d-4f3b-b41d-f6f6fa7e1c8d';
     
     // Count products with 6+ comprehensive specs for each category
     const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
