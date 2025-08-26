@@ -1,8 +1,8 @@
 import SmartOCRScanner from './SmartOCRScanner';
-import { OCRResult } from '@/utils/masterOCRPipeline';
+import { ExtractResult } from '@/ocr/extract.types';
 
 interface OCRScannerProps {
-  onDataExtracted: (data: OCRResult) => void;
+  onDataExtracted: (data: ExtractResult) => void;
 }
 
 export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {

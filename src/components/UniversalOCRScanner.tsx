@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { extractFromOcr, ExtractResult } from '@/ocr/extract';
+import { pdfExtractor } from '@/utils/pdfExtract';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -46,9 +47,9 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
         setProgress(prev => Math.min(prev + Math.random() * 15, 90));
       }, 500);
 
-      // Extract text from PDF first (simplified - you may need to implement PDF text extraction)
-      const text = await extractTextFromPDF(file);
-      const pages = [{ page: 1, text }];
+      // Extract text from PDF
+      const extractedContent = await pdfExtractor.extractFromFile(file);
+      const pages = [{ page: 1, text: extractedContent.text }];
       
       const extractedResult = extractFromOcr(pages);
       
@@ -145,7 +146,7 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                 <p className="text-sm text-muted-foreground">No panels detected</p>
               ) : (
                 result.panels.candidates.map((panel, idx) => {
-                  const ConfidenceIcon = getConfidenceIcon(panel.confidence);
+                  const ConfidenceIcon = getConfidenceIcon(panel.score / 10);
                   return (
                     <div key={idx} className="space-y-2 rounded-lg border p-3">
                       <div className="flex items-start justify-between">
@@ -216,7 +217,7 @@ export default function UniversalOCRScanner({ onDataExtracted }: UniversalOCRSca
                 <p className="text-sm text-muted-foreground">No batteries detected</p>
               ) : (
                 result.battery.candidates.map((battery, idx) => {
-                  const ConfidenceIcon = getConfidenceIcon(battery.confidence);
+                  const ConfidenceIcon = getConfidenceIcon(battery.score / 10);
                   return (
                     <div key={idx} className="space-y-2 rounded-lg border p-3">
                       <div className="flex items-start justify-between">

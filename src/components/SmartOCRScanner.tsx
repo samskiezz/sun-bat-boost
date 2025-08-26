@@ -1,8 +1,8 @@
 import UniversalOCRScanner from './UniversalOCRScanner';
-import { OCRResult } from '@/utils/masterOCRPipeline';
+import { ExtractResult } from '@/ocr/extract.types';
 
 interface SmartOCRScannerProps {
-  onDataExtracted: (data: OCRResult) => void;
+  onDataExtracted: (data: ExtractResult) => void;
 }
 
 const SmartOCRScanner: React.FC<SmartOCRScannerProps> = ({ onDataExtracted }) => {

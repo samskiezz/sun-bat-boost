@@ -33,10 +33,10 @@ export const InputModeTabs = ({ onCalculate }: InputModeTabsProps) => {
           // Transform OCR data to format expected by calculator
           const formData = {
             mode: "ocr",
-            postcode: data.postcode?.value || "",
-            installDate: new Date().toISOString().split('T')[0],
-            solarKw: data.systemSize?.value || 0,
-            batteryKwh: data.batteries?.[0]?.specs?.kWh || 0,
+            postcode: data.policyCalcInput?.postcode || "",
+            installDate: data.policyCalcInput?.installDateISO || new Date().toISOString().split('T')[0],
+            solarKw: data.panels.best?.arrayKwDc || 0,
+            batteryKwh: data.battery.best?.usableKWh || 0,
             stcPrice: 38,
             vppProvider: "",
             extractedData: data
