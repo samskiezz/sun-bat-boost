@@ -1531,6 +1531,28 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
   console.log(`🔄 Syncing ${category} job progress with database state...`);
   
   try {
+    // Add concurrency control to prevent multiple instances
+    const lockKey = `sync_${category}_${jobId}`;
+    const now = Date.now();
+    
+    // Check if another sync is already running for this category within the last 5 seconds
+    const { data: existingProgress } = await supabase
+      .from('scrape_job_progress')
+      .select('*')
+      .eq('category', category)
+      .eq('job_id', jobId)
+      .single();
+      
+    // Skip if synced too recently to prevent flickering
+    if (existingProgress?.last_specs_trigger) {
+      const lastSync = new Date(existingProgress.last_specs_trigger).getTime();
+      const fiveSecondsAgo = now - 5000;
+      if (lastSync > fiveSecondsAgo) {
+        console.log(`⏭️ Skipping ${category} sync - too recent (${Math.round((now - lastSync) / 1000)}s ago)`);
+        return;
+      }
+    }
+    
     // Get actual counts from database in a single atomic operation
     const [productsResult, specsResult, pdfsResult, currentProgress] = await Promise.all([
       supabase
@@ -1567,9 +1589,9 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       
       // Only update if there's a significant change to prevent flickering
       const hasSignificantChange = 
-        Math.abs((progress.processed || 0) - actualCount) > 10 ||
-        Math.abs((progress.specs_done || 0) - uniqueProductsWithSpecs) > 10 ||
-        Math.abs((progress.pdf_done || 0) - withPdfCount) > 10;
+        Math.abs((progress.processed || 0) - actualCount) > 5 ||
+        Math.abs((progress.specs_done || 0) - uniqueProductsWithSpecs) > 5 ||
+        Math.abs((progress.pdf_done || 0) - withPdfCount) > 5;
       
       // Always allow first update or if processed is 0
       const shouldUpdate = hasSignificantChange || progress.processed === 0 || !progress.processed;
@@ -1584,10 +1606,11 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         processed: actualCount,
         pdf_done: withPdfCount,
         specs_done: uniqueProductsWithSpecs,
-        state: 'running' // Keep running to allow continuous specs extraction
+        state: 'running', // Keep running to allow continuous specs extraction
+        last_specs_trigger: now // Update sync timestamp
       };
       
-      console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}`);
+      console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=false`);
       
       await supabase
         .from('scrape_job_progress')
@@ -1603,10 +1626,9 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         const missingSpecs = actualCount - uniqueProductsWithSpecs;
         console.log(`🚀 Triggering specs enhancement for ${category} - ${missingSpecs} products need specs (${(specsCompletion * 100).toFixed(1)}% complete)`);
         
-        // Throttle the specs enhancement calls
+        // Throttle the specs enhancement calls - increased to 60 seconds
         const lastTriggered = progress.last_specs_trigger || 0;
-        const now = Date.now();
-        if (now - lastTriggered > 30000) { // Only trigger every 30 seconds
+        if (now - lastTriggered > 60000) { // Only trigger every 60 seconds
           try {
             await supabase.functions.invoke('specs-enhancer', {
               body: { 
@@ -1616,13 +1638,6 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
               }
             });
             
-            // Update last trigger time
-            await supabase
-              .from('scrape_job_progress')
-              .update({ last_specs_trigger: now })
-              .eq('job_id', jobId)
-              .eq('category', category);
-              
             console.log(`✅ Specs enhancement triggered for ${category}`);
           } catch (error) {
             console.error(`❌ Failed to trigger specs enhancement for ${category}:`, error);

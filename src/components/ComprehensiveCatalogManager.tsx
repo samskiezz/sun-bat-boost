@@ -60,20 +60,23 @@ export default function ComprehensiveCatalogManager() {
     
     loadStatus();
     
-    // Set up polling for running jobs
+    // Set up polling for running jobs - reduced frequency to prevent conflicts
     const interval = setInterval(() => {
       loadStatus();
-      // Auto-tick if job is running
-      if (job?.status === 'running') {
-        tickJob();
-      }
-    }, 3000);
+    }, 5000); // Increased from 3s to 5s to reduce conflicts
     
     return () => clearInterval(interval);
-  }, [jobId, job?.status]);
+  }, [jobId]);
+
+  const [lastLoadTime, setLastLoadTime] = useState(0);
 
   async function loadStatus() {
     if (!jobId) return;
+    
+    // Debounce rapid calls
+    const now = Date.now();
+    if (now - lastLoadTime < 2000) return;
+    setLastLoadTime(now);
     
     try {
       console.log('🔄 UI: Loading job status...');
@@ -82,11 +85,14 @@ export default function ComprehensiveCatalogManager() {
       });
 
       if (error) throw error;
-      console.log('📊 UI: Status response:', data);
-
-      setJob(data.job);
-      setProgress(data.progress || []);
-      setProductCounts(data.productCounts || []);
+      
+      // Only update if data is valid and consistent
+      if (data && data.job) {
+        console.log('📊 UI: Status response:', data);
+        setJob(data.job);
+        setProgress(data.progress || []);
+        setProductCounts(data.productCounts || []);
+      }
     } catch (error) {
       console.error('❌ UI: Failed to load status:', error);
     }
