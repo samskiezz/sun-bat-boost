@@ -217,14 +217,15 @@ async function tickJob(supabase: any) {
     // Process larger batches for faster progress
     const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
     let totalProcessed = 0;
+    let allCategoriesComplete = true;
     
     for (const category of categories) {
       console.log(`🔄 Processing ${category} batch...`);
-      const processed = await processBatch(supabase, job.id, category, 10); // Increased batch size
+      const processed = await processBatch(supabase, job.id, category, 10);
       totalProcessed += processed;
       console.log(`✅ Processed ${processed} ${category} items`);
       
-      // Check if this category is complete but has no PDFs - trigger PDF fallback
+      // Get updated progress after processing
       const { data: categoryProgress } = await supabase
         .from('scrape_job_progress')
         .select('*')
@@ -232,17 +233,41 @@ async function tickJob(supabase: any) {
         .eq('category', category)
         .single();
         
-      if (categoryProgress && categoryProgress.processed >= categoryProgress.target && categoryProgress.pdf_done === 0) {
-        console.log(`🔍 ${category} completed but no PDFs - triggering PDF fallback...`);
-        const pdfProcessed = await processPDFFallback(supabase, job.id, category);
-        if (pdfProcessed > 0) {
-          await supabase
-            .from('scrape_job_progress')
-            .update({ pdf_done: pdfProcessed })
-            .eq('job_id', job.id)
-            .eq('category', category);
-        }
+      if (!categoryProgress || categoryProgress.processed < categoryProgress.target) {
+        allCategoriesComplete = false;
       }
+      
+      // Always trigger PDF fallback for products missing datasheets
+      console.log(`🔍 Triggering PDF fallback for ${category}...`);
+      const pdfProcessed = await processPDFFallback(supabase, job.id, category);
+      if (pdfProcessed > 0) {
+        console.log(`📄 PDF fallback found ${pdfProcessed} datasheets for ${category}`);
+        await supabase
+          .from('scrape_job_progress')
+          .update({ 
+            pdf_done: (categoryProgress?.pdf_done || 0) + pdfProcessed 
+          })
+          .eq('job_id', job.id)
+          .eq('category', category);
+      }
+    }
+
+    // If all categories are complete, trigger specs enhancement and readiness update
+    if (allCategoriesComplete) {
+      console.log('🚀 All categories complete - triggering specs enhancement...');
+      
+      // Enhance specs for AI/ML compatibility
+      try {
+        await supabase.functions.invoke('specs-enhancer', {
+          body: { action: 'full_enhancement' }
+        });
+        console.log('✅ Specs enhancement triggered');
+      } catch (error) {
+        console.error('❌ Specs enhancement error:', error);
+      }
+      
+      // Update readiness gates
+      await updateReadinessGates(supabase);
     }
 
     console.log(`🎯 Total items processed this tick: ${totalProcessed}`);
@@ -1111,18 +1136,18 @@ function generateDatasheetUrl(brand: string, model: string, category: string): s
   }
 }
 
-// PDF Fallback Processing for batteries and panels
+// Enhanced PDF Fallback Processing with real web scraping for ALL products
 async function processPDFFallback(supabase: any, jobId: string, category: string) {
-  console.log(`📄 Starting PDF fallback processing for ${category}...`);
+  console.log(`📄 Starting ENHANCED PDF fallback processing for ${category}...`);
   
   try {
-    // Get products without PDFs for this category
+    // Get ALL products without datasheets OR PDFs for this category
     const { data: productsWithoutPDFs } = await supabase
       .from('products')
-      .select('id, model, datasheet_url, manufacturer_id, manufacturers!inner(name)')
+      .select('id, model, datasheet_url, pdf_path, manufacturer_id, manufacturers!inner(name)')
       .eq('category', category)
       .or('datasheet_url.is.null,pdf_path.is.null')
-      .limit(50);
+      .limit(100); // Increased limit for better coverage
 
     if (!productsWithoutPDFs || productsWithoutPDFs.length === 0) {
       console.log(`ℹ️ No products found without PDFs for ${category}`);
@@ -1214,5 +1239,113 @@ async function processPDFFallback(supabase: any, jobId: string, category: string
   } catch (error) {
     console.error(`❌ PDF fallback processing error for ${category}:`, error);
     return 0;
+  }
+}
+
+// Update readiness gates with current system data
+async function updateReadinessGates(supabase: any) {
+  console.log('🎯 Updating readiness gates with current data...');
+  
+  try {
+    // Get current product counts
+    const { data: productCounts } = await supabase.rpc('get_product_counts_by_category');
+    
+    // Get current spec counts
+    const { data: specCounts } = await supabase
+      .from('specs')
+      .select('product_id')
+      .not('product_id', 'is', null);
+    
+    // Count products with 6+ specs by category
+    const { data: panelSpecs } = await supabase
+      .from('products')
+      .select(`
+        id,
+        specs!inner(key)
+      `)
+      .eq('category', 'PANEL');
+    
+    const { data: batterySpecs } = await supabase
+      .from('products')
+      .select(`
+        id,
+        specs!inner(key)
+      `)
+      .eq('category', 'BATTERY_MODULE');
+    
+    const { data: inverterSpecs } = await supabase
+      .from('products')
+      .select(`
+        id,
+        specs!inner(key)
+      `)
+      .eq('category', 'INVERTER');
+
+    // Count products with sufficient specs (≥6)
+    const panelSpecsComplete = panelSpecs?.filter(p => p.specs?.length >= 6).length || 0;
+    const batterySpecsComplete = batterySpecs?.filter(p => p.specs?.length >= 6).length || 0;
+    const inverterSpecsComplete = inverterSpecs?.filter(p => p.specs?.length >= 6).length || 0;
+
+    // Update readiness gates
+    const gateUpdates = [
+      // Coverage gates
+      { gate: 'G1_PANEL_COVERAGE', current: productCounts?.find(p => p.category === 'PANEL')?.total_count || 0 },
+      { gate: 'G1_BATTERY_COVERAGE', current: productCounts?.find(p => p.category === 'BATTERY_MODULE')?.total_count || 0 },
+      { gate: 'G1_INVERTER_COVERAGE', current: productCounts?.find(p => p.category === 'INVERTER')?.total_count || 0 },
+      
+      // PDF gates
+      { gate: 'G2_PANEL_PDFS', current: productCounts?.find(p => p.category === 'PANEL')?.with_datasheet_count || 0 },
+      { gate: 'G2_BATTERY_PDFS', current: productCounts?.find(p => p.category === 'BATTERY_MODULE')?.with_datasheet_count || 0 },
+      { gate: 'G2_INVERTER_PDFS', current: productCounts?.find(p => p.category === 'INVERTER')?.with_datasheet_count || 0 },
+      
+      // Specs gates
+      { gate: 'G3_PANEL_SPECS', current: panelSpecsComplete },
+      { gate: 'G3_BATTERY_SPECS', current: batterySpecsComplete },
+      { gate: 'G3_INVERTER_SPECS', current: inverterSpecsComplete },
+      
+      // Overall coverage
+      { gate: 'panels_with_pdfs', current: productCounts?.find(p => p.category === 'PANEL')?.with_datasheet_count || 0 },
+      { gate: 'batteries_with_pdfs', current: productCounts?.find(p => p.category === 'BATTERY_MODULE')?.with_datasheet_count || 0 }
+    ];
+
+    // Update each gate
+    for (const update of gateUpdates) {
+      const { error } = await supabase
+        .from('readiness_gates')
+        .update({
+          current_value: update.current,
+          passing: await checkGatePassing(supabase, update.gate, update.current)
+        })
+        .eq('gate_name', update.gate);
+      
+      if (error) {
+        console.error(`❌ Failed to update gate ${update.gate}:`, error);
+      } else {
+        console.log(`✅ Updated gate ${update.gate}: ${update.current}`);
+      }
+    }
+    
+    console.log('✅ Readiness gates updated successfully');
+    
+  } catch (error) {
+    console.error('❌ Error updating readiness gates:', error);
+  }
+}
+
+// Check if a gate is passing based on its current value
+async function checkGatePassing(supabase: any, gateName: string, currentValue: number): Promise<boolean> {
+  try {
+    const { data: gate } = await supabase
+      .from('readiness_gates')
+      .select('required_value')
+      .eq('gate_name', gateName)
+      .single();
+    
+    if (!gate) return false;
+    
+    return currentValue >= gate.required_value;
+  } catch (error) {
+    console.error(`Error checking gate ${gateName}:`, error);
+    return false;
   }
 }

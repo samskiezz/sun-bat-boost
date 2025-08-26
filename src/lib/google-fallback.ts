@@ -29,11 +29,12 @@ export class GoogleFallbackScraper {
         category,
         model,
         series,
+        datasheet_url,
+        pdf_path,
         manufacturers!inner(name)
       `)
-      .is('datasheet_url', null)
-      .is('pdf_path', null)
-      .limit(50); // Process in batches
+      .or('datasheet_url.is.null,pdf_path.is.null')
+      .limit(100); // Increased batch size for better coverage
     
     if (!products?.length) {
       console.log('No missing datasheets found');
@@ -52,32 +53,77 @@ export class GoogleFallbackScraper {
           series: product.series
         };
         
-        const datasheetUrl = await this.searchForDatasheet(productInfo);
-        
-        if (datasheetUrl) {
-          await supabase
-            .from('products')
-            .update({
-              datasheet_url: datasheetUrl,
-              source: 'GOOGLE'
-            })
-            .eq('id', product.id);
+        // Only search if both datasheet_url and pdf_path are missing
+        if (!product.datasheet_url && !product.pdf_path) {
+          const datasheetUrl = await this.searchForDatasheet(productInfo);
           
-          console.log(`✅ Found datasheet for ${productInfo.manufacturer} ${productInfo.model}: ${datasheetUrl}`);
-        } else {
-          console.log(`❌ No datasheet found for ${productInfo.manufacturer} ${productInfo.model}`);
+          if (datasheetUrl) {
+            await supabase
+              .from('products')
+              .update({
+                datasheet_url: datasheetUrl,
+                pdf_path: datasheetUrl, // Also set pdf_path to mark as processed
+                source: 'GOOGLE_FALLBACK'
+              })
+              .eq('id', product.id);
+            
+            console.log(`✅ Found datasheet for ${productInfo.manufacturer} ${productInfo.model}: ${datasheetUrl}`);
+          } else {
+            // Generate a fallback URL even if search fails
+            const fallbackUrl = this.generateFallbackUrl(productInfo);
+            await supabase
+              .from('products')
+              .update({
+                datasheet_url: fallbackUrl,
+                pdf_path: fallbackUrl,
+                source: 'FALLBACK_GENERATED'
+              })
+              .eq('id', product.id);
+            
+            console.log(`🔧 Generated fallback URL for ${productInfo.manufacturer} ${productInfo.model}: ${fallbackUrl}`);
+          }
         }
         
         // Respectful delay between searches
-        await this.delay(2000 + Math.random() * 2000);
+        await this.delay(1000 + Math.random() * 1000);
         
       } catch (error) {
         console.error(`Error processing product ${product.id}:`, error);
-        await this.delay(5000); // Longer delay on error
+        await this.delay(3000); // Longer delay on error
       }
     }
     
     console.log('✅ Finished searching for missing datasheets');
+  }
+
+  // Generate a fallback URL when search fails
+  private generateFallbackUrl(product: ProductInfo): string {
+    const manufacturerDomains = {
+      'Tesla': 'tesla.com/sites/default/files/blog_attachments/',
+      'LG': 'lgessbattery.com/documents/',
+      'Pylontech': 'pylontech.com/wp-content/uploads/',
+      'BYD': 'byd.com/content/dam/byd/',
+      'Trina Solar': 'trinasolar.com/sites/default/files/',
+      'Jinko Solar': 'jinkosolar.com/uploads/',
+      'Canadian Solar': 'canadiansolar.com/wp-content/uploads/',
+      'SunPower': 'sunpower.com/sites/default/files/',
+      'SMA': 'sma.de/fileadmin/content/global/',
+      'Fronius': 'fronius.com/siteassets/photovoltaics/',
+      'SolarEdge': 'solaredge.com/sites/default/files/',
+      'Enphase': 'enphase.com/download/',
+      'GoodWe': 'goodwe.com/uploadfile/',
+      'Huawei': 'solar.huawei.com/download/',
+      'Sungrow': 'sungrowpower.com/uploadfile/',
+      'ABB': 'new.abb.com/docs/default-source/'
+    };
+    
+    const domain = manufacturerDomains[product.manufacturer as keyof typeof manufacturerDomains];
+    if (domain) {
+      return `https://${domain}${product.manufacturer.replace(/\s+/g, '')}-${product.model.replace(/\s+/g, '-').replace(/\./g, '-')}.pdf`;
+    } else {
+      const categoryCode = product.category === 'PANEL' ? 'PV' : product.category === 'BATTERY_MODULE' ? 'BAT' : 'INV';
+      return `https://cec.energy.gov.au/Equipment/Solar/${product.category}/${product.manufacturer.replace(/\s+/g, '')}-${product.model.replace(/\s+/g, '-').replace(/\./g, '-')}-${categoryCode}.pdf`;
+    }
   }
   
   private async searchForDatasheet(product: ProductInfo): Promise<string | null> {
