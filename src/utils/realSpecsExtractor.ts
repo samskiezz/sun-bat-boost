@@ -140,21 +140,37 @@ async function updateJobProgressRealTime() {
   try {
     console.log('🔄 Updating job progress with real data...');
     
-    // Get accurate spec counts using direct SQL-like approach
+    // Get accurate spec counts using direct query
     const { data: specCounts, error: specError } = await supabase
-      .rpc('get_spec_counts_by_category');
+      .from('products')
+      .select(`
+        category,
+        id
+      `)
+      .in('category', ['PANEL', 'BATTERY_MODULE', 'INVERTER'])
+      .eq('status', 'active');
 
     if (specError) {
-      console.error('Error getting spec counts:', specError);
-      // Fallback to manual counting
-      return await updateJobProgressManual();
+      console.error('Error getting products:', specError);
+      return;
     }
 
-    const counts = {
-      PANEL: specCounts?.find(c => c.category === 'PANEL')?.products_with_6plus_specs || 0,
-      BATTERY_MODULE: specCounts?.find(c => c.category === 'BATTERY_MODULE')?.products_with_6plus_specs || 0,
-      INVERTER: specCounts?.find(c => c.category === 'INVERTER')?.products_with_6plus_specs || 0
-    };
+    const counts = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
+    
+    if (specCounts) {
+      // Count products with 6+ specs
+      for (const product of specCounts) {
+        const { count } = await supabase
+          .from('specs')
+          .select('*', { count: 'exact', head: true })
+          .eq('product_id', product.id);
+        
+        if ((count || 0) >= 6) {
+          const category = product.category as 'PANEL' | 'BATTERY_MODULE' | 'INVERTER';
+          counts[category]++;
+        }
+      }
+    }
 
     console.log('Real spec counts:', counts);
 
@@ -169,8 +185,10 @@ async function updateJobProgressRealTime() {
     const jobId = activeJob?.[0]?.id || 'f3376479-2c9c-4e25-8351-c03e72981661';
 
     // Update progress for each category
+    const categoryTargets = { PANEL: 1348, BATTERY_MODULE: 513, INVERTER: 2411 };
+    
     for (const [category, count] of Object.entries(counts)) {
-      const target = category === 'PANEL' ? 1348 : category === 'BATTERY_MODULE' ? 513 : 2411;
+      const target = categoryTargets[category as keyof typeof categoryTargets];
       
       const { error } = await supabase
         .from('scrape_job_progress')
@@ -194,38 +212,6 @@ async function updateJobProgressRealTime() {
   } catch (error) {
     console.error('❌ Error updating job progress:', error);
   }
-}
-
-async function updateJobProgressManual() {
-  console.log('🔄 Using manual spec counting...');
-  
-  // Count products with 6+ specs manually
-  const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
-  const counts = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
-
-  for (const category of categories) {
-    const { data: products } = await supabase
-      .from('products')
-      .select('id')
-      .eq('category', category)
-      .eq('status', 'active');
-
-    if (products) {
-      for (const product of products) {
-        const { count } = await supabase
-          .from('specs')
-          .select('*', { count: 'exact', head: true })
-          .eq('product_id', product.id);
-        
-        if ((count || 0) >= 6) {
-          counts[category]++;
-        }
-      }
-    }
-  }
-
-  console.log('Manual spec counts:', counts);
-  return counts;
 }
 
 async function updateG3Gates(counts: { PANEL: number; BATTERY_MODULE: number; INVERTER: number }) {

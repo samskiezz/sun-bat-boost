@@ -779,6 +779,15 @@ export type Database = {
           with_pdf_count: number
         }[]
       }
+      get_spec_counts_by_category: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          category: string
+          products_with_6plus_specs: number
+          products_with_any_specs: number
+          total_products: number
+        }[]
+      }
       refresh_battery_data: {
         Args: Record<PropertyKey, never>
         Returns: Json
