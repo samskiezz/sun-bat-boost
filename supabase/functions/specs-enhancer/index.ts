@@ -13,11 +13,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple line-based AI extraction - no JSON parsing issues
+// Enhanced AI extraction with web scraping fallback
 async function extractSpecsWithAI(product: any): Promise<any[]> {
   if (!openAIApiKey) {
-    console.log('⚠️ OpenAI API key not configured, using basic extraction');
-    return await extractBasicSpecs(product);
+    console.log('⚠️ OpenAI API key not configured, using web fallback');
+    return await extractWithWebFallback(product);
   }
 
   console.log(`🤖 AI extracting specs for ${product.model} (${product.category})`);
@@ -73,16 +73,41 @@ For ${product.category}, focus on: ${
         .filter(spec => spec.key.length > 0 && spec.value.length > 0 && spec.value !== 'unknown')
         .slice(0, 8);
       
-      if (specs.length > 0) {
+      if (specs.length >= 3) {
         console.log(`✅ AI extracted ${specs.length} specs for ${product.model}`);
         return specs;
+      } else {
+        console.log(`⚠️ AI extracted only ${specs.length} specs, trying web fallback`);
+        return await extractWithWebFallback(product);
       }
     }
   } catch (error) {
     console.error(`❌ AI extraction error for ${product.model}:`, error);
   }
   
-  // Always fallback to basic extraction
+  // Fallback to web extraction
+  return await extractWithWebFallback(product);
+}
+
+// Web scraping fallback when AI fails
+async function extractWithWebFallback(product: any): Promise<any[]> {
+  console.log(`🌐 Web fallback for ${product.model}`);
+  
+  try {
+    // Call the enhanced web scraper
+    const response = await supabase.functions.invoke('enhanced-web-scraper', {
+      body: { action: 'enhance_product', productId: product.id }
+    });
+
+    if (response.data?.success && response.data.specs?.length > 0) {
+      console.log(`✅ Web fallback extracted ${response.data.specs.length} specs for ${product.model}`);
+      return response.data.specs;
+    }
+  } catch (error) {
+    console.error(`❌ Web fallback error for ${product.model}:`, error);
+  }
+  
+  // Final fallback to basic extraction
   return await extractBasicSpecs(product);
 }
 
