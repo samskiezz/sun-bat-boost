@@ -61,13 +61,31 @@ async function findProductAliases(productName: string, category: string): Promis
     // Clean up response - handle different formats
     content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     
-    // Extract JSON array from response
+    // Extract JSON array from response - be more permissive
     const arrayMatch = content.match(/\[[\s\S]*?\]/);
     if (arrayMatch) {
       content = arrayMatch[0];
     }
     
-    const aliases = JSON.parse(content);
+    // Fix common JSON issues before parsing
+    content = content
+      .replace(/,\s*\]/, ']')  // Remove trailing commas
+      .replace(/,\s*\}/, '}')  // Remove trailing commas in objects
+      .replace(/([^\\])"/g, '$1"')  // Fix unescaped quotes
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '');  // Remove control characters
+    
+    let aliases;
+    try {
+      aliases = JSON.parse(content);
+    } catch (parseError) {
+      // If still fails, try to extract just the strings
+      const stringMatches = content.match(/"[^"]+"/g);
+      if (stringMatches) {
+        aliases = stringMatches.map(s => s.slice(1, -1)); // Remove quotes
+      } else {
+        throw parseError;
+      }
+    }
     console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
     return Array.isArray(aliases) ? aliases.slice(0, 10) : [productName]; // Limit to 10 aliases
     
@@ -159,7 +177,19 @@ async function extractIntelligentSpecs(product: any): Promise<any[]> {
           content = arrayMatch[0];
         }
         
-        const aiSpecs = JSON.parse(content);
+        // Fix common JSON issues
+        content = content
+          .replace(/,\s*\]/, ']')
+          .replace(/,\s*\}/, '}')
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+          
+        let aiSpecs;
+        try {
+          aiSpecs = JSON.parse(content);
+        } catch (parseError) {
+          console.error('Failed to parse AI specs response:', content);
+          throw parseError;
+        }
         if (Array.isArray(aiSpecs) && aiSpecs.length > 0) {
           const specs = aiSpecs.map(spec => ({
             product_id: product.id,
