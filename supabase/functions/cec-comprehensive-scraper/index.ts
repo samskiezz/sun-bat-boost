@@ -47,6 +47,8 @@ serve(async (req) => {
         return await scrapeAllCategories(supabaseClient);
       case 'scrape_category':
         return await scrapeCategory(supabaseClient, category, forceRefresh);
+      case 'force_complete_reset':
+        return await forceCompleteReset(supabaseClient);
       case 'backfill_pdfs':
         return await backfillPDFs(supabaseClient, category);
       case 'fetch_pdfs':
@@ -903,6 +905,121 @@ function generateProductSpecs(category: string, product: any): Record<string, an
       
     default:
       return baseSpecs;
+  }
+}
+
+async function forceCompleteReset(supabase: any) {
+  console.log('🔄 FORCE COMPLETE RESET: Clearing all products and regenerating...');
+  
+  try {
+    // Clear all existing data
+    console.log('🗑️ Clearing all existing products and progress...');
+    await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    await supabase.from('specs').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    
+    console.log('✅ Cleared all existing data');
+    
+    // Generate fresh products for all categories
+    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    const results = [];
+    
+    for (const category of categories) {
+      console.log(`\n🚀 Generating fresh ${category} products...`);
+      
+      // Generate products
+      const targetCount = getTargetCountForCategory(category);
+      const products = await scrapeCECCategory(category);
+      
+      console.log(`📦 Generated ${products.length} ${category} products, storing with PDFs...`);
+      
+      // Store products with immediate PDF generation
+      let processedCount = 0;
+      for (const product of products) {
+        try {
+          await storeProduct(supabase, product);
+          processedCount++;
+          
+          if (processedCount % 200 === 0) {
+            console.log(`📊 ${category}: ${processedCount}/${products.length} processed`);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to store ${category} product:`, error);
+        }
+      }
+      
+      // Verify final counts
+      const { count: finalTotal } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', category);
+        
+      const { count: finalPdfCount } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', category)
+        .not('pdf_path', 'is', null);
+      
+      // Update progress
+      await updateProgress(supabase, category, {
+        totalFound: targetCount,
+        totalProcessed: processedCount,
+        totalWithPdfs: finalPdfCount || 0,
+        totalParsed: processedCount,
+        status: 'completed'
+      });
+      
+      const result = {
+        category,
+        targetCount,
+        actualCount: finalTotal,
+        withPdfs: finalPdfCount,
+        processed: processedCount
+      };
+      
+      results.push(result);
+      console.log(`✅ ${category} complete: ${finalTotal} products, ${finalPdfCount} with PDFs`);
+    }
+    
+    // Final summary
+    const { count: totalProducts } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+      
+    const { count: totalWithPdfs } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .not('pdf_path', 'is', null);
+    
+    console.log(`\n🎉 COMPLETE RESET FINISHED!`);
+    console.log(`📊 Total: ${totalProducts} products, ${totalWithPdfs} with PDFs`);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        message: 'Complete reset successful',
+        results,
+        summary: {
+          totalProducts,
+          totalWithPdfs,
+          coveragePercentage: Math.round((totalWithPdfs / totalProducts) * 100)
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
+  } catch (error) {
+    console.error('❌ Force complete reset failed:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: 'Reset failed: ' + error.message
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 }
 

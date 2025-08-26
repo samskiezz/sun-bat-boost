@@ -57,6 +57,17 @@ export default function ComprehensiveCatalogManager() {
     setActiveOperation(action);
 
     try {
+      let confirmMessage = '';
+      
+      if (action === 'force_complete_reset') {
+        confirmMessage = '⚠️ This will DELETE ALL products and regenerate from scratch. This cannot be undone. Are you sure?';
+        if (!window.confirm(confirmMessage)) {
+          setLoading(false);
+          setActiveOperation('');
+          return;
+        }
+      }
+      
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action, category }
       });
@@ -65,7 +76,9 @@ export default function ComprehensiveCatalogManager() {
 
       toast({
         title: "Operation Started",
-        description: `${action} operation initiated successfully`,
+        description: action === 'force_complete_reset' 
+          ? 'Complete system reset initiated - this may take several minutes'
+          : `${action} operation initiated successfully`,
       });
 
       // Refresh status after a delay
@@ -128,7 +141,17 @@ export default function ComprehensiveCatalogManager() {
             </AlertDescription>
           </Alert>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+            <Button 
+              onClick={() => handleOperation('force_complete_reset')}
+              disabled={loading}
+              variant="destructive"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              {activeOperation === 'force_complete_reset' ? 'Resetting...' : 'Complete Reset'}
+            </Button>
+            
             <Button 
               onClick={() => handleOperation('scrape_all')}
               disabled={loading}
