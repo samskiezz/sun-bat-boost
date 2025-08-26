@@ -107,6 +107,36 @@ export type Database = {
         }
         Relationships: []
       }
+      doc_spans: {
+        Row: {
+          bbox: Json | null
+          created_at: string
+          id: string
+          key: string
+          page: number
+          product_id: string
+          text: string
+        }
+        Insert: {
+          bbox?: Json | null
+          created_at?: string
+          id?: string
+          key: string
+          page: number
+          product_id: string
+          text: string
+        }
+        Update: {
+          bbox?: Json | null
+          created_at?: string
+          id?: string
+          key?: string
+          page?: number
+          product_id?: string
+          text?: string
+        }
+        Relationships: []
+      }
       postcode_zones: {
         Row: {
           created_at: string
@@ -206,6 +236,120 @@ export type Database = {
           scraped_at?: string
           source_url?: string
           technology?: string | null
+        }
+        Relationships: []
+      }
+      replay_items: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          processed: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          payload: Json
+          processed?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          processed?: boolean
+        }
+        Relationships: []
+      }
+      train_episodes: {
+        Row: {
+          context: Json
+          created_at: string
+          id: string
+          metrics: Json
+          mode: string
+          result: Json
+          reward: number
+        }
+        Insert: {
+          context: Json
+          created_at?: string
+          id?: string
+          metrics: Json
+          mode: string
+          result: Json
+          reward: number
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          id?: string
+          metrics?: Json
+          mode?: string
+          result?: Json
+          reward?: number
+        }
+        Relationships: []
+      }
+      training_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric_type: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      ui_constraints: {
+        Row: {
+          confidence: number
+          created_at: string
+          enabled: boolean
+          expression: Json
+          id: string
+          reason: Json
+          rule_code: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          enabled?: boolean
+          expression: Json
+          id?: string
+          reason: Json
+          rule_code: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          enabled?: boolean
+          expression?: Json
+          id?: string
+          reason?: Json
+          rule_code?: string
+          scope?: string
+          updated_at?: string
         }
         Relationships: []
       }
