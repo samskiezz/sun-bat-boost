@@ -1588,25 +1588,10 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .single()
     ]);
     
-    // Count products with comprehensive specs (6+) efficiently using SQL
-    const { data: specsData } = await supabase
-      .from('specs')
-      .select('product_id')
-      .in('product_id', 
-        supabase
-          .from('products')
-          .select('id')
-          .eq('category', category)
-          .eq('status', 'active')
-      );
-    
-    // Count products that have 6+ specs
-    const specCountByProduct = specsData?.reduce((acc: Record<string, number>, spec) => {
-      acc[spec.product_id] = (acc[spec.product_id] || 0) + 1;
-      return acc;
-    }, {}) || {};
-    
-    const comprehensiveSpecsCount = Object.values(specCountByProduct).filter(count => count >= 6).length;
+    // Use RPC to get comprehensive specs count efficiently
+    const { data: specCounts } = await supabase.rpc('get_spec_counts_by_category');
+    const categorySpecData = specCounts?.find((row: any) => row.category === category);
+    const comprehensiveSpecsCount = categorySpecData?.products_with_6plus_specs || 0;
     
     const actualCount = productsResult.count || 0;
     const productsWithSpecs = comprehensiveSpecsCount;

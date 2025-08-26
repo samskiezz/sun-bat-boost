@@ -29,42 +29,19 @@ serve(async (req) => {
     
     const completedJobId = jobs?.[0]?.id || 'f7d41c80-702d-4f3b-b41d-f6f6fa7e1c8d';
     
-    // Count products with 6+ comprehensive specs for each category
-    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    // Use RPC to get comprehensive specs counts efficiently
+    const { data: specCounts } = await supabase.rpc('get_spec_counts_by_category');
     const comprehensiveSpecs = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
     
-    // Get all specs data efficiently in parallel for all categories
-    const specsQueries = categories.map(category => 
-      supabase
-        .from('specs')
-        .select('product_id')
-        .in('product_id', 
-          supabase
-            .from('products')
-            .select('id')
-            .eq('category', category)
-            .eq('status', 'active')
-        )
-    );
-    
-    const specsResults = await Promise.all(specsQueries);
-    
-    categories.forEach((category, index) => {
-      console.log(`📊 Counting ${category} products with 6+ specs...`);
-      
-      const specsData = specsResults[index].data || [];
-      
-      // Count products that have 6+ specs
-      const specCountByProduct = specsData.reduce((acc: Record<string, number>, spec) => {
-        acc[spec.product_id] = (acc[spec.product_id] || 0) + 1;
-        return acc;
-      }, {});
-      
-      comprehensiveSpecs[category as keyof typeof comprehensiveSpecs] = 
-        Object.values(specCountByProduct).filter(count => count >= 6).length;
-      
-      console.log(`✅ ${category}: ${comprehensiveSpecs[category as keyof typeof comprehensiveSpecs]} products with 6+ specs`);
-    });
+    if (specCounts) {
+      specCounts.forEach((row: any) => {
+        const category = row.category as keyof typeof comprehensiveSpecs;
+        if (category in comprehensiveSpecs) {
+          comprehensiveSpecs[category] = row.products_with_6plus_specs || 0;
+          console.log(`✅ ${category}: ${comprehensiveSpecs[category]} products with 6+ specs`);
+        }
+      });
+    }
     
     // Update job progress with real data
     for (const [category, count] of Object.entries(comprehensiveSpecs)) {

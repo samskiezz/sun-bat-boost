@@ -108,6 +108,9 @@ export const RealSpecsExtractor = () => {
       setResult(result);
       
       if (result.success) {
+        // Trigger progress refresh after successful extraction
+        handleUpdateProgress();
+        
         toast({
           title: "Real Specs Extraction Successful!",
           description: `Processed ${result.processed} products with ${result.successful} successful extractions`,
