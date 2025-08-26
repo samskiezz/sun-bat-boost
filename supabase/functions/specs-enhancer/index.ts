@@ -13,169 +13,197 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// AI-powered product matching using NLP
-async function findProductAliases(productName: string, category: string): Promise<string[]> {
-  if (!openAIApiKey) {
-    console.log('⚠️ OpenAI API key not configured, using basic matching');
-    return [productName];
-  }
+// Simple direct specs extraction without complex AI matching
+async function extractBasicSpecs(product: any): Promise<any[]> {
+  console.log(`🔧 Extracting basic specs for ${product.model} (${product.category})`);
+  
+  const specs = [];
+  const raw = product.raw || {};
+  
+  // Add basic product info
+  specs.push({
+    product_id: product.id,
+    key: 'model_number',
+    value: product.model || 'Unknown',
+    source: 'direct_extraction'
+  });
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert in solar energy products. Given a product name and category, generate all possible aliases, variations, marketing names, and model variations that could refer to the same product. Include:
-            - Different spellings and abbreviations
-            - Marketing names vs technical names  
-            - Model number variations (with/without spaces, dashes, etc.)
-            - Brand variations
-            - Series names
-            Return ONLY a JSON array of strings, no other text.`
-          },
-          {
-            role: 'user',
-            content: `Product: "${productName}" Category: "${category}"`
-          }
-        ],
-        max_tokens: 300,
-        temperature: 0.3
-      }),
-    });
-
-    const data = await response.json();
-    const rawContent = data.choices[0].message.content;
-    
-    // Clean up the response - remove markdown formatting and extra text
-    let cleanContent = rawContent.trim();
-    
-    // Remove markdown code blocks
-    if (cleanContent.startsWith('```json')) {
-      cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (cleanContent.startsWith('```')) {
-      cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+  // Category-specific specs extraction from raw data
+  if (product.category === 'PANEL') {
+    // Extract panel specs
+    if (raw.power_rating || raw.watts) {
+      specs.push({
+        product_id: product.id,
+        key: 'watts',
+        value: (raw.power_rating || raw.watts || 400).toString(),
+        source: 'direct_extraction'
+      });
     }
     
-    // If response starts with explanatory text, try to find the JSON array
-    if (!cleanContent.startsWith('[')) {
-      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
-      }
+    if (raw.efficiency) {
+      specs.push({
+        product_id: product.id,
+        key: 'efficiency_percent',
+        value: raw.efficiency.toString(),
+        source: 'direct_extraction'
+      });
     }
-    
-    const aliases = JSON.parse(cleanContent);
-    console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
-    return Array.isArray(aliases) ? aliases : [productName];
-  } catch (error) {
-    console.error('❌ Error generating aliases:', error);
-    return [productName];
+
+    if (raw.technology || raw.cell_type) {
+      specs.push({
+        product_id: product.id,
+        key: 'cell_type',
+        value: raw.technology || raw.cell_type || 'Monocrystalline',
+        source: 'direct_extraction'
+      });
+    }
+
+  } else if (product.category === 'BATTERY_MODULE') {
+    // Extract battery specs
+    if (raw.capacity_kwh || raw.capacity) {
+      specs.push({
+        product_id: product.id,
+        key: 'kWh',
+        value: (raw.capacity_kwh || raw.capacity || 10.0).toString(),
+        source: 'direct_extraction'
+      });
+    }
+
+    if (raw.chemistry || raw.battery_chemistry) {
+      specs.push({
+        product_id: product.id,
+        key: 'battery_chemistry',
+        value: raw.chemistry || raw.battery_chemistry || 'Lithium Ion',
+        source: 'direct_extraction'
+      });
+    }
+
+    if (raw.vpp_capable !== undefined) {
+      specs.push({
+        product_id: product.id,
+        key: 'vpp_compatible',
+        value: raw.vpp_capable.toString(),
+        source: 'direct_extraction'
+      });
+    }
+
+  } else if (product.category === 'INVERTER') {
+    // Extract inverter specs
+    if (raw.power_rating) {
+      specs.push({
+        product_id: product.id,
+        key: 'power_kw',
+        value: (raw.power_rating / 1000).toString(),
+        source: 'direct_extraction'
+      });
+    }
+
+    if (raw.efficiency) {
+      specs.push({
+        product_id: product.id,
+        key: 'max_efficiency',
+        value: raw.efficiency.toString(),
+        source: 'direct_extraction'
+      });
+    }
+
+    if (raw.type || raw.topology) {
+      specs.push({
+        product_id: product.id,
+        key: 'inverter_topology',
+        value: raw.type || raw.topology || 'String',
+        source: 'direct_extraction'
+      });
+    }
   }
+
+  console.log(`✅ Extracted ${specs.length} basic specs for ${product.model}`);
+  return specs;
 }
 
-// AI-powered specs extraction using product catalog cross-reference
+// Enhanced direct specs extraction - faster and more reliable  
 async function extractIntelligentSpecs(product: any): Promise<any[]> {
-  if (!openAIApiKey) {
-    console.log(`⚠️ OpenAI API key not configured, using fallback specs for ${product.id}`);
-    return generateFallbackSpecs(product);
-  }
-
   try {
-    // Get product aliases
-    const aliases = await findProductAliases(product.model, product.category);
+    // First try basic extraction from raw data
+    let specs = await extractBasicSpecs(product);
     
-    // Search for similar products in catalog
-    const { data: catalogProducts } = await supabase
-      .from('products')
-      .select('model, raw, specs')
-      .eq('category', product.category)
-      .neq('id', product.id)
-      .limit(10);
+    // If we don't have enough specs and OpenAI is available, enhance with AI
+    if (specs.length < 3 && openAIApiKey) {
+      console.log(`🤖 Enhancing specs with AI for ${product.model}`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Extract solar product specifications from the given data. Return ONLY a JSON array of specifications in this exact format: [{"key": "spec_name", "value": "value"}]. No markdown, no explanations.`
+            },
+            {
+              role: 'user',
+              content: `Product: ${product.model}\nCategory: ${product.category}\nRaw Data: ${JSON.stringify(product.raw || {})}`
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.1
+        }),
+      });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a solar product specification expert. Analyze the target product and similar catalog products to extract accurate specifications. Use NLP matching to identify if products are the same despite name variations.
-
-            For ${product.category}:
-            ${product.category === 'PANEL' ? '- watts (power rating)\n- efficiency_percent\n- cell_type\n- dimensions\n- warranty_years' : ''}
-            ${product.category === 'BATTERY_MODULE' ? '- kWh (capacity)\n- battery_chemistry\n- vpp_compatible\n- warranty_years\n- cycles' : ''}
-            ${product.category === 'INVERTER' ? '- power_kw\n- max_efficiency\n- inverter_topology\n- warranty_years' : ''}
-
-            Return JSON array of specs: [{"key": "spec_name", "value": "value", "source": "ai_extraction"}]`
-          },
-          {
-            role: 'user',
-            content: `Target Product: ${JSON.stringify(product)}
+      if (response.ok) {
+        const data = await response.json();
+        let content = data.choices[0].message.content.trim();
+        
+        // Clean JSON response
+        if (content.startsWith('```')) {
+          content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        }
+        
+        try {
+          const aiSpecs = JSON.parse(content);
+          if (Array.isArray(aiSpecs)) {
+            const enhancedSpecs = aiSpecs.map(spec => ({
+              product_id: product.id,
+              key: spec.key,
+              value: spec.value.toString(),
+              source: 'ai_enhanced'
+            }));
             
-            Aliases: ${JSON.stringify(aliases)}
-            
-            Similar Catalog Products: ${JSON.stringify(catalogProducts?.slice(0, 5) || [])}`
+            // Merge with existing specs, avoiding duplicates
+            const existingKeys = new Set(specs.map(s => s.key));
+            const newSpecs = enhancedSpecs.filter(s => !existingKeys.has(s.key));
+            specs = [...specs, ...newSpecs];
           }
-        ],
-        max_tokens: 800,
-        temperature: 0.2
-      }),
-    });
-
-    const data = await response.json();
-    const rawContent = data.choices[0].message.content;
-    
-    // Clean up the response - remove markdown formatting and extra text
-    let cleanContent = rawContent.trim();
-    
-    // Remove markdown code blocks
-    if (cleanContent.startsWith('```json')) {
-      cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (cleanContent.startsWith('```')) {
-      cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
-    }
-    
-    // If response starts with explanatory text, try to find the JSON array
-    if (!cleanContent.startsWith('[')) {
-      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
+        } catch (parseError) {
+          console.log(`⚠️ AI parsing failed for ${product.model}, using basic specs`);
+        }
       }
     }
     
-    const specs = JSON.parse(cleanContent);
-    console.log(`🤖 Extracted ${specs.length} AI specs for ${product.model}`);
+    // If still no specs, use fallback
+    if (specs.length === 0) {
+      specs = generateFallbackSpecs(product);
+    }
     
-    return Array.isArray(specs) ? specs.map(spec => ({
-      product_id: product.id,
-      key: spec.key,
-      value: spec.value.toString(),
-      source: 'ai_extraction'
-    })) : generateFallbackSpecs(product);
+    console.log(`✅ Final specs count for ${product.model}: ${specs.length}`);
+    return specs;
 
   } catch (error) {
-    console.error('❌ Error extracting intelligent specs:', error);
+    console.error(`❌ Error extracting specs for ${product.model}:`, error);
     return generateFallbackSpecs(product);
   }
 }
 
-// Enhanced specs for AI/ML compatibility - process in smaller batches to avoid CPU timeout
-async function enhanceProductSpecs(batchSize = 15, offset = 0) {
+// Enhanced specs for AI/ML compatibility - simplified and faster approach
+async function enhanceProductSpecs(batchSize = 25, offset = 0) {
   console.log(`🔧 Enhancing product specs batch: offset=${offset}, size=${batchSize}`);
   
   try {
-    // Get batch of products with their specs - only active products without existing specs
+    // Get batch of products without existing specs
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -185,6 +213,7 @@ async function enhanceProductSpecs(batchSize = 15, offset = 0) {
         raw
       `)
       .eq('status', 'active')
+      .not('id', 'in', `(SELECT DISTINCT product_id FROM specs WHERE source IN ('direct_extraction', 'ai_enhanced', 'ai_extraction'))`)
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
 
@@ -198,33 +227,15 @@ async function enhanceProductSpecs(batchSize = 15, offset = 0) {
       return { success: true, enhanced_count: 0, total_products: 0, completed: true };
     }
 
-    console.log(`📦 Processing ${products.length} products at offset ${offset}`);
+    console.log(`📦 Processing ${products.length} products without specs at offset ${offset}`);
     
-    // Process products in smaller sub-batches to avoid timeout
-    const subBatchSize = 5;
     let totalEnhanced = 0;
     
-    for (let i = 0; i < products.length; i += subBatchSize) {
-      const subBatch = products.slice(i, i + subBatchSize);
-      
-      for (const product of subBatch) {
-        // Use AI-powered intelligent specs extraction
+    // Process products sequentially to avoid overwhelming OpenAI API  
+    for (const product of products) {
+      try {
         const enhancedSpecs = await extractIntelligentSpecs(product);
 
-        // Verify product still exists before inserting specs
-        const { data: productExists } = await supabase
-          .from('products')
-          .select('id')
-          .eq('id', product.id)
-          .eq('status', 'active')
-          .single();
-
-        if (!productExists) {
-          console.log(`⏭️ Skipping deleted/inactive product ${product.id}`);
-          continue;
-        }
-
-        // Insert enhanced specs using UPSERT - single query per product
         if (enhancedSpecs.length > 0) {
           const { error: specsError } = await supabase
             .from('specs')
@@ -234,15 +245,18 @@ async function enhanceProductSpecs(batchSize = 15, offset = 0) {
 
           if (specsError) {
             console.error(`❌ Specs error for ${product.id}:`, specsError.message);
-            // Continue processing other products instead of failing
           } else {
             totalEnhanced++;
           }
         }
+        
+        // Small delay between products
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+      } catch (productError) {
+        console.error(`❌ Error processing product ${product.id}:`, productError);
+        continue;
       }
-      
-      // Small delay to prevent overwhelming the database
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     console.log(`✅ Enhanced specs for ${totalEnhanced}/${products.length} products`);
@@ -250,7 +264,7 @@ async function enhanceProductSpecs(batchSize = 15, offset = 0) {
       success: true, 
       enhanced_count: totalEnhanced,
       total_products: products.length,
-      completed: products.length < batchSize,
+      completed: totalEnhanced === 0, // Complete when no more products processed
       next_offset: offset + batchSize
     };
 
