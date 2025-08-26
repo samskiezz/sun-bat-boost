@@ -12,7 +12,7 @@ import SolarCalculator from "@/components/SolarCalculator";
 import { AIAssistant } from "@/components/AIAssistant";
 import { SEOHead } from "@/components/SEOHead";
 import SystemStatusIndicator from "@/components/SystemStatusIndicator";
-import ScrapingWidget from "@/components/ScrapingWidget";
+import WorkingScrapingWidget from "@/components/WorkingScrapingWidget";
 import { useState } from "react";
 
 const Index = () => {
@@ -114,7 +114,7 @@ const Index = () => {
 
           <TabsContent value="system" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ScrapingWidget />
+              <WorkingScrapingWidget />
               
               <Card>
                 <CardHeader>
