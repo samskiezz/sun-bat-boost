@@ -13,132 +13,121 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple, robust spec extraction
+// Robust extraction with multiple fallbacks
 async function extractSpecs(product: any): Promise<any[]> {
   if (!openAIApiKey) {
     console.log(`❌ No OpenAI API key`);
     return [];
   }
 
-  console.log(`🔥 Extracting ${product.model} (${product.category})`);
+  console.log(`🔥 Processing ${product.model}`);
   
-  const specTypes = {
-    'PANEL': ['power_watts', 'efficiency_percent', 'voltage_voc', 'current_isc', 'voltage_vmp', 'current_imp', 'dimensions', 'weight', 'cell_type', 'warranty_years'],
-    'BATTERY_MODULE': ['capacity_kwh', 'usable_capacity_kwh', 'nominal_voltage', 'max_charge_current', 'max_discharge_current', 'chemistry', 'cycle_life', 'warranty_years', 'dimensions', 'weight'],
-    'INVERTER': ['power_rating_kw', 'max_efficiency_percent', 'input_voltage_range', 'output_voltage', 'frequency_hz', 'inverter_topology', 'protection_rating', 'dimensions', 'weight', 'warranty_years']
-  };
+  // Prepare focused prompt based on available data
+  const dataString = JSON.stringify(product.raw || {});
+  const hasRichData = dataString.length > 100;
+  
+  const specPrompt = product.category === 'PANEL' 
+    ? 'Extract: power_watts, efficiency_percent, voltage_voc, current_isc, voltage_vmp, current_imp, dimensions, weight, cell_type, warranty_years'
+    : product.category === 'BATTERY_MODULE'
+    ? 'Extract: capacity_kwh, usable_capacity_kwh, nominal_voltage, max_charge_current, max_discharge_current, chemistry, cycle_life, warranty_years, dimensions, weight'
+    : 'Extract: power_rating_kw, max_efficiency_percent, input_voltage_range, output_voltage, frequency_hz, inverter_topology, protection_rating, dimensions, weight, warranty_years';
 
-  try {
-    // First try GPT-5
-    let response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+  const models = [
+    { name: 'gpt-5-2025-08-07', maxTokens: 400, hasTemp: false },
+    { name: 'gpt-4.1-2025-04-14', maxTokens: 400, hasTemp: true },
+    { name: 'gpt-5-mini-2025-08-07', maxTokens: 300, hasTemp: false }
+  ];
+
+  for (const model of models) {
+    try {
+      console.log(`🤖 Trying ${model.name}`);
+      
+      const body = {
+        model: model.name,
         messages: [
           {
             role: 'system',
-            content: `Extract technical specifications from solar equipment data. 
-Return only "key: value" pairs, one per line.
-Extract specs like: ${specTypes[product.category]?.join(', ')}`
+            content: `Extract technical specifications as "key: value" pairs.
+${specPrompt}
+Return only factual specs from the data provided.`
           },
           {
             role: 'user',
-            content: `Product: ${product.model}
-Brand: ${product.manufacturers?.name || 'Unknown'}
-Category: ${product.category}
-Data: ${JSON.stringify(product.raw || {}).substring(0, 1000)}
-Datasheet: ${product.datasheet_url || 'None'}
-
-Extract specifications:`
+            content: `${product.model} by ${product.manufacturers?.name || 'Unknown'}
+${hasRichData ? dataString.substring(0, 800) : `Category: ${product.category}\nDatasheet: ${product.datasheet_url || 'None'}`}`
           }
         ],
-        max_completion_tokens: 500
-      }),
-    });
+        max_completion_tokens: model.maxTokens
+      };
 
-    // If GPT-5 fails, try GPT-4.1 as fallback
-    if (!response.ok) {
-      console.log(`⚠️ GPT-5 failed (${response.status}), trying GPT-4.1 fallback`);
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
+      if (model.hasTemp) {
+        body.temperature = 0.1;
+        body.max_tokens = model.maxTokens;
+        delete body.max_completion_tokens;
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
-          messages: [
-            {
-              role: 'system',
-              content: `Extract technical specifications from solar equipment data. 
-Return only "key: value" pairs, one per line.
-Extract specs like: ${specTypes[product.category]?.join(', ')}`
-            },
-            {
-              role: 'user',
-              content: `Product: ${product.model}
-Brand: ${product.manufacturers?.name || 'Unknown'}
-Category: ${product.category}
-Data: ${JSON.stringify(product.raw || {}).substring(0, 1000)}
-
-Extract specifications:`
-            }
-          ],
-          max_completion_tokens: 500,
-          temperature: 0.1
-        }),
+        body: JSON.stringify(body),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`⚠️ ${model.name} failed (${response.status}): ${errorText.substring(0, 100)}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content?.trim();
+      
+      if (!content || content.length < 10) {
+        console.log(`⚠️ ${model.name} returned empty/short content`);
+        continue;
+      }
+
+      // Parse specs
+      const specs = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.includes(':') && line.length > 3)
+        .map(line => {
+          const colonIdx = line.indexOf(':');
+          const key = line.substring(0, colonIdx).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const value = line.substring(colonIdx + 1).trim().replace(/^["'\s]+|["'\s]+$/g, '');
+          
+          return {
+            product_id: product.id,
+            key,
+            value,
+            source: `${model.name.split('-')[0]}_extracted`
+          };
+        })
+        .filter(spec => 
+          spec.key.length > 1 && 
+          spec.value.length > 0 && 
+          !['unknown', 'n/a', 'not specified', 'tbd', 'none', 'varies'].includes(spec.value.toLowerCase())
+        )
+        .slice(0, 10);
+
+      if (specs.length >= 3) {
+        console.log(`✅ ${model.name} extracted ${specs.length} specs`);
+        return specs;
+      } else {
+        console.log(`⚠️ ${model.name} only extracted ${specs.length} specs, trying next model`);
+      }
+
+    } catch (error) {
+      console.log(`⚠️ ${model.name} error: ${error.message}`);
+      continue;
     }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ API error:`, response.status, errorText);
-      return [];
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    
-    if (!content) {
-      console.error(`❌ No content returned`);
-      return [];
-    }
-
-    console.log(`📝 Raw response:`, content.substring(0, 200));
-
-    // Parse specs
-    const specs = content
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.includes(':') && line.length > 3)
-      .map(line => {
-        const [key, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        return {
-          product_id: product.id,
-          key: key.trim().toLowerCase().replace(/[^a-z0-9]/g, '_'),
-          value: value.replace(/^["'\s]+|["'\s]+$/g, ''),
-          source: 'ai_extracted'
-        };
-      })
-      .filter(spec => 
-        spec.key.length > 1 && 
-        spec.value.length > 0 && 
-        !['unknown', 'n/a', 'not specified', 'tbd', 'none'].includes(spec.value.toLowerCase())
-      )
-      .slice(0, 12);
-
-    console.log(`✅ Extracted ${specs.length} valid specs`);
-    return specs;
-
-  } catch (error) {
-    console.error(`❌ Extraction error:`, error.message);
-    return [];
   }
+
+  console.log(`❌ All models failed for ${product.model}`);
+  return [];
 }
 
 // Process products with guaranteed results

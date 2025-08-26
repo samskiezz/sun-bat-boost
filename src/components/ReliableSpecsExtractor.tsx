@@ -46,7 +46,7 @@ export const ReliableSpecsExtractor = () => {
       setCurrentStatus(`Processing ${products.length} products...`);
 
       const productIds = products.map(p => p.product_id);
-      const batchSize = 10; // Small batches for reliability
+      const batchSize = 5; // Very small batches for maximum reliability
       let totalProcessed = 0;
       let totalSuccessful = 0;
       
@@ -140,11 +140,11 @@ export const ReliableSpecsExtractor = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-muted-foreground">
-          <p className="mb-2 font-medium text-green-600">Token-Efficient, Results-Guaranteed System:</p>
+          <p className="mb-2 font-medium text-green-600">Multi-Model Fallback System:</p>
           <ul className="list-disc list-inside space-y-1">
             <li className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-green-500" />
-              GPT-5 flagship model for maximum accuracy
+              GPT-5 → GPT-4.1 → GPT-5-mini fallback chain
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-blue-500" />
@@ -152,11 +152,11 @@ export const ReliableSpecsExtractor = () => {
             </li>
             <li className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-orange-500" />
-              Small batches to prevent token waste
+              Small batches for maximum reliability
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-purple-500" />
-              Only processes products that actually need specs
+              Only processes products needing specs (444 panels remaining)
             </li>
           </ul>
         </div>
@@ -222,8 +222,8 @@ export const ReliableSpecsExtractor = () => {
         </Button>
         
         <div className="text-xs text-center text-muted-foreground">
-          Uses GPT-5 flagship model • Guarantees database saves • No token waste<br/>
-          Only processes products that actually need specifications
+          Multi-model fallback system • Guaranteed saves • 444 panels remaining<br/>
+          Uses GPT-5 → GPT-4.1 → GPT-5-mini fallback chain for maximum success
         </div>
       </CardContent>
     </Card>
