@@ -139,6 +139,9 @@ export function fuzzAliases(model: string): string[] {
   return [...out];
 }
 
+// This function has been moved to comprehensiveProductGenerator.ts
+// for better organization and proper async support
+
 export class SmartMatcher {
   private weights!: Weights;
   private aliases!: AliasMap;

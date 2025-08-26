@@ -10,6 +10,7 @@ import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalcu
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
+import DebugProductPatterns from "./DebugProductPatterns";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -123,7 +124,24 @@ const SolarCalculator = () => {
         }) : "Loading..."} />
         
         <div className="max-w-4xl mx-auto space-y-8">
-          <InputModeTabs onCalculate={handleCalculate} />
+          <div className="space-y-8">
+            <InputModeTabs onCalculate={handleCalculate} />
+            
+            {/* Debug: Show comprehensive product patterns */}
+            <div className="mt-8">
+              <DebugProductPatterns />
+            </div>
+            
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Debug Mode:</strong> The product pattern database above shows all {" "}
+                  {/* This will be populated by the component */}
+                  brands and models that the OCR system can now detect with smart regex patterns and aliases.
+                </p>
+              </div>
+            )}
+          </div>
           
           {results && eligibility && (
             <div className="space-y-8">
