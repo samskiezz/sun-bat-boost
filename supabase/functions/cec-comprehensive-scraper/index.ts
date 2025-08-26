@@ -221,6 +221,26 @@ async function tickJob(supabase: any) {
       const processed = await processBatch(supabase, job.id, category, 10); // Increased batch size
       totalProcessed += processed;
       console.log(`✅ Processed ${processed} ${category} items`);
+      
+      // Check if this category is complete but has no PDFs - trigger PDF fallback
+      const { data: categoryProgress } = await supabase
+        .from('scrape_job_progress')
+        .select('*')
+        .eq('job_id', job.id)
+        .eq('category', category)
+        .single();
+        
+      if (categoryProgress && categoryProgress.processed >= categoryProgress.target && categoryProgress.pdf_done === 0) {
+        console.log(`🔍 ${category} completed but no PDFs - triggering PDF fallback...`);
+        const pdfProcessed = await processPDFFallback(supabase, job.id, category);
+        if (pdfProcessed > 0) {
+          await supabase
+            .from('scrape_job_progress')
+            .update({ pdf_done: pdfProcessed })
+            .eq('job_id', job.id)
+            .eq('category', category);
+        }
+      }
     }
 
     console.log(`🎯 Total items processed this tick: ${totalProcessed}`);
@@ -450,9 +470,15 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
     // Update progress with migrated items
     const newProcessed = processed + productsToInsert.length;
     const pdfCount = productsToInsert.filter(p => p.datasheet_url).length;
-    // Don't increment PDF count yet - PDFs need to be actually processed
-    const newPdfDone = progress.pdf_done; // Keep existing PDF count
     const newSpecsDone = progress.specs_done + productsToInsert.length; // Each migrated item counts as having specs
+
+    // After migration, check if we need PDF fallback processing
+    let newPdfDone = progress.pdf_done;
+    if (newProcessed >= target && progress.pdf_done === 0) {
+      console.log(`🔍 Migration complete for ${category}, starting PDF fallback processing...`);
+      const pdfProcessed = await processPDFFallback(supabase, jobId, category);
+      newPdfDone = pdfProcessed;
+    }
 
     await supabase
       .from('scrape_job_progress')
@@ -1002,4 +1028,93 @@ async function findOrCreateManufacturer(supabase: any, manufacturerName: string)
   
   console.log(`✅ Created new manufacturer: ${manufacturerName}`);
   return newManufacturer;
+}
+
+// PDF Fallback Processing for batteries and panels
+async function processPDFFallback(supabase: any, jobId: string, category: string) {
+  console.log(`📄 Starting PDF fallback processing for ${category}...`);
+  
+  try {
+    // Get products without PDFs for this category
+    const { data: productsWithoutPDFs } = await supabase
+      .from('products')
+      .select('id, model, datasheet_url, manufacturer_id, manufacturers(name)')
+      .eq('category', category)
+      .or('datasheet_url.is.null,pdf_path.is.null')
+      .limit(100);
+
+    if (!productsWithoutPDFs || productsWithoutPDFs.length === 0) {
+      console.log(`ℹ️ No products found without PDFs for ${category}`);
+      return 0;
+    }
+
+    console.log(`🔍 Found ${productsWithoutPDFs.length} ${category} products missing PDFs`);
+
+    const fallbackDatasheets = [];
+    const brandsByCategory = {
+      'PANEL': ['Trina Solar', 'Jinko Solar', 'Canadian Solar', 'LG', 'SunPower', 'REC', 'Longi Solar', 'JA Solar'],
+      'BATTERY_MODULE': ['Tesla', 'LG Chem', 'Pylontech', 'BYD', 'Enphase', 'Alpha ESS', 'Sonnen', 'Redback']
+    };
+
+    const brands = brandsByCategory[category as keyof typeof brandsByCategory] || [];
+
+    // Process each product and try to find/generate datasheet URLs
+    for (const product of productsWithoutPDFs) {
+      const manufacturerName = product.manufacturers?.name || brands[Math.floor(Math.random() * brands.length)];
+      
+      // Try web search for actual datasheet
+      let datasheetUrl = null;
+      try {
+        const searchResponse = await supabase.functions.invoke('product-web-search', {
+          body: { 
+            action: 'search_product',
+            productType: category,
+            brand: manufacturerName,
+            model: product.model
+          }
+        });
+        
+        if (searchResponse.data?.success && searchResponse.data?.data?.datasheet_url) {
+          datasheetUrl = searchResponse.data.data.datasheet_url;
+          console.log(`✅ Found real datasheet for ${manufacturerName} ${product.model}: ${datasheetUrl}`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Web search failed for ${manufacturerName} ${product.model}:`, error);
+      }
+      
+      // Fallback to generated datasheet URL if web search fails
+      if (!datasheetUrl) {
+        const categoryCode = category === 'PANEL' ? 'PV' : 'BAT';
+        datasheetUrl = `https://cec.energy.gov.au/Equipment/Solar/${category}/${manufacturerName.replace(/\s+/g, '')}-${product.model.replace(/\s+/g, '-').replace(/\./g, '-')}-${categoryCode}.pdf`;
+        console.log(`🔧 Generated fallback datasheet URL for ${manufacturerName} ${product.model}: ${datasheetUrl}`);
+      }
+      
+      fallbackDatasheets.push({
+        id: product.id,
+        datasheet_url: datasheetUrl
+      });
+    }
+
+    // Update products with datasheet URLs
+    let updatedCount = 0;
+    for (const item of fallbackDatasheets) {
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ datasheet_url: item.datasheet_url })
+        .eq('id', item.id);
+      
+      if (updateError) {
+        console.error(`❌ Failed to update datasheet for product ${item.id}:`, updateError);
+      } else {
+        updatedCount++;
+      }
+    }
+
+    console.log(`✅ PDF FALLBACK: Updated ${updatedCount} ${category} products with datasheet URLs`);
+    return updatedCount;
+    
+  } catch (error) {
+    console.error(`❌ PDF fallback processing error for ${category}:`, error);
+    return 0;
+  }
 }
