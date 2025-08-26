@@ -29,7 +29,7 @@ async function extractSpecs(product: any): Promise<any[]> {
   const specPrompt = product.category === 'PANEL' 
     ? 'Extract: power_watts, efficiency_percent, voltage_voc, current_isc, voltage_vmp, current_imp, dimensions, weight, cell_type, warranty_years'
     : product.category === 'BATTERY_MODULE'
-    ? 'Extract: capacity_kwh, usable_capacity_kwh, nominal_voltage, max_charge_current, max_discharge_current, chemistry, cycle_life, warranty_years, dimensions, weight'
+    ? 'Focus on: capacity_kwh, usable_capacity_kwh, nominal_voltage, chemistry, cycle_life, warranty_years, dimensions, weight, operating_temperature_range, round_trip_efficiency. Extract exactly what you find in the data.'
     : 'Extract: power_rating_kw, max_efficiency_percent, input_voltage_range, output_voltage, frequency_hz, inverter_topology, protection_rating, dimensions, weight, warranty_years';
 
   const models = [
@@ -47,14 +47,18 @@ async function extractSpecs(product: any): Promise<any[]> {
         messages: [
           {
             role: 'system',
-            content: `Extract technical specifications as "key: value" pairs.
+            content: `Extract technical specifications as "key: value" pairs from ${product.category.toLowerCase()} data.
 ${specPrompt}
-Return only factual specs from the data provided.`
+${product.category === 'BATTERY_MODULE' ? 'BATTERY FOCUS: Look for capacity, voltage, chemistry, cycles, efficiency, temperature limits, dimensions.' : ''}
+Return one spec per line. Be thorough - extract 6-10 specs minimum.`
           },
           {
             role: 'user',
             content: `${product.model} by ${product.manufacturers?.name || 'Unknown'}
-${hasRichData ? dataString.substring(0, 800) : `Category: ${product.category}\nDatasheet: ${product.datasheet_url || 'None'}`}`
+Category: ${product.category}
+${hasRichData ? `Technical Data: ${dataString.substring(0, 1200)}` : `Basic Info: ${product.category}\nDatasheet: ${product.datasheet_url || 'None'}`}
+
+Extract all available specifications:`
           }
         ],
         max_completion_tokens: model.maxTokens
@@ -113,7 +117,7 @@ ${hasRichData ? dataString.substring(0, 800) : `Category: ${product.category}\nD
         )
         .slice(0, 10);
 
-      if (specs.length >= 3) {
+      if (specs.length >= 5) {
         console.log(`✅ ${model.name} extracted ${specs.length} specs`);
         return specs;
       } else {

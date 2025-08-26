@@ -156,7 +156,7 @@ export const ReliableSpecsExtractor = () => {
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-purple-500" />
-              Only processes products needing specs (444 panels remaining)
+              Only processes products needing specs (443 batteries, 444 panels remaining)
             </li>
           </ul>
         </div>
@@ -222,8 +222,8 @@ export const ReliableSpecsExtractor = () => {
         </Button>
         
         <div className="text-xs text-center text-muted-foreground">
-          Multi-model fallback system • Guaranteed saves • 444 panels remaining<br/>
-          Uses GPT-5 → GPT-4.1 → GPT-5-mini fallback chain for maximum success
+          Multi-model fallback system • Guaranteed saves • 443 batteries + 444 panels remaining<br/>
+          Enhanced battery extraction • 5+ specs minimum per product
         </div>
       </CardContent>
     </Card>
