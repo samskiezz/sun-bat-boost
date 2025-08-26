@@ -28,26 +28,18 @@ async function findProductAliases(productName: string, category: string): Promis
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-nano-2025-08-07',
         messages: [
           {
             role: 'system',
-            content: `You are an expert in solar energy products. Generate ALL possible aliases and variations for this product that could refer to the same item. Include:
-            - Different spellings and abbreviations
-            - Marketing names vs technical names  
-            - Model number variations (with/without spaces, dashes, etc.)
-            - Brand variations and shortened forms
-            - Series names and model families
-            
-            Return a simple JSON array of strings, nothing else. Example: ["Product A", "Product-A", "ProductA", "Product A Series"]`
+            content: `Generate product name variations as a JSON array. Include abbreviations, spacing variations, and model numbers. Return only valid JSON: ["variation1", "variation2", "variation3"]`
           },
           {
             role: 'user',
-            content: `Product: "${productName}" Category: "${category}"`
+            content: `Product: "${productName}"`
           }
         ],
-        max_tokens: 200,
-        temperature: 0.2
+        max_completion_tokens: 150
       }),
     });
 
@@ -78,12 +70,15 @@ async function findProductAliases(productName: string, category: string): Promis
     try {
       aliases = JSON.parse(content);
     } catch (parseError) {
-      // If still fails, try to extract just the strings
-      const stringMatches = content.match(/"[^"]+"/g);
-      if (stringMatches) {
-        aliases = stringMatches.map(s => s.slice(1, -1)); // Remove quotes
+      console.error('❌ JSON parse failed, raw content:', content.substring(0, 200));
+      // Extract quoted strings as fallback
+      const stringMatches = content.match(/"[^"]*"/g);
+      if (stringMatches && stringMatches.length > 0) {
+        aliases = stringMatches.map(s => s.slice(1, -1)).filter(s => s.length > 0);
+        console.log(`🔧 Extracted ${aliases.length} aliases from malformed JSON`);
       } else {
-        throw parseError;
+        aliases = [productName]; // Ultimate fallback
+        console.log('⚠️ Using original product name as only alias');
       }
     }
     console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
@@ -140,29 +135,22 @@ async function extractIntelligentSpecs(product: any): Promise<any[]> {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-5-nano-2025-08-07',
           messages: [
             {
               role: 'system',
-              content: `You are a solar product specification expert. Extract specifications by cross-referencing the target product with similar products in the catalog.
-
-              Required specs for ${product.category}:
-              ${product.category === 'PANEL' ? '- watts: power rating in watts\n- efficiency_percent: efficiency percentage\n- cell_type: solar cell technology' : ''}
-              ${product.category === 'BATTERY_MODULE' ? '- kWh: capacity in kilowatt hours\n- battery_chemistry: battery chemistry type\n- vpp_compatible: virtual power plant compatibility' : ''}
-              ${product.category === 'INVERTER' ? '- power_kw: power in kilowatts\n- max_efficiency: maximum efficiency percentage\n- inverter_topology: inverter type' : ''}
-
-              Use NLP matching to identify if any similar products are the same model with different naming.
-              Return only a JSON array: [{"key": "spec_name", "value": "spec_value"}]`
+              content: `Extract product specifications as JSON array. For ${product.category}, extract: ${
+                product.category === 'PANEL' ? 'watts, efficiency_percent, cell_type' : 
+                product.category === 'BATTERY_MODULE' ? 'kWh, battery_chemistry, vpp_compatible' : 
+                'power_kw, max_efficiency, inverter_topology'
+              }. Return: [{"key":"spec_name","value":"spec_value"}]`
             },
             {
               role: 'user',
-              content: `Target: ${JSON.stringify(product)}
-              Aliases: ${JSON.stringify(aliases)}
-              Similar Products: ${JSON.stringify(similarProducts.map(p => ({model: p.model, raw: p.raw})))}`
+              content: `Product: ${product.model} Raw data: ${JSON.stringify(product.raw)}`
             }
           ],
-          max_tokens: 500,
-          temperature: 0.1
+          max_completion_tokens: 300
         }),
       });
 
@@ -187,8 +175,22 @@ async function extractIntelligentSpecs(product: any): Promise<any[]> {
         try {
           aiSpecs = JSON.parse(content);
         } catch (parseError) {
-          console.error('Failed to parse AI specs response:', content);
-          throw parseError;
+          console.error('❌ AI specs JSON parse failed, raw:', content.substring(0, 300));
+          // Try to extract key-value pairs from malformed JSON
+          const kvMatches = content.match(/"key":\s*"([^"]*)"[^}]*"value":\s*"([^"]*)"/g);
+          if (kvMatches) {
+            aiSpecs = kvMatches.map(match => {
+              const keyMatch = match.match(/"key":\s*"([^"]*)"/);
+              const valueMatch = match.match(/"value":\s*"([^"]*)"/);
+              return {
+                key: keyMatch ? keyMatch[1] : 'unknown',
+                value: valueMatch ? valueMatch[1] : 'unknown'
+              };
+            });
+            console.log(`🔧 Extracted ${aiSpecs.length} specs from malformed JSON`);
+          } else {
+            throw parseError;
+          }
         }
         if (Array.isArray(aiSpecs) && aiSpecs.length > 0) {
           const specs = aiSpecs.map(spec => ({
