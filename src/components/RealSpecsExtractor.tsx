@@ -5,20 +5,45 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { extractRealSpecsForProducts, updateProgressOnly } from '@/utils/realSpecsExtractor';
 import { updateProgressAndGatesNow } from '@/utils/directProgressUpdater';
-import { Loader2, Search, Globe, Zap, Brain, RefreshCw } from 'lucide-react';
+import { fixJobProgressData } from '@/utils/jobProgressFixer';
+import { Loader2, Search, Globe, Zap, Brain, RefreshCw, Wrench } from 'lucide-react';
 
 export const RealSpecsExtractor = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [progress, setProgress] = useState(0);  
   const [currentProduct, setCurrentProduct] = useState('');
   const [result, setResult] = useState<any>(null);
   const { toast } = useToast();
 
-  // Auto-update progress on component mount to fix stuck displays
+  // Auto-fix job progress on component mount
   useEffect(() => {
-    updateProgressAndGatesNow().catch(console.error);
+    fixJobProgressData().catch(console.error);
   }, []);
+
+  const handleFixJobProgress = async () => {
+    setIsFixing(true);
+    try {
+      const result = await fixJobProgressData();
+      toast({
+        title: result.success ? "Job Progress Fixed!" : "Fix Failed",
+        description: result.success ? "All job progress data has been cleaned up and corrected" : result.error,
+        variant: result.success ? "default" : "destructive",
+        duration: 4000,
+      });
+    } catch (error) {
+      console.error('Error fixing job progress:', error);
+      toast({
+        title: "Fix Failed",
+        description: "Failed to fix job progress data",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsFixing(false);
+    }
+  };
 
   const handleUpdateProgress = async () => {
     setIsUpdating(true);
@@ -173,7 +198,7 @@ export const RealSpecsExtractor = () => {
         <div className="flex gap-2">
           <Button 
             onClick={handleRealExtraction}
-            disabled={isExtracting || isUpdating}
+            disabled={isExtracting || isUpdating || isFixing}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             size="lg"
           >
@@ -191,8 +216,22 @@ export const RealSpecsExtractor = () => {
           </Button>
           
           <Button 
+            onClick={handleFixJobProgress}
+            disabled={isExtracting || isUpdating || isFixing}
+            variant="outline"
+            size="lg"
+            className="border-orange-300 text-orange-700 hover:bg-orange-50"
+          >
+            {isFixing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wrench className="h-4 w-4" />
+            )}
+          </Button>
+          
+          <Button 
             onClick={handleUpdateProgress}
-            disabled={isExtracting || isUpdating}
+            disabled={isExtracting || isUpdating || isFixing}
             variant="outline"
             size="lg"
           >
@@ -207,7 +246,7 @@ export const RealSpecsExtractor = () => {
         <div className="text-xs text-center text-muted-foreground">
           This uses OpenAI GPT-4 + Google Search + Web Scraping<br/>
           Works for ALL categories: Panels, Batteries & Inverters<br/>
-          The exact same extraction pipeline that worked for all 2,411 inverters
+          🔧 Orange button fixes job progress data issues
         </div>
       </CardContent>
     </Card>
