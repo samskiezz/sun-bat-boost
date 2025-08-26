@@ -115,6 +115,11 @@ export default function ScrapingDashboard() {
   }
 
   async function runFullScrape() {
+    if (isRunning) {
+      addLog('⚠️ Scraping already in progress');
+      return;
+    }
+    
     setIsRunning(true);
     setLogs([]);
     addLog('🚀 Starting comprehensive CEC scrape...');
@@ -128,19 +133,27 @@ export default function ScrapingDashboard() {
       });
 
       if (error) throw error;
+      
+      if (data?.status === 'already_running') {
+        addLog('⚠️ Scraping already in progress - please wait');
+        setIsRunning(false);
+        setCurrentOperation('');
+        return;
+      }
 
       addLog('✅ Scraping process started in background');
       addLog('📊 Monitoring progress in real-time...');
       
-      // Start polling for progress updates every 2 seconds
+      // Start aggressive polling for progress updates every 1 second
       const pollInterval = setInterval(async () => {
         try {
           await loadProgress();
           
           // Check if all categories are completed
           const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
+          const hasActiveProcessing = progress.some(p => p.status === 'processing');
           
-          if (allCompleted) {
+          if (allCompleted && !hasActiveProcessing) {
             clearInterval(pollInterval);
             addLog('🎯 All scraping operations completed');
             setIsRunning(false);
@@ -150,13 +163,13 @@ export default function ScrapingDashboard() {
             // Update operation status based on current progress
             const activeCategory = progress.find(p => p.status === 'processing');
             if (activeCategory) {
-              setCurrentOperation(`Processing ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found}`);
+              setCurrentOperation(`Processing ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found} (${Math.round((activeCategory.total_processed / activeCategory.total_found) * 100)}%)`);
             }
           }
         } catch (pollError) {
           console.error('Progress polling error:', pollError);
         }
-      }, 2000);
+      }, 1000); // Poll every 1 second for better responsiveness
 
       // Safety timeout after 10 minutes
       setTimeout(() => {
@@ -177,6 +190,11 @@ export default function ScrapingDashboard() {
   }
 
   async function runCompleteReset() {
+    if (isRunning) {
+      addLog('⚠️ Reset already in progress');
+      return;
+    }
+    
     setIsRunning(true);
     setCurrentOperation('Starting complete system reset');
     addLog('🔄 Starting complete system reset...');
@@ -188,11 +206,18 @@ export default function ScrapingDashboard() {
       });
 
       if (error) throw error;
+      
+      if (data?.status === 'already_running') {
+        addLog('⚠️ Reset already in progress - please wait');
+        setIsRunning(false);
+        setCurrentOperation('');
+        return;
+      }
 
       addLog('✅ Reset process started in background');
       addLog('📊 Monitoring progress in real-time...');
       
-      // Start polling for progress updates every 2 seconds
+      // Start aggressive polling for progress updates every 1 second
       const pollInterval = setInterval(async () => {
         try {
           await loadProgress();
@@ -200,8 +225,9 @@ export default function ScrapingDashboard() {
           // Check if all categories are completed (reset generates new data)
           const allCompleted = progress.every(p => p.status === 'completed' || p.status === 'failed');
           const hasData = progress.some(p => p.total_processed > 0);
+          const hasActiveProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
           
-          if (allCompleted && hasData) {
+          if (allCompleted && hasData && !hasActiveProcessing) {
             clearInterval(pollInterval);
             addLog('🎯 Complete reset finished successfully');
             setIsRunning(false);
@@ -212,13 +238,16 @@ export default function ScrapingDashboard() {
             const activeCategory = progress.find(p => p.status === 'processing' || p.status === 'clearing');
             if (activeCategory) {
               const statusText = activeCategory.status === 'clearing' ? 'Clearing' : 'Processing';
-              setCurrentOperation(`${statusText} ${activeCategory.category.toLowerCase()}s: ${activeCategory.total_processed}/${activeCategory.total_found}`);
+              const progressText = activeCategory.total_found > 0 ? 
+                `${activeCategory.total_processed}/${activeCategory.total_found} (${Math.round((activeCategory.total_processed / activeCategory.total_found) * 100)}%)` : 
+                'preparing...';
+              setCurrentOperation(`${statusText} ${activeCategory.category.toLowerCase()}s: ${progressText}`);
             }
           }
         } catch (pollError) {
           console.error('Progress polling error:', pollError);
         }
-      }, 2000);
+      }, 1000); // Poll every 1 second for better responsiveness
 
       // Safety timeout after 15 minutes (reset takes longer)
       setTimeout(() => {
