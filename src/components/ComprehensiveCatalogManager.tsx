@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useReadinessGates } from '@/lib/readiness-gates';
 import DataCollectionPanel from './DataCollectionPanel';
+import { ComprehensiveSpecsCompleter } from './ComprehensiveSpecsCompleter';
 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms";
 
@@ -621,6 +622,11 @@ export default function ComprehensiveCatalogManager() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Comprehensive Specs Completion */}
+      <div className="mt-6">
+        <ComprehensiveSpecsCompleter />
+      </div>
     </div>
   );
 }
