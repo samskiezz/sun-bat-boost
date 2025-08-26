@@ -184,7 +184,7 @@ async function extractBasicSpecs(product: any): Promise<any[]> {
 }
 
 // Enhanced specs for AI/ML compatibility - much faster parallel processing
-async function enhanceProductSpecs(batchSize = 100, offset = 0) {
+async function enhanceProductSpecs(batchSize = 50, offset = 0) {
   console.log(`🚀 Fast specs enhancement: offset=${offset}, size=${batchSize}`);
   
   try {
@@ -207,39 +207,54 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
 
     console.log(`📦 Processing ${products.length} products in parallel`);
     
-    // Process all products in parallel - much faster
-    const allPromises = products.map(async (product) => {
-      try {
-        const specs = await extractSpecsWithAI(product);
-        
-        if (specs.length > 0) {
-          const { error: specsError } = await supabase
-            .from('specs')
-            .upsert(specs, { onConflict: 'product_id,key' });
+    let totalEnhanced = 0;
+    
+    // Process products in smaller batches to avoid timeout
+    const MINI_BATCH_SIZE = 10;
+    for (let i = 0; i < products.length; i += MINI_BATCH_SIZE) {
+      const batch = products.slice(i, i + MINI_BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (product) => {
+        try {
+          const specs = await extractSpecsWithAI(product);
+          
+          if (specs.length > 0) {
+            const { error: specsError } = await supabase
+              .from('specs')
+              .upsert(specs, { onConflict: 'product_id,key' });
 
-          if (specsError) {
-            console.error(`❌ Specs error for ${product.id}:`, specsError.message);
-            return false;
+            if (specsError) {
+              console.error(`❌ Specs error for ${product.model}:`, specsError.message);
+              return false;
+            }
+            console.log(`✅ Enhanced ${product.model} with ${specs.length} specs`);
+            return true;
           }
-          return true;
+          return false;
+        } catch (error) {
+          console.error(`❌ Error processing ${product.model}:`, error);
+          return false;
         }
-        return false;
-      } catch (error) {
-        console.error(`❌ Error processing ${product.id}:`, error);
-        return false;
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      totalEnhanced += batchResults.filter(r => r).length;
+      
+      // Small delay between mini-batches
+      if (i + MINI_BATCH_SIZE < products.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-    });
+    }
     
-    const results = await Promise.all(allPromises);
-    const totalEnhanced = results.filter(r => r).length;
+    console.log(`✅ Enhanced ${totalEnhanced}/${products.length} products in batch`);
     
-    console.log(`✅ Enhanced ${totalEnhanced}/${products.length} products`);
+    const hasMore = products.length === batchSize;
     return { 
       success: true, 
       enhanced_count: totalEnhanced,
       total_products: products.length,
-      completed: totalEnhanced === 0,
-      next_offset: offset + batchSize
+      completed: !hasMore || totalEnhanced === 0,
+      next_offset: hasMore ? offset + batchSize : null
     };
 
   } catch (error) {
