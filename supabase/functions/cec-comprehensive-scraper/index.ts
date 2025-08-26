@@ -1561,9 +1561,12 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .eq('category', category)
         .eq('status', 'active'),
       supabase
-        .from('specs')
-        .select('product_id, products!inner(category)')
-        .eq('products.category', category),
+        .from('products')
+        .select('id')
+        .eq('category', category)
+        .eq('status', 'active')
+        .not('specs', 'is', null)
+        .neq('specs', '{}'),
       supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
@@ -1579,10 +1582,10 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
     ]);
     
     const actualCount = productsResult.count || 0;
-    const uniqueProductsWithSpecs = new Set(specsResult.data?.map(s => s.product_id) || []).size;
+    const productsWithSpecs = specsResult.data?.length || 0;
     const withPdfCount = pdfsResult.count || 0;
     
-    console.log(`📊 ${category} actual stats: ${actualCount} products, ${uniqueProductsWithSpecs} with specs, ${withPdfCount} with PDFs`);
+    console.log(`📊 ${category} actual stats: ${actualCount} products, ${productsWithSpecs} with specs, ${withPdfCount} with PDFs`);
     
     if (currentProgress.data) {
       const progress = currentProgress.data;
@@ -1590,7 +1593,7 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       // Only update if there's a significant change to prevent flickering
       const hasSignificantChange = 
         Math.abs((progress.processed || 0) - actualCount) > 5 ||
-        Math.abs((progress.specs_done || 0) - uniqueProductsWithSpecs) > 5 ||
+        Math.abs((progress.specs_done || 0) - productsWithSpecs) > 5 ||
         Math.abs((progress.pdf_done || 0) - withPdfCount) > 5;
       
       // Always allow first update or if processed is 0
@@ -1605,7 +1608,7 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       const updatedProgress = {
         processed: actualCount,
         pdf_done: withPdfCount,
-        specs_done: uniqueProductsWithSpecs,
+        specs_done: productsWithSpecs,
         state: 'running', // Keep running to allow continuous specs extraction
         last_specs_trigger: now // Update sync timestamp
       };
@@ -1621,9 +1624,9 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${progress.target} processed, ${updatedProgress.specs_done} specs, ${updatedProgress.pdf_done} PDFs`);
       
       // Only trigger specs enhancement for categories that need it and have significant missing specs
-      const specsCompletion = actualCount > 0 ? uniqueProductsWithSpecs / actualCount : 1;
+      const specsCompletion = actualCount > 0 ? productsWithSpecs / actualCount : 1;
       if ((category === 'PANEL' || category === 'BATTERY_MODULE') && specsCompletion < 0.95 && actualCount > 0) {
-        const missingSpecs = actualCount - uniqueProductsWithSpecs;
+        const missingSpecs = actualCount - productsWithSpecs;
         console.log(`🚀 Triggering specs enhancement for ${category} - ${missingSpecs} products need specs (${(specsCompletion * 100).toFixed(1)}% complete)`);
         
         // Throttle the specs enhancement calls - increased to 60 seconds
