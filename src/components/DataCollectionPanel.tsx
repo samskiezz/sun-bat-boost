@@ -86,13 +86,20 @@ export default function DataCollectionPanel() {
   async function start() {
     setBusy(true);
     try {
+      console.log('Starting scraper...');
       const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'start' }
       });
       
+      console.log('Scraper response:', { data, error });
+      
       if (error) throw error;
       
-      const newJobId = data.job_id;
+      const newJobId = data?.job_id;
+      if (!newJobId) {
+        throw new Error('No job_id returned from scraper');
+      }
+      
       localStorage.setItem('scrape_job_id', newJobId);
       setJobId(newJobId);
       
@@ -101,6 +108,7 @@ export default function DataCollectionPanel() {
         description: "Data collection job has been initiated successfully.",
       });
     } catch (e) {
+      console.error('Start scraper error:', e);
       toast({
         title: "Start Failed",
         description: (e as Error).message,
