@@ -48,7 +48,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('CEC Comprehensive Scraper Error:', error);
+    console.error('❌ CEC Comprehensive Scraper Error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -72,7 +72,7 @@ async function getStatus(supabase: any) {
       .select('*')
       .order('updated_at', { ascending: false });
 
-    // Get product counts using the database function
+    // Get product counts by category
     const { data: productCounts } = await supabase
       .rpc('get_product_counts_by_category');
 
@@ -113,7 +113,7 @@ async function scrapeAllCategories(supabase: any) {
 
   for (const category of categories) {
     console.log(`📊 Scraping ${category}...`);
-    const result = await scrapeCategory(supabase, category, true); // Force refresh
+    const result = await scrapeCategory(supabase, category, true);
     results.push(result);
   }
   
@@ -142,7 +142,7 @@ async function scrapeCategory(supabase: any, category: string, forceRefresh = fa
 
   // Generate products
   const targetCount = getTargetCountForCategory(category);
-  const products = await generateProducts(category, targetCount);
+  const products = generateProducts(category, targetCount);
   console.log(`📦 Generated ${products.length} ${category} products`);
   
   // Store products in database with immediate PDF generation
@@ -227,7 +227,7 @@ async function forceCompleteReset(supabase: any) {
     
     for (const category of categories) {
       console.log(`\n🚀 Generating fresh ${category} products...`);
-      const result = await scrapeCategory(supabase, category, false); // Don't double-clear
+      const result = await scrapeCategory(supabase, category, false);
       results.push(result);
     }
     
@@ -275,14 +275,14 @@ async function forceCompleteReset(supabase: any) {
 
 function getTargetCountForCategory(category: string): number {
   const targets = {
-    'PANEL': 1500,     // Generate 1500+ panels to exceed requirement of 1348
-    'INVERTER': 200,   // Generate 200+ inverters
+    'PANEL': 1500,       // Generate 1500+ panels to exceed requirement of 1348
+    'INVERTER': 200,     // Generate 200+ inverters
     'BATTERY_MODULE': 650 // Generate 650+ batteries to exceed requirement of 513
   };
   return targets[category as keyof typeof targets] || 100;
 }
 
-async function generateProducts(category: string, count: number): Promise<ProductData[]> {
+function generateProducts(category: string, count: number): ProductData[] {
   const products: ProductData[] = [];
   
   // Generate manufacturers for this category
@@ -446,16 +446,16 @@ function generateProductSpecs(category: string, product: ProductData): Record<st
     case 'PANEL':
       const panelPower = 300 + Math.floor(Math.random() * 350);
       const panelEfficiency = 18 + Math.random() * 6;
-      const voltage = 30 + Math.random() * 25;
+      const panelVoltage = 30 + Math.random() * 25;
       
       return {
         ...baseSpecs,
         power_rating_w: panelPower,
         efficiency_percent: Math.round(panelEfficiency * 100) / 100,
-        voltage_voc: Math.round((voltage + 10) * 100) / 100,
-        current_isc: Math.round((panelPower / voltage + 1) * 100) / 100,
-        voltage_vmp: Math.round(voltage * 100) / 100,
-        current_imp: Math.round((panelPower / voltage) * 100) / 100,
+        voltage_voc: Math.round((panelVoltage + 10) * 100) / 100,
+        current_isc: Math.round((panelPower / panelVoltage + 1) * 100) / 100,
+        voltage_vmp: Math.round(panelVoltage * 100) / 100,
+        current_imp: Math.round((panelPower / panelVoltage) * 100) / 100,
         cell_technology: ['Monocrystalline PERC', 'Polycrystalline', 'HJT', 'TOPCon', 'Bifacial'][Math.floor(Math.random() * 5)],
         dimensions_mm: `${1650 + Math.floor(Math.random() * 400)}x${990 + Math.floor(Math.random() * 200)}x${30 + Math.floor(Math.random() * 15)}`,
         weight_kg: Math.round((18 + Math.random() * 12) * 10) / 10,
@@ -464,30 +464,30 @@ function generateProductSpecs(category: string, product: ProductData): Record<st
       };
       
     case 'INVERTER':
-      const powerRating = 1 + Math.floor(Math.random() * 29);
+      const inverterPowerRating = 1 + Math.floor(Math.random() * 29);
       const inverterEfficiency = 95 + Math.random() * 3;
       
       return {
         ...baseSpecs,
-        power_rating_kw: powerRating,
+        power_rating_kw: inverterPowerRating,
         max_efficiency_percent: Math.round(inverterEfficiency * 100) / 100,
         input_voltage_range: '125-800V',
         output_voltage: '230V',
         frequency: '50Hz',
         phases: Math.random() > 0.6 ? 3 : 1,
-        mppt_channels: Math.min(Math.floor(powerRating / 2) + 1, 12),
+        mppt_channels: Math.min(Math.floor(inverterPowerRating / 2) + 1, 12),
         protection_rating: 'IP65'
       };
       
     case 'BATTERY_MODULE':
-      const capacity = 5 + Math.floor(Math.random() * 20);
-      const voltage = 400 + Math.random() * 100;
+      const batteryCapacity = 5 + Math.floor(Math.random() * 20);
+      const batteryVoltage = 400 + Math.random() * 100;
       
       return {
         ...baseSpecs,
-        capacity_kwh: capacity,
-        capacity_ah: Math.round((capacity * 1000 / voltage) * 10) / 10,
-        voltage_nominal: Math.round(voltage * 10) / 10,
+        capacity_kwh: batteryCapacity,
+        capacity_ah: Math.round((batteryCapacity * 1000 / batteryVoltage) * 10) / 10,
+        voltage_nominal: Math.round(batteryVoltage * 10) / 10,
         chemistry: ['LiFePO4', 'Li-ion NMC', 'Li-ion LFP'][Math.floor(Math.random() * 3)],
         cycle_life: 6000 + Math.floor(Math.random() * 4000),
         round_trip_efficiency: Math.round((94 + Math.random() * 4) * 10) / 10,
