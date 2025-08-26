@@ -217,7 +217,6 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
       .from('products')
       .select('id, category, model, raw')
       .eq('status', 'active')
-      .is('specs_extracted', null)  // Only get products that haven't been processed
       .range(offset, offset + batchSize - 1)
       .order('created_at', { ascending: true });
 
@@ -254,11 +253,8 @@ async function enhanceProductSpecs(batchSize = 100, offset = 0) {
               return false;
             }
             
-            // Mark product as processed
-            await supabase
-              .from('products')
-              .update({ specs_extracted: new Date().toISOString() })
-              .eq('id', product.id);
+            // Product processed successfully
+            console.log(`✅ Successfully processed ${product.model}`);
               
             console.log(`✅ Enhanced ${product.model} with ${specs.length} specs`);
             return true;
