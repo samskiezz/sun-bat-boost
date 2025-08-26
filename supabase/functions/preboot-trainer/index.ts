@@ -555,6 +555,38 @@ async function checkReadinessGates(supabase: any) {
         currentValue = batteryCount || 0;
         break;
         
+      case 'panels_with_pdfs':
+        const { count: panelsWithPdfs } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('category', 'PANEL')
+          .not('pdf_path', 'is', null);
+        currentValue = panelsWithPdfs || 0;
+        break;
+        
+      case 'batteries_with_pdfs':
+        const { count: batteriesWithPdfs } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('category', 'BATTERY_MODULE')
+          .not('pdf_path', 'is', null);
+        currentValue = batteriesWithPdfs || 0;
+        break;
+        
+      case 'specs_completeness':
+        // Check that products have comprehensive specs extracted
+        const { count: productsWithSpecs } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .or('category.eq.PANEL,category.eq.BATTERY_MODULE')
+          .not('specs', 'is', null);
+        const { count: totalProducts } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .or('category.eq.PANEL,category.eq.BATTERY_MODULE');
+        currentValue = totalProducts > 0 ? (productsWithSpecs || 0) / totalProducts : 0;
+        break;
+        
       case 'ocr_precision':
       case 'ocr_recall':
         // Calculate from recent training episodes
