@@ -131,6 +131,29 @@ serve(async (req) => {
       }
     }
     
+    // Fix SECURITY_WARNINGS gate logic - should pass with 0-1 warnings, fail with 2+
+    const { error: securityUpdateError } = await supabase
+      .from('readiness_gates')
+      .update({
+        required_value: 1, // Max 1 warning allowed
+        current_value: 2, // Current warnings count
+        passing: 2 <= 1, // Pass if warnings <= 1
+        details: {
+          description: "Security: Max 1 warning allowed (currently 2: Extension in public schema, OTP expiry too long)",
+          warnings: ["Extension in public schema", "OTP expiry too long"],
+          action_required: "Check Supabase dashboard settings"
+        },
+        last_checked: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('gate_name', 'SECURITY_WARNINGS');
+      
+    if (securityUpdateError) {
+      console.error(`❌ Failed to fix security gate:`, securityUpdateError);
+    } else {
+      console.log(`🔒 Fixed SECURITY_WARNINGS gate: 2 warnings (FAILING - needs attention)`);
+    }
+    
     // Update job status based on completion
     const allCompleted = Object.values(comprehensiveSpecs).every((count, index) => {
       const targets = [1348, 513, 2411]; // PANEL, BATTERY_MODULE, INVERTER
