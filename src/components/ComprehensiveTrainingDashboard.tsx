@@ -10,6 +10,7 @@ import { Brain, Target, TrendingUp, Zap, Activity, Award, AlertTriangle, CheckCi
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import PDFProposalUploader from '@/components/PDFProposalUploader';
+import MultitaskTrainingDashboard from '@/components/MultitaskTrainingDashboard';
 
 interface TrainingMetric {
   name: string;
@@ -136,13 +137,18 @@ export default function ComprehensiveTrainingDashboard() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="dashboard">Training Dashboard</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="dashboard">Legacy Training</TabsTrigger>
+          <TabsTrigger value="multitask">Multi-Task AI</TabsTrigger>
           <TabsTrigger value="pdf-upload" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             PDF Proposals
           </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="multitask" className="space-y-6 mt-6">
+          <MultitaskTrainingDashboard />
+        </TabsContent>
         
         <TabsContent value="dashboard" className="space-y-6 mt-6">
           <Card className={isComplete ? "border-green-200 bg-green-50" : "border-blue-200 bg-blue-50"}>
@@ -413,9 +419,9 @@ export default function ComprehensiveTrainingDashboard() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="pdf-upload" className="mt-6">
-          <PDFProposalUploader />
-        </TabsContent>
+          <TabsContent value="pdf-upload" className="mt-6">
+            <PDFProposalUploader />
+          </TabsContent>
       </Tabs>
     </div>
   );

@@ -152,6 +152,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dataset_splits: {
+        Row: {
+          created_at: string
+          dataset_name: string
+          file_path: string
+          id: string
+          metadata: Json | null
+          split_type: string
+        }
+        Insert: {
+          created_at?: string
+          dataset_name: string
+          file_path: string
+          id?: string
+          metadata?: Json | null
+          split_type: string
+        }
+        Update: {
+          created_at?: string
+          dataset_name?: string
+          file_path?: string
+          id?: string
+          metadata?: Json | null
+          split_type?: string
+        }
+        Relationships: []
+      }
       doc_spans: {
         Row: {
           bbox: Json | null
@@ -206,6 +233,57 @@ export type Database = {
           name?: string
           updated_at?: string
           urls?: string[] | null
+        }
+        Relationships: []
+      }
+      model_configs: {
+        Row: {
+          config_data: Json
+          config_name: string
+          config_type: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          config_data?: Json
+          config_name: string
+          config_type: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          config_data?: Json
+          config_name?: string
+          config_type?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      npu_builds: {
+        Row: {
+          build_config: Json
+          build_id: string
+          created_at: string
+          id: string
+          models: Json
+        }
+        Insert: {
+          build_config?: Json
+          build_id: string
+          created_at?: string
+          id?: string
+          models?: Json
+        }
+        Update: {
+          build_config?: Json
+          build_id?: string
+          created_at?: string
+          id?: string
+          models?: Json
         }
         Relationships: []
       }
@@ -665,6 +743,63 @@ export type Database = {
           metadata?: Json | null
           metric_type?: string
           value?: number
+        }
+        Relationships: []
+      }
+      training_sessions: {
+        Row: {
+          completed_at: string | null
+          config: Json
+          current_stage: string | null
+          error: string | null
+          id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json
+          current_stage?: string | null
+          error?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json
+          current_stage?: string | null
+          error?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_stage_results: {
+        Row: {
+          created_at: string
+          id: string
+          results: Json
+          session_id: string
+          stage_index: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          results?: Json
+          session_id: string
+          stage_index: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          results?: Json
+          session_id?: string
+          stage_index?: number
         }
         Relationships: []
       }
