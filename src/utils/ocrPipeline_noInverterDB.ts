@@ -226,9 +226,9 @@ export class UniversalOCRPipeline {
       candidate.totalScore = candidate.evidence.reduce((sum, e) => sum + e.score, 0) / Math.max(1, candidate.evidence.length);
     }
     
-    // Filter and sort by voting rules
+    // More lenient filtering - lower threshold for better detection
     const validCandidates = Array.from(candidates.values()).filter(c => {
-      return c.totalScore >= 0.70 && (c.regexHits >= 1 || c.aliasHits >= 2);
+      return c.totalScore >= 0.50 && (c.regexHits >= 1 || c.aliasHits >= 1);
     });
     
     return validCandidates
@@ -256,10 +256,11 @@ export class UniversalOCRPipeline {
     type: 'panel' | 'battery', 
     fullText: string
   ): boolean {
-    const context = this.getContext(fullText, match.position, 300);
+    // Use larger context window for more flexible validation
+    const context = this.getContext(fullText, match.position, 600);
     
     if (type === 'panel') {
-      // Enhanced panel detection: Look for both watts and kW patterns
+      // More flexible panel validation - allow if no conflicting evidence
       const wattsPatterns = [
         /\b(\d{3,4})\s*W\b/gi,           // 400W, 450W etc
         /\b(\d{1,2}\.?\d*)\s*kW\b/gi     // 6.6kW, 13.2kW etc (convert to watts)
@@ -270,8 +271,11 @@ export class UniversalOCRPipeline {
         const matches = [...context.matchAll(pattern)];
         if (matches.length > 0) {
           if (pattern.source.includes('kW')) {
-            // Convert kW to watts
-            foundWatts = parseFloat(matches[0][1]) * 1000;
+            // Convert kW to watts - but be careful about system size vs panel size
+            const kWValue = parseFloat(matches[0][1]);
+            if (kWValue <= 1.0) { // Individual panel unlikely to be >1kW
+              foundWatts = kWValue * 1000;
+            }
           } else {
             foundWatts = parseInt(matches[0][1]);
           }
@@ -279,23 +283,30 @@ export class UniversalOCRPipeline {
         }
       }
       
-      if (foundWatts === 0) return false;
+      // Don't reject if no watts found - specs might be elsewhere
+      if (foundWatts > 0) {
+        const expectedWatts = product.specs.watts;
+        if (expectedWatts && Math.abs(foundWatts - expectedWatts) > 100) return false; // Increased tolerance
+      }
       
-      const expectedWatts = product.specs.watts;
-      if (expectedWatts && Math.abs(foundWatts - expectedWatts) > 50) return false; // More tolerance for kW conversions
+      // Reject if this looks like a battery (has kWh nearby)
+      if (/\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi.test(context)) {
+        return false;
+      }
       
-      // If product has cell group, enforce match
+      // Optional cell group validation - don't enforce strictly
       if (product.specs.cellGroup) {
         const cellPattern = new RegExp(`-${product.specs.cellGroup}-`, 'i');
-        if (!cellPattern.test(context)) return false;
+        // Give bonus points but don't reject if missing
       }
     }
     
     if (type === 'battery') {
-      // Enhanced battery detection: Multiple kWh patterns
+      // More flexible battery patterns
       const kwhPatterns = [
         /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh?\b/gi,    // 25kWh, 13.5kwh
         /\b(\d{1,3}(?:\.\d{1,2})?)\s*KWH?\b/gi,    // 25KWH, 13.5KWH
+        /\b(\d{1,2})\b(?=\s*(?:SIGEN|BATTERY|kWh))/gi, // Just numbers near battery brands
         /(\d{1,3}(?:\.\d{1,2})?)\s*(?:kilo\s*watt?\s*hour|kilowatt\s*hour)/gi
       ];
       
@@ -308,12 +319,20 @@ export class UniversalOCRPipeline {
         }
       }
       
-      if (foundKwh === 0) return false;
+      // Don't require kWh to be found - specs might be elsewhere
+      if (foundKwh > 0) {
+        const expectedKwh = product.specs.kWh;
+        if (expectedKwh) {
+          const tolerance = Math.max(2.0, expectedKwh * 0.25); // More tolerance: ±25% or 2kWh minimum
+          if (Math.abs(foundKwh - expectedKwh) > tolerance) return false;
+        }
+      }
       
-      const expectedKwh = product.specs.kWh;
-      if (expectedKwh) {
-        const tolerance = Math.max(1.0, expectedKwh * 0.15); // More tolerance: ±15% or 1kWh minimum
-        if (Math.abs(foundKwh - expectedKwh) > tolerance) return false;
+      // Reject if this looks like an inverter (has kW but no kWh)
+      const hasKW = /\b\d{1,2}(?:\.\d)?\s*kW\b/gi.test(context);
+      const hasKWH = /\b\d{1,3}(?:\.\d{1,2})?\s*kWh?\b/gi.test(context);
+      if (hasKW && !hasKWH) {
+        return false;
       }
     }
     
