@@ -50,13 +50,8 @@ export default function DataCollectionPanel() {
 
     async function tickOnce() {
       try {
-        await fetch('/functions/v1/cec-comprehensive-scraper', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ action: 'tick' })
+        await supabase.functions.invoke('cec-comprehensive-scraper', {
+          body: { action: 'tick' }
         });
       } catch (e) {
         console.error('tick error', e);
@@ -66,16 +61,11 @@ export default function DataCollectionPanel() {
     async function poll() {
       if (stop) return;
       try {
-        const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ action: 'status' })
+        const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+          body: { action: 'status' }
         });
         
-        const data = await response.json();
+        if (error) throw error;
         console.log('📊 Poll status:', data);
         
         const adapted = adaptStatus(data);
@@ -102,16 +92,11 @@ export default function DataCollectionPanel() {
       console.log('🚀 Starting scraper...');
       
       // First try to get current status to see if job is already running
-      const statusResponse = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'status' })
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'status' }
       });
       
-      const statusData = await statusResponse.json();
+      if (statusError) throw statusError;
       console.log('📊 Status check response:', statusData);
       
       if (statusData?.job?.status === 'running') {
@@ -126,21 +111,12 @@ export default function DataCollectionPanel() {
       }
       
       // Start new job
-      const startResponse = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'start' })
+      const { data: startData, error: startError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'start' }
       });
       
-      const startData = await startResponse.json();
+      if (startError) throw startError;
       console.log('📊 Start response:', startData);
-      
-      if (!startResponse.ok) {
-        throw new Error(startData.error || 'Failed to start scraper');
-      }
       
       const newJobId = startData?.job_id || startData?.id;
       console.log('🔍 Extracted job_id:', newJobId);
@@ -179,20 +155,11 @@ export default function DataCollectionPanel() {
     
     setBusy(true);
     try {
-      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'reset' })
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'reset' }
       });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Reset failed');
-      }
+      if (error) throw error;
       
       localStorage.removeItem('scrape_job_id');
       setJobId(null);
@@ -215,20 +182,11 @@ export default function DataCollectionPanel() {
 
   async function checkReadiness() {
     try {
-      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'check_readiness' })
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'check_readiness' }
       });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Readiness check failed');
-      }
+      if (error) throw error;
       
       const ok = data?.allPassing;
       toast({

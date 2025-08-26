@@ -77,21 +77,12 @@ export default function ComprehensiveCatalogManager() {
     
     try {
       console.log('🔄 UI: Loading job status...');
-      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'status' })
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'status' }
       });
 
-      const data = await response.json();
+      if (error) throw error;
       console.log('📊 UI: Status response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load status');
-      }
 
       setJob(data.job);
       setProgress(data.progress || []);
@@ -105,13 +96,8 @@ export default function ComprehensiveCatalogManager() {
     if (!jobId || job?.status !== 'running') return;
     
     try {
-      await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'tick' })
+      await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'tick' }
       });
     } catch (error) {
       console.error('❌ UI: Failed to tick job:', error);
@@ -120,26 +106,15 @@ export default function ComprehensiveCatalogManager() {
 
   async function startJob() {
     console.log('🟣🟣🟣 START JOB FUNCTION CALLED!!! 🟣🟣🟣');
-    alert('startJob() function was called! Check console.');
     setLoading(true);
 
     try {
-      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'start' })
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'start' }
       });
 
-      const data = await response.json();
-      console.log('📊 UI: Start job response:', { data, status: response.status });
-
-      if (!response.ok) {
-        console.error('❌ UI: HTTP error:', response.status, data);
-        throw new Error(data.error || 'Failed to start scraper');
-      }
+      if (error) throw error;
+      console.log('📊 UI: Start job response:', data);
 
       if (!data) {
         console.error('❌ UI: No data returned from function');
@@ -151,7 +126,6 @@ export default function ComprehensiveCatalogManager() {
 
       if (!newJobId) {
         console.error('❌ UI: No job_id in response. Full data:', data);
-        // Try to continue anyway in case the job started without returning an ID
         toast({
           title: "Warning",
           description: "Job may have started but no ID was returned. Check the system manager.",
@@ -193,20 +167,11 @@ export default function ComprehensiveCatalogManager() {
     setLoading(true);
 
     try {
-      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ action: 'reset' })
+      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'reset' }
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to reset jobs');
-      }
+      if (error) throw error;
 
       // Clear local state
       setJobId(null);

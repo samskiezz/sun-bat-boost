@@ -12,6 +12,7 @@ import SolarCalculator from "@/components/SolarCalculator";
 import { AIAssistant } from "@/components/AIAssistant";
 import { SEOHead } from "@/components/SEOHead";
 import SystemStatusIndicator from "@/components/SystemStatusIndicator";
+import ScrapingWidget from "@/components/ScrapingWidget";
 import { useState } from "react";
 
 const Index = () => {
@@ -112,46 +113,50 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  System Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">System Capabilities</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• CEC-approved product database</li>
-                      <li>• 50,000+ episode AI training</li>
-                      <li>• OCR document analysis</li>
-                      <li>• Real-time compatibility checking</li>
-                      <li>• Explainable AI decisions</li>
-                    </ul>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ScrapingWidget />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    System Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">System Capabilities</h4>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• CEC-approved product database</li>
+                        <li>• 50,000+ episode AI training</li>
+                        <li>• OCR document analysis</li>
+                        <li>• Real-time compatibility checking</li>
+                        <li>• Explainable AI decisions</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Data Sources</h4>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• Clean Energy Council catalog</li>
+                        <li>• Manufacturer specifications</li>
+                        <li>• Australian rebate schemes</li>
+                        <li>• Real installation data</li>
+                        <li>• Performance analytics</li>
+                      </ul>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Data Sources</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Clean Energy Council catalog</li>
-                      <li>• Manufacturer specifications</li>
-                      <li>• Australian rebate schemes</li>
-                      <li>• Real installation data</li>
-                      <li>• Performance analytics</li>
-                    </ul>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => navigate('/system')}
-                  className="w-full"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Open System Manager
-                </Button>
-              </CardContent>
-            </Card>
+                  
+                  <Button 
+                    onClick={() => navigate('/system')}
+                    className="w-full"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Open System Manager
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
