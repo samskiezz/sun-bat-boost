@@ -588,7 +588,7 @@ export default function ComprehensiveCatalogManager() {
                             {gate.current} / {gate.required}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {Math.round((gate.current / gate.required) * 100)}%
+                            {Math.round((gate.current / Math.max(gate.current, gate.required)) * 100)}%
                           </div>
                         </div>
                       </div>
