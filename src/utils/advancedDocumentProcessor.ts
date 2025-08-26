@@ -86,6 +86,29 @@ export const validateAdvancedExtractedData = (data: AdvancedProcessorResult['ext
   warnings: string[];
   suggestions: string[];
 } => {
-  const { validateBattleTestedExtractedData } = require('./battleTestedDocumentProcessor');
-  return validateBattleTestedExtractedData(data);
+  // Simple validation for now to avoid require() issues
+  const warnings: string[] = [];
+  const suggestions: string[] = [];
+  
+  if (!data?.panels?.length && !data?.batteries?.length) {
+    warnings.push('No solar equipment detected with high confidence');
+    suggestions.push('Ensure the document contains clear equipment specifications with model numbers');
+  }
+  
+  // Check for very high confidence matches (battle-tested threshold)
+  const highConfidenceItems = [
+    ...(data?.panels?.filter(p => p.confidence >= 0.9) || []),
+    ...(data?.batteries?.filter(b => b.confidence >= 0.9) || [])
+  ];
+  
+  if (highConfidenceItems.length === 0 && (data?.panels?.length || data?.batteries?.length)) {
+    warnings.push('Equipment matches have confidence below 90%');
+    suggestions.push('Please verify equipment models are clearly visible and match CEC approved products');
+  }
+  
+  return {
+    isValid: warnings.length === 0,
+    warnings,
+    suggestions,
+  };
 };

@@ -97,7 +97,7 @@ class BattleTestedExtractor {
     const { data: panels } = await supabase
       .from('pv_modules')
       .select('*')
-      .eq('approval_status', 'Approved');
+      .eq('approval_status', 'approved'); // lowercase 'approved'
 
     if (panels) {
       for (const panel of panels) {
@@ -118,7 +118,7 @@ class BattleTestedExtractor {
     const { data: batteries } = await supabase
       .from('batteries')
       .select('*')
-      .eq('approval_status', 'Approved');
+      .eq('approval_status', 'approved'); // lowercase 'approved'
 
     if (batteries) {
       for (const battery of batteries) {
