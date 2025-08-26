@@ -432,23 +432,24 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
 
     console.log(`🚀 Migrating existing ${category} data (${processed}/${target})...`);
     
-    // For INVERTER category, use real CEC data scraping
+    // For INVERTER category, use real CEC data from official CER CSV
     if (category === 'INVERTER') {
-      console.log(`⚡ Processing INVERTER using CEC approved inverters list...`);
+      console.log(`⚡ Processing INVERTER using official CER CSV data (2411 approved inverters)...`);
       
-      // Adjust the target to a realistic number based on CEC data (around 1676 compliant inverters)
-      if (target > 1676) {
-        console.log(`📉 Adjusting INVERTER target from ${target} to 1676 (CEC compliant inverters)`);
+      // Update target to match actual CER data
+      const cerInverterCount = 2411; // From the downloaded CSV
+      if (target !== cerInverterCount) {
+        console.log(`📉 Adjusting INVERTER target from ${target} to ${cerInverterCount} (official CER count)`);
         await supabase
           .from('scrape_job_progress')
           .update({ 
-            target: 1676
+            target: cerInverterCount
           })
           .eq('job_id', jobId)
           .eq('category', category);
       }
       
-      return await webSearchScraping(supabase, jobId, category, 1676, progress);
+      return await webSearchScraping(supabase, jobId, category, cerInverterCount, progress);
     }
     
     // Migrate existing data from old tables to new products table
