@@ -130,42 +130,66 @@ export default function WorkingScrapingWidget() {
     setLoading(true);
     
     try {
-      // First, force reset any stuck jobs
+      console.log('🔄 Attempting to start scraping...');
+      
+      // Check if function exists by calling status first
+      const statusResponse = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'status' }
+      });
+      
+      console.log('📊 Status check response:', statusResponse);
+      
+      if (statusResponse.error) {
+        console.error('❌ Status check failed:', statusResponse.error);
+        throw new Error(`Function error: ${statusResponse.error.message}`);
+      }
+      
+      // Reset any stuck jobs
       console.log('🔄 Resetting any stuck jobs...');
-      await supabase.functions.invoke('cec-comprehensive-scraper', {
+      const resetResponse = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'reset' }
       });
+      
+      console.log('🔄 Reset response:', resetResponse);
+      
+      if (resetResponse.error) {
+        console.error('❌ Reset failed:', resetResponse.error);
+        // Continue anyway, might not be critical
+      }
 
       // Wait a moment then start fresh
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       console.log('🆕 Starting fresh scraping job...');
-      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+      const startResponse = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'start' }
       });
+      
+      console.log('✅ Start response:', startResponse);
 
-      if (error) throw error;
+      if (startResponse.error) {
+        console.error('❌ Start failed:', startResponse.error);
+        throw new Error(`Start failed: ${startResponse.error.message}`);
+      }
 
-      console.log('✅ Start response:', data);
-
-      if (data?.job_id) {
-        setJob({ id: data.job_id, status: 'running' });
-        localStorage.setItem('scrape_job_id', data.job_id);
+      if (startResponse.data?.job_id) {
+        setJob({ id: startResponse.data.job_id, status: 'running' });
+        localStorage.setItem('scrape_job_id', startResponse.data.job_id);
       }
 
       toast({
-        title: "Scraping Restarted",
-        description: "Fresh scraping job started - data will begin collecting",
+        title: "Scraping Started",
+        description: "Scraping job initiated successfully",
       });
 
       // Immediately refresh status
-      setTimeout(loadCurrentStatus, 1000);
+      setTimeout(loadCurrentStatus, 2000);
 
     } catch (error) {
-      console.error('❌ Start failed:', error);
+      console.error('❌ Complete start failure:', error);
       toast({
         title: "Start Failed",
-        description: (error as Error).message,
+        description: `Failed to start scraping: ${(error as Error).message}`,
         variant: "destructive"
       });
     } finally {

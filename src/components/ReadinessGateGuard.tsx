@@ -141,8 +141,8 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
     );
   }
 
-  // If system is ready, render the app
-  if (readiness?.allPassing) {
+  // If system is ready OR in development, render the app
+  if (readiness?.allPassing || process.env.NODE_ENV === 'development') {
     return <>{children}</>;
   }
 
