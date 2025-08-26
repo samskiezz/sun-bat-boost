@@ -17,18 +17,26 @@ export default function SystemManager() {
   const handleEmergencyStop = async () => {
     setEmergencyLoading(true);
     try {
-      // Stop all scraping jobs
-      const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'reset' }
+      // First try to pause/stop the current job gracefully
+      const { error: stopError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'pause' }
       });
       
-      if (resetError) {
-        throw resetError;
+      // If pause fails, then do a reset as fallback
+      if (stopError) {
+        console.log('Pause failed, trying reset as fallback');
+        const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+          body: { action: 'reset' }
+        });
+        
+        if (resetError) {
+          throw resetError;
+        }
       }
 
       toast({
-        title: "Emergency Stop Executed",
-        description: "All running processes have been stopped and reset.",
+        title: "Emergency Stop Executed", 
+        description: "All running processes have been paused/stopped.",
         duration: 3000,
       });
     } catch (error) {
@@ -63,10 +71,10 @@ export default function SystemManager() {
               className="flex items-center gap-2"
             >
               <StopCircle className="w-4 h-4" />
-              {emergencyLoading ? 'Stopping...' : 'Emergency Stop All Processes'}
+              {emergencyLoading ? 'Pausing...' : 'Emergency Pause All Processes'}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Use this to immediately stop all running scraping, training, and processing tasks.
+              Use this to immediately pause all running scraping, training, and processing tasks.
             </p>
           </div>
         </CardContent>
