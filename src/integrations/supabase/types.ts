@@ -328,6 +328,33 @@ export type Database = {
           },
         ]
       }
+      proposal_guidelines: {
+        Row: {
+          content_hash: string | null
+          created_at: string
+          extracted_at: string
+          guidelines: Json
+          id: string
+          source: string
+        }
+        Insert: {
+          content_hash?: string | null
+          created_at?: string
+          extracted_at?: string
+          guidelines?: Json
+          id?: string
+          source: string
+        }
+        Update: {
+          content_hash?: string | null
+          created_at?: string
+          extracted_at?: string
+          guidelines?: Json
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       pv_modules: {
         Row: {
           approval_expires: string | null
@@ -638,6 +665,30 @@ export type Database = {
           metadata?: Json | null
           metric_type?: string
           value?: number
+        }
+        Relationships: []
+      }
+      training_standards: {
+        Row: {
+          created_at: string
+          id: string
+          standard_type: string
+          standards: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          standard_type: string
+          standards?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          standard_type?: string
+          standards?: Json
+          updated_at?: string
         }
         Relationships: []
       }

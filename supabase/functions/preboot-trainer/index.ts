@@ -473,16 +473,55 @@ async function simulateDesignValidation(context: TrainingContext) {
 }
 
 function calculateOCRReward(ocrResult: any): number {
-  const base = ocrResult.precision * 2 - (1 - ocrResult.recall) * 1;
-  return Math.max(-2, Math.min(2, base));
+  // More realistic reward based on actual extraction accuracy
+  const precisionWeight = 0.4;
+  const recallWeight = 0.4;
+  const accuracyWeight = 0.2;
+  
+  // Penalize heavily for completely wrong extractions
+  if (ocrResult.accuracy < 0.3) {
+    return -1.5;
+  }
+  
+  // Reward based on balanced precision/recall
+  const baseScore = (ocrResult.precision * precisionWeight) + 
+                   (ocrResult.recall * recallWeight) + 
+                   (ocrResult.accuracy * accuracyWeight);
+  
+  // Convert to reward scale (-2 to +2)
+  return Math.max(-2, Math.min(2, (baseScore * 4) - 2));
 }
 
 function calculateDesignReward(designResult: any): number {
-  let reward = designResult.rulesPassRate * 2; // Base reward for passing rules
+  // Real-world design validation reward
+  let reward = 0;
   
-  // Bonus for optimal DC:AC ratio
-  if (designResult.dcAcRatio >= 1.1 && designResult.dcAcRatio <= 1.3) {
+  // Base reward for rule compliance (stricter)
+  if (designResult.rulesPassRate >= 0.9) {
+    reward += 1.5;
+  } else if (designResult.rulesPassRate >= 0.7) {
     reward += 0.5;
+  } else if (designResult.rulesPassRate < 0.5) {
+    reward -= 1.0; // Penalty for poor compliance
+  }
+  
+  // DC:AC ratio optimization (more realistic ranges)
+  const dcAcRatio = designResult.dcAcRatio;
+  if (dcAcRatio >= 1.15 && dcAcRatio <= 1.35) {
+    reward += 0.8; // Optimal range
+  } else if (dcAcRatio >= 1.0 && dcAcRatio <= 1.5) {
+    reward += 0.3; // Acceptable range
+  } else {
+    reward -= 0.5; // Poor ratio
+  }
+  
+  // Safety and compliance bonus/penalty
+  const criticalRulesPassed = designResult.validConfigs.filter(rule => 
+    ['MPPT_VOLTAGE', 'PHASE_MATCH'].includes(rule)
+  ).length;
+  
+  if (criticalRulesPassed < 2) {
+    reward -= 1.0; // Heavy penalty for safety violations
   }
   
   return Math.max(-2, Math.min(2, reward));
