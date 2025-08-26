@@ -1521,6 +1521,17 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       .eq('category', category)
       .not('pdf_path', 'is', null);
     
+    // Get actual spec counts from database 
+    const { data: specsData } = await supabase
+      .from('specs')
+      .select('product_id, products!inner(category)')
+      .eq('products.category', category);
+    
+    // Count unique products with specs for this category
+    const uniqueProductsWithSpecs = new Set(specsData?.map(s => s.product_id) || []).size;
+    
+    console.log(`📊 ${category} actual stats: ${actualCount} products, ${uniqueProductsWithSpecs} with specs, ${withPdfCount} with PDFs`);
+    
     // Get current job progress
     const { data: currentProgress } = await supabase
       .from('scrape_job_progress')
@@ -1530,13 +1541,18 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
       .single();
     
     if (currentProgress) {
+      // Force specs re-extraction for panels and batteries if they have 0 specs
+      const shouldForceSpecs = ['PANEL', 'BATTERY_MODULE'].includes(category) && uniqueProductsWithSpecs === 0;
+      
       // Update progress to match database reality
       const updatedProgress = {
         processed: actualCount || 0,
         pdf_done: withPdfCount || 0,
-        specs_done: actualCount || 0, // Assume all products have specs if they exist
-        state: (actualCount || 0) >= currentProgress.target ? 'completed' : 'running'
+        specs_done: shouldForceSpecs ? 0 : uniqueProductsWithSpecs, // Real spec count
+        state: shouldForceSpecs ? 'running' : ((actualCount || 0) >= currentProgress.target ? 'completed' : 'running')
       };
+      
+      console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=${shouldForceSpecs}`);
       
       await supabase
         .from('scrape_job_progress')
@@ -1544,7 +1560,7 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .eq('job_id', jobId)
         .eq('category', category);
       
-      console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${currentProgress.target} processed, ${updatedProgress.pdf_done} PDFs`);
+      console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${currentProgress.target} processed, ${updatedProgress.specs_done} specs, ${updatedProgress.pdf_done} PDFs`);
     }
     
   } catch (error) {
