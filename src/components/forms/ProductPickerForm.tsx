@@ -90,67 +90,52 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
       const jinko440 = sortedResults.filter(p => 
         p.brand?.toLowerCase().includes('jinko') && p.power_rating === 440
       );
-      console.log(`🎯 Jinko 440W exact matches: ${jinko440.length}`);
+      console.log(`🎯 Jinko 440W EXACT matches: ${jinko440.length}`);
+      
+      const jinko580 = sortedResults.filter(p => 
+        p.brand?.toLowerCase().includes('jinko') && p.power_rating === 580
+      );
+      console.log(`🎯 Jinko 580W EXACT matches: ${jinko580.length}`);
+      
+      if (searchTerm.includes('440') && jinko440.length === 0) {
+        console.log('❌ NO JINKO 440W FOUND - This is the fix working!');
+      }
     }
+    
+    if (searchTerm.includes('trina')) {
+      const trina440 = sortedResults.filter(p => 
+        p.brand?.toLowerCase().includes('trina') && p.power_rating === 440
+      );
+      console.log(`🎯 Trina 440W EXACT matches: ${trina440.length}`);
+    }
+    
+    // Log first few results for debugging
+    console.log(`🔍 First 5 results:`, sortedResults.slice(0, 5).map(p => ({
+      brand: p.brand,
+      model: p.model,
+      watts: p.power_rating
+    })));
     
     return sortedResults;
   }, [panels, panelSearch]);
 
-  // Enhanced battery search with better matching
+  // Enhanced battery search with brand-strict filtering
   const filteredBatteries = useMemo(() => {
     if (!batterySearch.trim()) return [];
     
     const searchTerm = batterySearch.toLowerCase().trim();
     console.log(`🔍 BATTERY SEARCH: "${searchTerm}" in ${batteries.length} total batteries`);
     
-    const results = batteries.filter(battery => {
-      if (!battery) return false;
-      
-      const brand = (battery.brand || '').toLowerCase();
-      const model = (battery.model || '').toLowerCase();
-      const chemistry = (battery.chemistry || '').toLowerCase();
-      const desc = (battery.description || '').toLowerCase();
-      const capacity = (battery.capacity_kwh || '').toString();
-      
-      // Create comprehensive searchable text
-      const fullText = `${brand} ${model} ${chemistry} ${desc} ${capacity}`.toLowerCase();
-      
-      // Multiple search strategies
-      const strategies = [
-        // Exact matches
-        brand === searchTerm,
-        model === searchTerm,
-        
-        // Partial matches
-        brand.includes(searchTerm),
-        model.includes(searchTerm),
-        chemistry.includes(searchTerm),
-        fullText.includes(searchTerm),
-        
-        // Multi-word search
-        searchTerm.includes(' ') && (() => {
-          const words = searchTerm.split(' ').filter(w => w.length > 0);
-          return words.every(word => fullText.includes(word));
-        })(),
-        
-        // Capacity search (handle "13.5", "13.5kwh", etc.)
-        (() => {
-          const numericSearch = searchTerm.replace(/[^\d.]/g, '');
-          return numericSearch && capacity.includes(numericSearch);
-        })(),
-        
-        // Brand shortcuts
-        (searchTerm === 'tesla' && brand.includes('tesla')),
-        (searchTerm === 'lg' && brand.includes('lg')),
-        (searchTerm === 'byd' && brand.includes('byd')),
-        (searchTerm === 'sungrow' && brand.includes('sungrow')),
-      ];
-      
-      return strategies.some(Boolean);
-    }).slice(0, 100); // Show top 100 matches
+    // Use brand-strict filtering for batteries too
+    const filterResult = brandStrictFilter.filterProducts(batteries, searchTerm);
     
-    console.log(`✅ BATTERY SEARCH RESULTS: ${results.length} matches for "${searchTerm}"`);
-    return results;
+    console.log(`✅ STRICT BATTERY RESULTS: ${filterResult.filteredProducts.length} matches`, {
+      brand: filterResult.brand,
+      capacity: filterResult.wattage, // Using wattage field for capacity
+      confidence: filterResult.confidence
+    });
+    
+    return filterResult.filteredProducts.slice(0, 100); // Limit results
   }, [batteries, batterySearch]);
 
   const selectedPanel = formData.panelId ? panels.find(p => p.id === parseInt(formData.panelId)) : undefined;
