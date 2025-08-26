@@ -346,7 +346,7 @@ export default function ComprehensiveCatalogManager() {
           <div className="grid gap-4">
             {progress.map((categoryProgress) => {
               const percentage = categoryProgress.target > 0 
-                ? Math.round((categoryProgress.processed / categoryProgress.target) * 100) 
+                ? Math.round((categoryProgress.specs_done / categoryProgress.target) * 100) 
                 : 0;
               
               const statusColor = getStatusColor(categoryProgress.state);
