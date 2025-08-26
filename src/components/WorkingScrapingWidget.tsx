@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Database, Play, RotateCcw } from 'lucide-react';
+import { Database, Play, RotateCcw, StopCircle, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface JobData {
@@ -245,6 +245,45 @@ export default function WorkingScrapingWidget() {
     }
   }
 
+  async function stopJob() {
+    if (!confirm('⚠️ Stop the current scraping job?')) return;
+    
+    setLoading(true);
+    try {
+      // Reset the job to stop it
+      const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'reset' }
+      });
+
+      if (resetError) {
+        console.error('❌ Stop error:', resetError);
+        throw resetError;
+      }
+
+      setJob(null);
+      setProgress([]);
+      localStorage.removeItem('scrape_job_id');
+
+      toast({
+        title: "Job Stopped",
+        description: "Scraping job stopped successfully"
+      });
+
+      // Refresh status to confirm stop
+      setTimeout(loadCurrentStatus, 1000);
+
+    } catch (error) {
+      console.error('❌ Stop failed:', error);
+      toast({
+        title: "Stop Failed",
+        description: (error as Error).message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const isRunning = job?.status === 'running';
 
   return (
@@ -259,24 +298,49 @@ export default function WorkingScrapingWidget() {
       <CardContent className="space-y-4">
         {/* Control Buttons */}
         <div className="flex gap-2">
-          <Button
-            onClick={startScraping}
-            disabled={loading}
-            size="sm"
-            className="flex-1"
-            variant={isRunning ? "secondary" : "default"}
-          >
-            <Play className="w-3 h-3 mr-1" />
-            {isRunning ? 'Running...' : loading ? 'Starting...' : 'Start Scraping'}
-          </Button>
-          <Button
-            onClick={resetScraping}
-            disabled={loading}
-            variant="outline"
-            size="sm"
-          >
-            <RotateCcw className="w-3 h-3" />
-          </Button>
+          {!isRunning ? (
+            <>
+              <Button
+                onClick={startScraping}
+                disabled={loading}
+                size="sm"
+                className="flex-1"
+              >
+                <Play className="w-3 h-3 mr-1" />
+                {loading ? 'Starting...' : 'Start Scraping'}
+              </Button>
+              <Button
+                onClick={resetScraping}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={stopJob}
+                disabled={loading}
+                size="sm"
+                variant="destructive"
+                className="flex-1"
+              >
+                <StopCircle className="w-3 h-3 mr-1" />
+                {loading ? 'Stopping...' : 'Stop Job'}
+              </Button>
+              <Button
+                onClick={resetScraping}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                title="Reset and restart job"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Job Info */}

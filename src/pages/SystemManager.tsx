@@ -1,14 +1,77 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Database, Brain, Shield, BarChart3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Database, Brain, Shield, BarChart3, StopCircle, Pause, AlertTriangle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import ComprehensiveCatalogManager from '@/components/ComprehensiveCatalogManager';
 import ComprehensiveTrainingDashboard from '@/components/ComprehensiveTrainingDashboard';
 import TrainingDashboard from '@/train/dashboard';
 
 export default function SystemManager() {
+  const { toast } = useToast();
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+
+  const handleEmergencyStop = async () => {
+    setEmergencyLoading(true);
+    try {
+      // Stop all scraping jobs
+      const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+        body: { action: 'reset' }
+      });
+      
+      if (resetError) {
+        throw resetError;
+      }
+
+      toast({
+        title: "Emergency Stop Executed",
+        description: "All running processes have been stopped and reset.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Emergency stop error:', error);
+      toast({
+        title: "Emergency Stop Failed",
+        description: "Failed to stop processes. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Emergency Controls */}
+      <Card className="border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl text-red-700">
+            <AlertTriangle className="w-5 h-5" />
+            Emergency Controls
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleEmergencyStop}
+              disabled={emergencyLoading}
+              variant="destructive"
+              className="flex items-center gap-2"
+            >
+              <StopCircle className="w-4 h-4" />
+              {emergencyLoading ? 'Stopping...' : 'Emergency Stop All Processes'}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Use this to immediately stop all running scraping, training, and processing tasks.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
