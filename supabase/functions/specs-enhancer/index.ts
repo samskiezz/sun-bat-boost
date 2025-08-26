@@ -51,7 +51,27 @@ async function findProductAliases(productName: string, category: string): Promis
     });
 
     const data = await response.json();
-    const aliases = JSON.parse(data.choices[0].message.content);
+    const rawContent = data.choices[0].message.content;
+    
+    // Clean up the response - remove markdown formatting and extra text
+    let cleanContent = rawContent.trim();
+    
+    // Remove markdown code blocks
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    // If response starts with explanatory text, try to find the JSON array
+    if (!cleanContent.startsWith('[')) {
+      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+    }
+    
+    const aliases = JSON.parse(cleanContent);
     console.log(`🧠 Generated ${aliases.length} aliases for ${productName}`);
     return Array.isArray(aliases) ? aliases : [productName];
   } catch (error) {
@@ -114,7 +134,27 @@ async function extractIntelligentSpecs(product: any): Promise<any[]> {
     });
 
     const data = await response.json();
-    const specs = JSON.parse(data.choices[0].message.content);
+    const rawContent = data.choices[0].message.content;
+    
+    // Clean up the response - remove markdown formatting and extra text
+    let cleanContent = rawContent.trim();
+    
+    // Remove markdown code blocks
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    // If response starts with explanatory text, try to find the JSON array
+    if (!cleanContent.startsWith('[')) {
+      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+    }
+    
+    const specs = JSON.parse(cleanContent);
     console.log(`🤖 Extracted ${specs.length} AI specs for ${product.model}`);
     
     return Array.isArray(specs) ? specs.map(spec => ({
