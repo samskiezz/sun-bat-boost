@@ -128,10 +128,10 @@ async function forceCompleteResetInBackground(supabase: any) {
     for (const category of categories) {
       await updateProgress(supabase, category, {
         status: 'clearing',
-        totalFound: 0,
-        totalProcessed: 0,
-        totalWithPdfs: 0,
-        totalParsed: 0
+        total_found: 0,
+        total_processed: 0,
+        total_with_pdfs: 0,
+        total_parsed: 0
       });
     }
     
@@ -162,10 +162,10 @@ async function forceCompleteResetInBackground(supabase: any) {
     for (const category of categories) {
       await updateProgress(supabase, category, {
         status: 'failed',
-        totalFound: 0,
-        totalProcessed: 0,
-        totalWithPdfs: 0,
-        totalParsed: 0
+        total_found: 0,
+        total_processed: 0,
+        total_with_pdfs: 0,
+        total_parsed: 0
       });
     }
   }
@@ -204,10 +204,10 @@ async function generateAndStoreProducts(supabase: any, category: string) {
   // Set initial progress
   await updateProgress(supabase, category, {
     status: 'processing',
-    totalFound: targetCount,
-    totalProcessed: 0,
-    totalWithPdfs: 0,
-    totalParsed: 0
+    total_found: targetCount,
+    total_processed: 0,
+    total_with_pdfs: 0,
+    total_parsed: 0
   });
   
   const products = generateProducts(category, targetCount);
@@ -229,10 +229,10 @@ async function generateAndStoreProducts(supabase: any, category: string) {
         if (processedCount % 50 === 0 || processedCount === products.length) {
           await updateProgress(supabase, category, {
             status: processedCount === products.length ? 'completed' : 'processing',
-            totalFound: targetCount,
-            totalProcessed: processedCount,
-            totalWithPdfs: processedCount, // All products get PDFs
-            totalParsed: specsCount
+            total_found: targetCount,
+            total_processed: processedCount,
+            total_with_pdfs: processedCount, // All products get PDFs
+            total_parsed: specsCount
           });
           
           const percentage = Math.round((processedCount / targetCount) * 100);
