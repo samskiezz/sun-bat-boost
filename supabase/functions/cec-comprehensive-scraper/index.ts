@@ -445,13 +445,13 @@ function generateProductSpecs(category: string, product: ProductData): Record<st
   switch (category) {
     case 'PANEL':
       const panelPower = 300 + Math.floor(Math.random() * 350);
-      const efficiency = 18 + Math.random() * 6;
+      const panelEfficiency = 18 + Math.random() * 6;
       const voltage = 30 + Math.random() * 25;
       
       return {
         ...baseSpecs,
         power_rating_w: panelPower,
-        efficiency_percent: Math.round(efficiency * 100) / 100,
+        efficiency_percent: Math.round(panelEfficiency * 100) / 100,
         voltage_voc: Math.round((voltage + 10) * 100) / 100,
         current_isc: Math.round((panelPower / voltage + 1) * 100) / 100,
         voltage_vmp: Math.round(voltage * 100) / 100,
@@ -465,12 +465,12 @@ function generateProductSpecs(category: string, product: ProductData): Record<st
       
     case 'INVERTER':
       const powerRating = 1 + Math.floor(Math.random() * 29);
-      const efficiency = 95 + Math.random() * 3;
+      const inverterEfficiency = 95 + Math.random() * 3;
       
       return {
         ...baseSpecs,
         power_rating_kw: powerRating,
-        max_efficiency_percent: Math.round(efficiency * 100) / 100,
+        max_efficiency_percent: Math.round(inverterEfficiency * 100) / 100,
         input_voltage_range: '125-800V',
         output_voltage: '230V',
         frequency: '50Hz',
