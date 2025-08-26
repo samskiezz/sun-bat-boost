@@ -90,6 +90,36 @@ serve(async (req) => {
 async function startTraining(supabase: any, targetEpisodes: number, batchSize: number) {
   console.log(`🚀 Starting ${targetEpisodes} episode training run...`);
   
+  // CRITICAL: Check readiness gates before allowing training
+  console.log('🔍 Checking readiness gates before training...');
+  const readinessCheck = await checkReadinessGates(supabase);
+  const readinessData = await readinessCheck.json();
+  
+  if (!readinessData.allPassing) {
+    const failingGates = readinessData.gates.filter((g: any) => !g.passing);
+    console.log('❌ Training blocked - readiness gates failing:', failingGates.map((g: any) => g.gate));
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: 'Training blocked: readiness gates must pass first',
+        failingGates: failingGates.map((g: any) => ({
+          gate: g.gate,
+          current: g.current,
+          required: g.required,
+          description: g.description
+        })),
+        message: 'Complete data collection and meet all readiness requirements before training'
+      }),
+      { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+  
+  console.log('✅ All readiness gates passing - training authorized');
+  
   // Check current training progress
   const { data: currentEpisodes } = await supabase
     .from('train_episodes')
@@ -191,14 +221,14 @@ async function startTraining(supabase: any, targetEpisodes: number, batchSize: n
   console.log(`🎓 Training complete: ${completedEpisodes} new episodes`);
   
   // Check all readiness gates
-  const readinessCheck = await checkReadinessGates(supabase);
+  const finalReadinessCheck = await checkReadinessGates(supabase);
   
   return new Response(
     JSON.stringify({ 
       success: true,
       message: `Training completed: ${completedEpisodes} episodes`,
       totalEpisodes: startingEpisodes + completedEpisodes,
-      readiness: readinessCheck
+      readiness: finalReadinessCheck
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
