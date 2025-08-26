@@ -1,93 +1,88 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileUp, Upload, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-interface ProposalGuideline {
+interface UploadedGuideline {
   id: string;
   source: string;
-  guidelines: any;
   extracted_at: string;
+  guidelines: any;
 }
 
-export function PDFProposalUploader() {
+const PDFProposalUploader: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
-  const [guidelines, setGuidelines] = useState<ProposalGuideline[]>([]);
-  const [showGuidelines, setShowGuidelines] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [guidelines, setGuidelines] = useState<UploadedGuideline[]>([]);
   const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files?.length) return;
+    const file = event.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      toast({
+        title: "Invalid file",
+        description: "Please upload a PDF file",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsProcessing(true);
-    const processedFiles: string[] = [];
+    setProgress(0);
 
     try {
-      for (const file of Array.from(files)) {
-        if (file.type !== 'application/pdf') {
-          toast({
-            title: "Invalid file type",
-            description: "Please upload PDF files only",
-            variant: "destructive"
-          });
-          continue;
-        }
-
-        // In a real implementation, you'd extract text from the PDF
-        // For now, we'll simulate with the filename
-        const proposalText = `Sample proposal content from ${file.name}`;
+      // Convert PDF to text (simplified - in real implementation would use PDF.js)
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const pdfText = e.target?.result as string;
         
-        // Process the PDF through our edge function
+        setProgress(30);
+        
+        // Process with edge function
         const { data, error } = await supabase.functions.invoke('pdf-proposal-processor', {
           body: {
             action: 'process_pdf',
-            pdfData: proposalText
+            pdfData: pdfText
           }
         });
 
-        if (error) {
-          console.error('Processing error:', error);
-          toast({
-            title: "Processing failed",
-            description: `Failed to process ${file.name}`,
-            variant: "destructive"
-          });
-        } else {
-          processedFiles.push(file.name);
-          toast({
-            title: "PDF processed",
-            description: `Successfully extracted guidelines from ${file.name}`,
-          });
-        }
-      }
+        setProgress(70);
 
-      setUploadedFiles(prev => [...prev, ...processedFiles]);
-      
-      // Update training standards if any files were processed
-      if (processedFiles.length > 0) {
-        await supabase.functions.invoke('pdf-proposal-processor', {
-          body: { action: 'update_training_standards' }
-        });
+        if (error) {
+          throw error;
+        }
+
+        if (!data.success) {
+          throw new Error(data.error || 'Processing failed');
+        }
+
+        setProgress(100);
         
         toast({
-          title: "Training standards updated",
-          description: "AI training system now uses your proposal guidelines",
+          title: "PDF Processed Successfully",
+          description: `Extracted guidelines from ${file.name}`,
         });
-      }
 
+        // Refresh guidelines list
+        await loadGuidelines();
+        
+      };
+      
+      reader.readAsText(file); // Simplified - real implementation would extract text from PDF
+      
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('PDF processing error:', error);
       toast({
-        title: "Upload failed",
-        description: "An error occurred while processing the files",
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "Failed to process PDF",
         variant: "destructive"
       });
     } finally {
       setIsProcessing(false);
+      setProgress(0);
     }
   };
 
@@ -100,189 +95,136 @@ export function PDFProposalUploader() {
       if (error) throw error;
       
       setGuidelines(data.guidelines || []);
-      setShowGuidelines(true);
     } catch (error) {
       console.error('Failed to load guidelines:', error);
-      toast({
-        title: "Failed to load guidelines",
-        description: "Could not retrieve proposal guidelines",
-        variant: "destructive"
-      });
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileUp className="h-5 w-5" />
-            Upload Proposal PDFs for AI Training
-          </CardTitle>
-          <CardDescription>
-            Upload solar proposal PDFs to extract design guidelines and standards that will improve the AI training system.
-            The system will analyze your proposals and use them to create realistic validation rules instead of synthetic data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              id="pdf-upload"
-              multiple
-              accept=".pdf"
-              onChange={handleFileUpload}
-              disabled={isProcessing}
-              className="hidden"
-            />
-            <label
-              htmlFor="pdf-upload"
-              className={`cursor-pointer flex flex-col items-center gap-2 ${
-                isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              <Upload className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                {isProcessing ? 'Processing PDFs...' : 'Click to upload PDF proposals'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Supports multiple PDF files. Guidelines will be extracted automatically.
-              </p>
-            </label>
-          </div>
+  const updateTrainingStandards = async () => {
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('pdf-proposal-processor', {
+        body: { action: 'update_training_standards' }
+      });
 
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Processed Files:</h4>
-              <div className="space-y-1">
-                {uploadedFiles.map((filename, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>{filename}</span>
-                  </div>
-                ))}
-              </div>
+      if (error) throw error;
+
+      toast({
+        title: "Training Standards Updated",
+        description: "AI training system now uses your proposal guidelines",
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update training standards",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadGuidelines();
+  }, []);
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          PDF Proposal Guidelines Uploader
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Upload real solar proposal PDFs to extract design guidelines and improve AI training accuracy.
+        </p>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Upload Section */}
+        <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+          <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+          
+          {isProcessing ? (
+            <div className="space-y-3">
+              <p className="text-sm">Processing PDF proposal...</p>
+              <Progress value={progress} className="w-full" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Drop a PDF proposal here or click to browse
+              </p>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="pdf-upload"
+              />
+              <Button asChild variant="outline">
+                <label htmlFor="pdf-upload" className="cursor-pointer">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose PDF File
+                </label>
+              </Button>
             </div>
           )}
+        </div>
 
-          <div className="flex gap-2">
-            <Button
-              onClick={loadGuidelines}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <BookOpen className="h-4 w-4" />
-              View Extracted Guidelines
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Guidelines Display */}
-      {showGuidelines && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Extracted Guidelines ({guidelines.length})
-            </CardTitle>
-            <CardDescription>
-              Design guidelines and standards extracted from your proposal PDFs
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {guidelines.length === 0 ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                <p className="text-sm">No guidelines found. Upload some PDF proposals first.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {guidelines.map((guideline) => (
-                  <div key={guideline.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-sm font-medium">Source: {guideline.source}</h4>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(guideline.extracted_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    
-                    <div className="text-sm space-y-2">
-                      {guideline.guidelines.technical_requirements && (
-                        <div>
-                          <strong>Technical Requirements:</strong>
-                          <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-x-auto">
-                            {JSON.stringify(guideline.guidelines.technical_requirements, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                      
-                      {guideline.guidelines.design_rules && (
-                        <div>
-                          <strong>Design Rules:</strong>
-                          <ul className="text-xs ml-4 mt-1 list-disc">
-                            {guideline.guidelines.design_rules.map((rule: string, idx: number) => (
-                              <li key={idx}>{rule}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {guideline.guidelines.validation_criteria && (
-                        <div>
-                          <strong>Validation Criteria:</strong>
-                          <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-x-auto">
-                            {JSON.stringify(guideline.guidelines.validation_criteria, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Training Impact */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Training Impact</CardTitle>
-          <CardDescription>
-            How your PDF proposals improve the AI training system
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2 text-sm">
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-              <div>
-                <strong>Realistic Standards:</strong> Extracts actual design requirements and validation rules from your proposals
-              </div>
+        {/* Guidelines Summary */}
+        {guidelines.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Extracted Guidelines ({guidelines.length})</h3>
+              <Button 
+                onClick={updateTrainingStandards}
+                disabled={isProcessing}
+                size="sm"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Update Training Standards
+              </Button>
             </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-              <div>
-                <strong>Better Rewards:</strong> Training system uses real performance metrics instead of synthetic data
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-              <div>
-                <strong>Domain Knowledge:</strong> AI learns from actual industry practices and compliance requirements
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-              <div>
-                <strong>Validation Rules:</strong> Creates proper design validation criteria based on real proposals
-              </div>
+            
+            <div className="grid gap-2">
+              {guidelines.slice(0, 5).map((guideline) => (
+                <div key={guideline.id} className="flex items-center gap-2 p-2 border rounded text-sm">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex-1">{guideline.source}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(guideline.extracted_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+              
+              {guidelines.length > 5 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  ... and {guidelines.length - 5} more
+                </p>
+              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+
+        {/* Instructions */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">How this improves training:</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Extracts real design standards from your proposals</li>
+                <li>Creates validation rules based on actual requirements</li>
+                <li>Fixes the "self-rewarding" problem by using real criteria</li>
+                <li>Improves OCR accuracy with real document patterns</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default PDFProposalUploader;

@@ -9,7 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Brain, Target, TrendingUp, Zap, Activity, Award, AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { PDFProposalUploader } from '@/components/PDFProposalUploader';
+import PDFProposalUploader from '@/components/PDFProposalUploader';
 
 interface TrainingMetric {
   name: string;
