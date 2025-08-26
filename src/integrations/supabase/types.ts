@@ -439,6 +439,71 @@ export type Database = {
         }
         Relationships: []
       }
+      scrape_job_progress: {
+        Row: {
+          category: string
+          job_id: string
+          pdf_done: number
+          processed: number
+          specs_done: number
+          state: string
+          target: number
+        }
+        Insert: {
+          category: string
+          job_id: string
+          pdf_done?: number
+          processed?: number
+          specs_done?: number
+          state?: string
+          target: number
+        }
+        Update: {
+          category?: string
+          job_id?: string
+          pdf_done?: number
+          processed?: number
+          specs_done?: number
+          state?: string
+          target?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_job_progress_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scrape_jobs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       scrape_progress: {
         Row: {
           category: Database["public"]["Enums"]["product_category"]
@@ -696,6 +761,10 @@ export type Database = {
       check_data_freshness: {
         Args: { table_name_param: string }
         Returns: boolean
+      }
+      check_readiness_gates: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_product_counts_by_category: {
         Args: Record<PropertyKey, never>
