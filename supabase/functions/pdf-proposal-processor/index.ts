@@ -309,13 +309,16 @@ async function updateTrainingStandards() {
   // Aggregate guidelines into training standards
   const aggregatedStandards = aggregateGuidelines(guidelines.map(g => g.guidelines));
   
-  // Update training standards
+  // Update training standards with proper conflict resolution
   const { error: updateError } = await supabase
     .from('training_standards')
     .upsert({
       standard_type: 'proposal_validation',
       standards: aggregatedStandards,
       updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'standard_type',
+      ignoreDuplicates: false
     });
 
   if (updateError) throw updateError;

@@ -28,6 +28,33 @@ const PDFProposalUploader: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  // Load saved processing files from localStorage on mount
+  useEffect(() => {
+    const savedFiles = localStorage.getItem('pdf-processing-queue');
+    if (savedFiles) {
+      try {
+        const parsedFiles = JSON.parse(savedFiles);
+        // Only restore files that were in error state or completed
+        const restorableFiles = parsedFiles.filter((f: ProcessingFile) => 
+          f.status === 'completed' || f.status === 'error'
+        );
+        setProcessingFiles(restorableFiles);
+      } catch (error) {
+        console.error('Failed to restore processing files:', error);
+        localStorage.removeItem('pdf-processing-queue');
+      }
+    }
+  }, []);
+
+  // Save processing files to localStorage whenever it changes
+  useEffect(() => {
+    if (processingFiles.length > 0) {
+      localStorage.setItem('pdf-processing-queue', JSON.stringify(processingFiles));
+    } else {
+      localStorage.removeItem('pdf-processing-queue');
+    }
+  }, [processingFiles]);
+
   // Real-time updates for guidelines
   useEffect(() => {
     loadGuidelines();
@@ -107,52 +134,56 @@ const PDFProposalUploader: React.FC = () => {
       status: 'pending'
     }));
     
-    setProcessingFiles(initialProcessingFiles);
+    setProcessingFiles(prev => [...prev, ...initialProcessingFiles]);
     
-    // Process files in smaller batches with throttling to prevent crashes
-    const batchSize = 3; // Reduced batch size for stability
+    // Process files in smaller batches with aggressive throttling
+    const batchSize = 2; // Further reduced for maximum stability
     const batches = [];
     for (let i = 0; i < files.length; i += batchSize) {
       batches.push(files.slice(i, i + batchSize));
     }
     
     let completedCount = 0;
+    let errorCount = 0;
     
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       
       console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} files`);
       
-      // Process batch with individual error handling
-      const batchPromises = batch.map(async (file) => {
+      // Process files sequentially within batch for maximum stability
+      for (const file of batch) {
         const fileIndex = files.indexOf(file);
+        const globalIndex = processingFiles.length - files.length + fileIndex;
+        
         try {
-          await processFile(file, fileIndex);
+          await processFile(file, globalIndex);
           completedCount++;
         } catch (error) {
           console.error(`Error processing ${file.name}:`, error);
+          errorCount++;
           setProcessingFiles(prev => prev.map((f, i) => 
-            i === fileIndex ? { 
+            i === globalIndex ? { 
               ...f, 
               status: 'error', 
               error: error instanceof Error ? error.message : 'Processing failed'
             } : f
           ));
         }
-      });
+        
+        // Add delay between files
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
-      // Wait for current batch to complete before starting next
-      await Promise.allSettled(batchPromises);
-      
-      // Add delay between batches to prevent overwhelming the system
+      // Longer delay between batches
       if (batchIndex < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
       // Update progress
       toast({
         title: `Batch ${batchIndex + 1} Complete`,
-        description: `Processed ${completedCount}/${files.length} files`,
+        description: `Processed: ${completedCount + errorCount}/${files.length} (${errorCount} failed)`,
       });
     }
     
@@ -160,7 +191,8 @@ const PDFProposalUploader: React.FC = () => {
     
     toast({
       title: "Bulk Processing Complete",
-      description: `Successfully processed ${completedCount} of ${files.length} PDF proposals`,
+      description: `${completedCount} successful, ${errorCount} failed of ${files.length} files`,
+      variant: errorCount > completedCount ? "destructive" : "default"
     });
   };
 
@@ -274,6 +306,32 @@ const PDFProposalUploader: React.FC = () => {
     setProcessingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const clearCompletedFiles = () => {
+    setProcessingFiles(prev => prev.filter(f => f.status !== 'completed'));
+    toast({
+      title: "Queue Cleared",
+      description: "Removed all completed files from queue",
+    });
+  };
+
+  const retryFailedFiles = async () => {
+    const failedFiles = processingFiles
+      .filter(f => f.status === 'error')
+      .map(f => f.file);
+    
+    if (failedFiles.length === 0) {
+      toast({
+        title: "No Failed Files",
+        description: "There are no failed files to retry",
+      });
+      return;
+    }
+
+    // Remove failed files from queue and reprocess
+    setProcessingFiles(prev => prev.filter(f => f.status !== 'error'));
+    await processFiles(failedFiles);
+  };
+
   const updateTrainingStandards = async () => {
     setIsProcessing(true);
     try {
@@ -283,13 +341,18 @@ const PDFProposalUploader: React.FC = () => {
 
       if (error) throw error;
 
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to update training standards');
+      }
+
       toast({
         title: "Training Standards Updated",
         description: "AI training system now uses your proposal guidelines",
       });
     } catch (error) {
+      console.error('Training standards update error:', error);
       toast({
-        title: "Update Failed",
+        title: "Update Failed", 
         description: error instanceof Error ? error.message : "Failed to update training standards",
         variant: "destructive"
       });
@@ -391,7 +454,34 @@ const PDFProposalUploader: React.FC = () => {
         {processingFiles.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Processing Queue ({processingFiles.length} files)</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Processing Queue ({processingFiles.length} files)</CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={retryFailedFiles}
+                    disabled={isProcessing || !processingFiles.some(f => f.status === 'error')}
+                    className="text-xs"
+                  >
+                    Retry Failed
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={clearCompletedFiles}
+                    disabled={isProcessing || !processingFiles.some(f => f.status === 'completed')}
+                    className="text-xs"
+                  >
+                    Clear Completed
+                  </Button>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Completed: {processingFiles.filter(f => f.status === 'completed').length} | 
+                Failed: {processingFiles.filter(f => f.status === 'error').length} | 
+                Processing: {processingFiles.filter(f => f.status === 'uploading' || f.status === 'processing').length}
+              </div>
             </CardHeader>
             <CardContent className="max-h-80 overflow-y-auto space-y-2">
               {processingFiles.map((fileInfo, index) => (
