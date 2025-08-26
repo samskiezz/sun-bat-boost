@@ -239,7 +239,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                         {gate.current.toLocaleString()} / {gate.required.toLocaleString()}
                       </div>
                       <Progress 
-                        value={Math.min(100, (gate.current / gate.required) * 100)} 
+                        value={(gate.current / Math.max(gate.current, gate.required)) * 100} 
                         className="w-32 mt-1"
                       />
                     </div>
