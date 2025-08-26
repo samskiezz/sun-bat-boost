@@ -17,21 +17,14 @@ export default function SystemManager() {
   const handleEmergencyStop = async () => {
     setEmergencyLoading(true);
     try {
-      // First try to pause/stop the current job gracefully
-      const { error: stopError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
+      // Pause the current job gracefully
+      const { error: pauseError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'pause' }
       });
       
-      // If pause fails, then do a reset as fallback
-      if (stopError) {
-        console.log('Pause failed, trying reset as fallback');
-        const { error: resetError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-          body: { action: 'reset' }
-        });
-        
-        if (resetError) {
-          throw resetError;
-        }
+      if (pauseError) {
+        console.error('Pause failed:', pauseError);
+        throw pauseError;
       }
 
       toast({

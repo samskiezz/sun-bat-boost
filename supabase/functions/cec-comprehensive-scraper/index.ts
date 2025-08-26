@@ -423,10 +423,39 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
 
     console.log(`🚀 Migrating existing ${category} data (${processed}/${target})...`);
     
-    // For INVERTER category, skip migration and go directly to web search
+    // Check if there are any existing inverters in all_products to migrate
     if (category === 'INVERTER') {
-      console.log(`⚡ INVERTER category - processing with web search...`);
-      return await webSearchScraping(supabase, jobId, category, target, progress);
+      console.log(`⚡ Checking for existing INVERTER data to migrate...`);
+      
+      // Try to get inverter data from all_products table
+      const { data: existingInverters } = await supabase
+        .from('all_products')
+        .select('*')
+        .eq('product_type', 'INVERTER')
+        .range(processed, processed + batchSize - 1)
+        .order('id');
+      
+      if (existingInverters && existingInverters.length > 0) {
+        console.log(`📊 Found ${existingInverters.length} existing inverters to migrate`);
+        sourceData = existingInverters;
+      } else {
+        console.log(`🔍 No existing INVERTER data found, attempting web search...`);
+        
+        // If no existing data and we're still at the beginning, adjust the target
+        if (processed === 0) {
+          console.log(`📉 Adjusting INVERTER target from ${target} to ${processed + batchSize} (no source data available)`);
+          await supabase
+            .from('scrape_job_progress')
+            .update({ 
+              target: batchSize, // Set realistic target
+              state: 'running'
+            })
+            .eq('job_id', jobId)
+            .eq('category', category);
+        }
+        
+        return await webSearchScraping(supabase, jobId, category, batchSize, progress);
+      }
     }
     
     // Migrate existing data from old tables to new products table
