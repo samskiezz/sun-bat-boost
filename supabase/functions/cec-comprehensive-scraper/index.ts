@@ -596,7 +596,7 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
         processed: newProcessed,
         pdf_done: newPdfDone,
         specs_done: newSpecsDone,
-        state: newProcessed >= target ? 'completed' : 'running'
+        state: (newProcessed >= target && newSpecsDone >= target) ? 'completed' : 'running'
       })
       .eq('job_id', jobId)
       .eq('category', category);
@@ -754,7 +754,7 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
         processed: newProcessed,
         pdf_done: newPdfDone,
         specs_done: newSpecsDone,
-        state: newProcessed >= target ? 'completed' : 'running'
+        state: (newProcessed >= target && newSpecsDone >= target) ? 'completed' : 'running'
       })
       .eq('job_id', jobId)
       .eq('category', category);
@@ -824,7 +824,7 @@ async function generateBasicProducts(supabase: any, jobId: string, category: str
         processed: newProcessed,
         pdf_done: progress.pdf_done + actualInserted,
         specs_done: progress.specs_done + actualInserted,
-        state: newProcessed >= target ? 'completed' : 'running'
+        state: (newProcessed >= target && (progress.specs_done + actualInserted) >= target) ? 'completed' : 'running'
       })
       .eq('job_id', jobId)
       .eq('category', category);
@@ -1039,7 +1039,7 @@ async function realCECScraping(supabase: any, jobId: string, category: string, t
         processed: newProcessed,
         pdf_done: newPdfDone,
         specs_done: newSpecsDone,
-        state: newProcessed >= target ? 'completed' : 'running'
+        state: (newProcessed >= target && newSpecsDone >= target) ? 'completed' : 'running'
       })
       .eq('job_id', jobId)
       .eq('category', category);
@@ -1554,7 +1554,7 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         processed: actualCount || 0,
         pdf_done: withPdfCount || 0,
         specs_done: shouldForceSpecs ? 0 : uniqueProductsWithSpecs, // Real spec count
-        state: shouldForceSpecs ? 'running' : ((actualCount || 0) >= currentProgress.target ? 'completed' : 'running')
+        state: shouldForceSpecs ? 'running' : ((actualCount || 0) >= currentProgress.target && uniqueProductsWithSpecs >= currentProgress.target) ? 'completed' : 'running'
       };
       
       console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=${shouldForceSpecs}`);
