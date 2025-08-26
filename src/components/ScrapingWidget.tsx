@@ -243,8 +243,8 @@ export default function ScrapingWidget() {
             const r = rows.find(x => x.category === cat);
             const state = r?.state ?? 'pending';
             // Calculate combined progress: 50% for PDFs, 50% for specs extraction
-            const pdfProgress = r?.target ? (r.pdf_done / r.target) * 50 : 0;
-            const specsProgress = r?.target ? (r.specs_done / r.target) * 50 : 0;
+            const pdfProgress = r?.target ? (r.pdf_done / Math.max(r.pdf_done, r.target)) * 50 : 0;
+            const specsProgress = r?.target ? (r.specs_done / Math.max(r.specs_done, r.target)) * 50 : 0;
             const progress = Math.round(pdfProgress + specsProgress);
 
             return (

@@ -118,7 +118,7 @@ export default function ComprehensiveTrainingDashboard() {
     );
   }
 
-  const progressPercentage = status ? (status.currentEpisodes / status.targetEpisodes) * 100 : 0;
+  const progressPercentage = status ? (status.currentEpisodes / Math.max(status.currentEpisodes, status.targetEpisodes)) * 100 : 0;
   const isComplete = status ? status.currentEpisodes >= status.targetEpisodes : false;
 
   // Process metrics for charts

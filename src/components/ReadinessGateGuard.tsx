@@ -324,7 +324,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
                       </span>
                     </div>
                     <Progress 
-                      value={(trainingStatus.currentEpisodes / trainingStatus.targetEpisodes) * 100} 
+                      value={(trainingStatus.currentEpisodes / Math.max(trainingStatus.currentEpisodes, trainingStatus.targetEpisodes)) * 100} 
                       className="h-3"
                     />
                     

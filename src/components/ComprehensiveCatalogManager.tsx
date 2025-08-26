@@ -274,7 +274,8 @@ export default function ComprehensiveCatalogManager() {
 
   const getProgressPercentage = (current: number, target: number) => {
     if (target === 0) return 0;
-    return Math.round((current / target) * 100);
+    const denominator = Math.max(current, target);
+    return Math.round((current / denominator) * 100);
   };
 
   const getCategoryDisplayName = (category: string) => {
@@ -416,7 +417,7 @@ export default function ComprehensiveCatalogManager() {
                             <div 
                               className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                               style={{ 
-                                width: `${categoryProgress.target > 0 ? (categoryProgress.pdf_done / categoryProgress.target) * 100 : 0}%` 
+                                width: `${categoryProgress.target > 0 ? (categoryProgress.pdf_done / Math.max(categoryProgress.pdf_done, categoryProgress.target)) * 100 : 0}%` 
                               }}
                             />
                           </div>
@@ -434,7 +435,7 @@ export default function ComprehensiveCatalogManager() {
                             <div 
                               className="bg-purple-500 h-2 rounded-full transition-all duration-500"
                               style={{ 
-                                width: `${categoryProgress.target > 0 ? (categoryProgress.specs_done / categoryProgress.target) * 100 : 0}%` 
+                                width: `${categoryProgress.target > 0 ? (categoryProgress.specs_done / Math.max(categoryProgress.specs_done, categoryProgress.target)) * 100 : 0}%` 
                               }}
                             />
                           </div>
