@@ -230,18 +230,30 @@ async function processAllCategoriesInBackground(supabase: any) {
       return;
     }
     
+    // CRITICAL: Clear any existing progress and initialize fresh
+    console.log('🗑️ Clearing existing progress entries...');
+    await supabase.from('scrape_progress').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
     // CRITICAL: Initialize progress entries for ALL categories FIRST
     console.log('🚀 Initializing progress entries for all categories...');
     for (const category of categories) {
       const targetCount = targetCounts[category as keyof typeof targetCounts];
-      await updateProgress(supabase, category, {
-        status: 'processing',
-        total_found: targetCount,
-        total_processed: 0,
-        total_with_pdfs: 0,
-        total_parsed: 0
-      });
-      console.log(`📋 ${category}: Initialized with target ${targetCount}`);
+      const { error } = await supabase
+        .from('scrape_progress')
+        .insert({
+          category: category,
+          status: 'processing',
+          total_found: targetCount,
+          total_processed: 0,
+          total_with_pdfs: 0,
+          total_parsed: 0
+        });
+      
+      if (error) {
+        console.error(`❌ Failed to initialize ${category}:`, error);
+      } else {
+        console.log(`✅ ${category}: Initialized with target ${targetCount}`);
+      }
     }
     
     console.log('📋 Processing categories in sequence:', categories);
@@ -278,6 +290,18 @@ async function processAllCategoriesInBackground(supabase: any) {
     
   } catch (error) {
     console.error('❌ BACKGROUND: Overall processing failed:', error);
+    
+    // Mark all as failed if overall process fails
+    const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    for (const category of categories) {
+      await updateProgress(supabase, category, {
+        status: 'failed',
+        total_found: 0,
+        total_processed: 0,
+        total_with_pdfs: 0,
+        total_parsed: 0
+      });
+    }
   }
 }
 
@@ -291,15 +315,6 @@ async function generateAndStoreProducts(supabase: any, category: string) {
   const targetCount = targetCounts[category as keyof typeof targetCounts] || 100;
   console.log(`📦 Starting generation of exactly ${targetCount} ${category} products...`);
   
-  // Set initial progress with exact target
-  await updateProgress(supabase, category, {
-    status: 'processing',
-    total_found: targetCount,
-    total_processed: 0,
-    total_with_pdfs: 0,
-    total_parsed: 0
-  });
-  
   const products = generateProducts(category, targetCount);
   let processedCount = 0;
   let specsCount = 0;
@@ -307,8 +322,8 @@ async function generateAndStoreProducts(supabase: any, category: string) {
   
   console.log(`🔄 Processing ${products.length} ${category} products in batches...`);
   
-  // Process in smaller batches to avoid timeouts
-  const batchSize = 20;
+  // Process in smaller batches to avoid timeouts and provide real-time feedback
+  const batchSize = 10; // Smaller batches for more frequent updates
   for (let i = 0; i < products.length; i += batchSize) {
     const batch = products.slice(i, i + batchSize);
     console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(products.length/batchSize)} for ${category}`);
@@ -320,8 +335,8 @@ async function generateAndStoreProducts(supabase: any, category: string) {
         if (result.hasSpecs) specsCount++;
         if (result.hasPdf) pdfCount++;
         
-        // Update progress more frequently for real-time feedback
-        if (processedCount % 10 === 0 || processedCount === products.length) {
+        // Update progress every 5 products or at the end for real-time feedback
+        if (processedCount % 5 === 0 || processedCount === products.length) {
           await updateProgress(supabase, category, {
             status: processedCount === products.length ? 'completed' : 'processing',
             total_found: targetCount,
@@ -339,9 +354,18 @@ async function generateAndStoreProducts(supabase: any, category: string) {
       }
     }
     
-    // Small delay between batches
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Small delay between batches to prevent overwhelming the database
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
+  
+  // Final status update
+  await updateProgress(supabase, category, {
+    status: 'completed',
+    total_found: targetCount,
+    total_processed: processedCount,
+    total_with_pdfs: pdfCount,
+    total_parsed: specsCount
+  });
   
   console.log(`✅ ${category} completed: ${processedCount} products, ${pdfCount} PDFs, ${specsCount} with specs`);
   
