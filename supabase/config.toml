@@ -12,6 +12,18 @@ verify_jwt = false
 [functions.cec-battery-scraper]
 verify_jwt = false
 
+[functions.cec-comprehensive-scraper]
+verify_jwt = false
+
+[functions.product-web-search]
+verify_jwt = false
+
+[functions.preboot-trainer]
+verify_jwt = false
+
+[functions.get-product-counts]
+verify_jwt = false
+
 [functions.force-complete-scrape]
 verify_jwt = false
 
