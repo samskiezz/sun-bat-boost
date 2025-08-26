@@ -123,7 +123,8 @@ export default function ComprehensiveCatalogManager() {
   }
 
   async function startJob() {
-    console.log('🚀 UI: Starting scraping job...');
+    console.log('🟣🟣🟣 START JOB FUNCTION CALLED!!! 🟣🟣🟣');
+    alert('startJob() function was called! Check console.');
     setLoading(true);
 
     try {
@@ -296,14 +297,15 @@ export default function ComprehensiveCatalogManager() {
           <div className="grid gap-4 md:grid-cols-2 mb-6">
             <Button 
               onClick={() => {
-                console.log('🔴 BUTTON CLICKED - startJob function starting');
+                console.log('🟣 PURPLE BUTTON CLICKED!!! About to call startJob()');
+                alert('Purple button was clicked! Check console for logs.');
                 startJob();
               }}
               disabled={loading || isRunning}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg p-4"
             >
               <Database className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Starting...' : isRunning ? 'Running...' : 'Start Scraping'}
+              {loading ? '🔄 STARTING...' : isRunning ? '🏃 RUNNING...' : '🚀 CLICK ME TO START'}
             </Button>
             
             <Button 
