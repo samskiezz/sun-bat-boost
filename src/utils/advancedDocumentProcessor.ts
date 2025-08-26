@@ -330,54 +330,8 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
   const panelCandidates: Array<{description: string, context: string, line: string}> = [];
   const batteryCandidates: Array<{description: string, context: string, line: string}> = [];
   
-  // TARGETED HIGH-PRIORITY SEARCH FOR KNOWN PRODUCTS
-  console.log('🎯 === TARGETED SEARCH FOR SPECIFIC PRODUCTS ===');
-  
-  // Search for Tiger Neo panels explicitly
-  const tigerNeoPatterns = [
-    /JKM\d{3,}[A-Z0-9\-]*(?:Tiger.*Neo|N.*type)?/gi,
-    /Tiger\s*Neo.*\d{3,}[Ww]?/gi,
-    /\d{3,}\s*[Ww]att?.*Tiger.*Neo/gi,
-    /Tiger.*Neo.*N.*type/gi
-  ];
-  
-  // Search for 32kWh+ Sigenergy batteries explicitly
-  const sigenergy32Patterns = [
-    /32(?:\.\d+)?\s*kwh.*Sigen/gi,
-    /Sigen.*32(?:\.\d+)?\s*kwh/gi,
-    /33(?:\.\d+)?\s*kwh.*Sigen/gi,
-    /Sigen.*33(?:\.\d+)?\s*kwh/gi,
-    /30(?:\d+)?\s*kwh.*Sigen/gi,
-    /Sigen.*30(?:\d+)?\s*kwh/gi
-  ];
-  
-  const fullText = text.toLowerCase();
-  
-  // Force Tiger Neo detection if any hint exists
-  for (const pattern of tigerNeoPatterns) {
-    if (pattern.test(fullText)) {
-      console.log('🐅 TIGER NEO DETECTED - Force matching JKM440N-54HL4-V Tiger Neo');
-      panelCandidates.push({
-        description: 'JKM440N-54HL4-V Tiger Neo 440W',
-        context: 'forced_tiger_neo',
-        line: 'Forced Tiger Neo match from text analysis'
-      });
-      break;
-    }
-  }
-  
-  // Force Sigenergy 32kWh detection if any hint exists
-  for (const pattern of sigenergy32Patterns) {
-    if (pattern.test(fullText)) {
-      console.log('🔋 SIGENERGY 32KWH DETECTED - Force matching SigenStor 33.28kWh');
-      batteryCandidates.push({
-        description: 'SigenStor 33.28kWh Sigenergy Battery',
-        context: 'forced_sigenergy_33kwh',
-        line: 'Forced Sigenergy 33kWh match from text analysis'
-      });
-      break;
-    }
-  }
+  // CONSERVATIVE EQUIPMENT DETECTION - Only detect what's actually there
+  console.log('🎯 === CONSERVATIVE EQUIPMENT DETECTION ===');
   
   // NASA-GRADE PATTERN RECOGNITION - Ultra-flexible matching
   // First pass: Identify ALL potential equipment lines
@@ -402,16 +356,16 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
       continue;
     }
     
-    // Include lines that might contain equipment
-    if (line.length > 5 && (
-        // Contains numbers and letters (model codes)
-        /[A-Z]{2,}.*\d{2,}|JKM.*\d+|Tiger.*Neo|\d+.*kwh|Battery|Solar|Panel|Sigen/i.test(line) ||
-        // Contains capacity indicators
-        /\d+(?:\.\d+)?\s*kwh/i.test(line) ||
-        // Contains wattage
-        /\d{3,}\s*[Ww]att/i.test(line) ||
-        // Contains equipment brands
-        /(jinko|trina|canadian|lg|rec|sunpower|sigen|tesla)/i.test(line)
+    // Only include lines with strong equipment indicators
+    if (line.length > 10 && (
+        // Specific model codes with proper format
+        /JKM\d{3}[A-Z0-9\-]{3,}/i.test(line) ||
+        // Clear capacity indicators with proper context
+        /\d+(?:\.\d+)?\s*kwh.{0,20}(battery|storage|sigen)/i.test(line) ||
+        // Clear wattage with solar context
+        /\d{3,}\s*[Ww]att.{0,30}(panel|solar|jinko|trina|rec)/i.test(line) ||
+        // Specific equipment model patterns
+        /(Tiger\s*Neo|SigenStor|Powerwall).{0,50}/i.test(line)
     )) {
       potentialEquipmentLines.push(line);
       console.log(`  ✅ Added as potential equipment line`);
@@ -424,20 +378,14 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
   for (const line of potentialEquipmentLines) {
     console.log(`\n🔬 Deep analyzing: "${line}"`);
     
-    // SOLAR PANEL EXTRACTION - Ultra flexible patterns
+    // SOLAR PANEL EXTRACTION - Conservative, specific patterns only
     const panelIndicators = [
-      // Direct model matches - JKM series
-      /JKM\d{3,}[A-Z0-9\s\-\.]*(?:Tiger.*Neo|N.*type)?[A-Z0-9\s\-\.]*/gi,
-      // Tiger Neo patterns
-      /Tiger\s*Neo[A-Z0-9\s\-\.]*/gi,
-      // Wattage patterns
-      /\d{3,}\s*[Ww]att?\s*(?:panels?|solar)?/gi,
-      // Brand + model number combinations  
-      /(jinko|trina|canadian|lg|rec|sunpower)\s*[A-Z0-9\s\-\.]*/gi,
-      // Any alphanumeric model that looks like solar equipment
-      /[A-Z]{2,}\d{3,}[A-Z0-9\-\.]*(?:[A-Z]+\d*[A-Z]*)?/gi,
-      // Quantity x something patterns
-      /\d+\s*[x×]\s*[A-Z0-9\s\-\.]+/gi
+      // Specific JKM model codes with proper format
+      /JKM\d{3}[A-Z0-9\-]{3,15}(?:\s*Tiger\s*Neo)?/gi,
+      // Tiger Neo with model
+      /JKM\d{3}[A-Z0-9\-]*\s*Tiger\s*Neo/gi,
+      // Wattage with clear solar context
+      /\d{3,}\s*[Ww]att?\s*(?:Solar\s*)?Panel/gi
     ];
     
     let foundPanel = false;
@@ -445,10 +393,12 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
       const matches = [...line.matchAll(pattern)];
       for (const match of matches) {
         const candidate = match[0].trim();
-        if (candidate.length >= 6 && 
+        if (candidate.length >= 8 && 
             !candidate.toLowerCase().includes('inverter') &&
             !candidate.toLowerCase().includes('battery') &&
-            !candidate.toLowerCase().includes('storage')) {
+            !candidate.toLowerCase().includes('storage') &&
+            !candidate.toLowerCase().includes('monitoring') &&
+            (candidate.includes('JKM') || candidate.toLowerCase().includes('tiger neo') || /\d{3,}[Ww]att/i.test(candidate))) {
           
           panelCandidates.push({
             description: candidate,
@@ -461,22 +411,16 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
       }
     }
     
-    // BATTERY EXTRACTION - Ultra flexible patterns
+    // BATTERY EXTRACTION - Conservative, specific patterns only
     const batteryIndicators = [
-      // Direct capacity mentions
-      /\d+(?:\.\d+)?\s*kwh/gi,
-      // Sigen/Sigenergy variations
-      /Sigen(?:ergy)?\s*[A-Z0-9\s\-\.]*/gi,
-      // SigenStor models
-      /SigenStor[A-Z0-9\s\-\.]*/gi,
-      // Battery storage mentions
-      /(?:\d+(?:\.\d+)?\s*kwh\s*)?(?:Battery|Storage)[A-Z0-9\s\-\.]*/gi,
-      // BAT models
-      /BAT\s*\d+(?:\.\d+)?[A-Z0-9\s\-\.]*/gi,
-      // Tesla Powerwall
-      /Powerwall[A-Z0-9\s\-\.]*/gi,
-      // Any line with battery brands and capacity
-      /(?:tesla|lg|sigen).*\d+(?:\.\d+)?\s*kwh/gi
+      // SigenStor specific models
+      /SigenStor\s*\d+(?:\.\d+)?\s*kWh/gi,
+      // Clear battery capacity with brand
+      /(?:Sigenergy|Tesla|LG)\s*.*?\d+(?:\.\d+)?\s*kWh/gi,
+      // Powerwall specific
+      /Tesla\s*Powerwall\s*\d*/gi,
+      // Clear battery storage with capacity
+      /\d+(?:\.\d+)?\s*kWh\s*Battery\s*Storage/gi
     ];
     
     // Only process if not already identified as panel and doesn't contain inverter terms
@@ -491,7 +435,8 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
         const matches = [...line.matchAll(pattern)];
         for (const match of matches) {
           const candidate = match[0].trim();
-          if (candidate.length >= 4) {
+          if (candidate.length >= 8 && 
+              (/\d+(?:\.\d+)?\s*kWh/i.test(candidate) || candidate.toLowerCase().includes('powerwall') || candidate.toLowerCase().includes('sigenstor'))) {
             batteryCandidates.push({
               description: candidate,
               context: 'battery_storage', 
@@ -521,11 +466,7 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
       
       let match: any = null;
       
-      // Use direct lookup for forced candidates
-      if (candidate.context === 'forced_tiger_neo') {
-        console.log('🎯 Using direct lookup for Tiger Neo');
-        match = await matcher.directLookup('panel', candidate.description);
-      }
+      // Standard intelligent matching only - no forced matches
       
       // Fallback to intelligent matching if direct lookup fails
       if (!match) {
@@ -573,11 +514,8 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     }
   }
   
-  // Only keep high confidence results (80%+) or if no high confidence, keep the best one
-  const highConfidencePanels = Array.from(uniquePanels.values()).filter(p => p.confidence >= 0.8);
-  const finalPanels = highConfidencePanels.length > 0 
-    ? highConfidencePanels 
-    : Array.from(uniquePanels.values()).slice(0, 1); // Keep only the best if no high confidence
+  // Only keep very high confidence results (90%+) - no low confidence guesses
+  const finalPanels = Array.from(uniquePanels.values()).filter(p => p.confidence >= 0.9);
   
   extractedData.panels = finalPanels;
   console.log(`🎯 Final panels after deduplication: ${finalPanels.length}`);
@@ -594,16 +532,8 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
       
       let match: any = null;
       
-      // Use direct lookup for forced candidates
-      if (candidate.context === 'forced_sigenergy_33kwh') {
-        console.log('🎯 Using direct lookup for Sigenergy 33kWh');
-        match = await matcher.directLookup('battery', candidate.description);
-      }
-      
-      // Fallback to intelligent matching if direct lookup fails
-      if (!match) {
-        match = matcher.matchBattery(candidate.description, candidate.context);
-      }
+      // Standard intelligent matching only - no forced matches
+      match = matcher.matchBattery(candidate.description, candidate.context);
       
       if (match) {
         // Extract capacity from line
@@ -658,22 +588,10 @@ async function extractAdvancedSystemData(text: string): Promise<AdvancedProcesso
     const mainBattery = finalBatteryResults[0];
     const mainCapacity = mainBattery.suggestedMatch.capacity_kwh || 0;
     
-    // Only keep the main battery if it's significantly larger than others (20kWh+)
-    // or if it's the only high-confidence match
-    if (mainCapacity >= 20 || finalBatteryResults.length === 1) {
+    // Only keep very high confidence battery matches (90%+)
+    if (mainBattery.confidence >= 0.9) {
       finalBatteries = [mainBattery];
-      console.log(`🎯 Selected main battery: ${mainBattery.suggestedMatch.brand} ${mainBattery.suggestedMatch.model} ${mainCapacity}kWh`);
-    } else {
-      // Filter for realistic residential battery sizes (5kWh - 100kWh range)
-      const realisticBatteries = finalBatteryResults.filter(b => {
-        const capacity = b.suggestedMatch.capacity_kwh || 0;
-        return capacity >= 5 && capacity <= 100 && b.confidence >= 0.7;
-      });
-      
-      if (realisticBatteries.length > 0) {
-        // Take the largest capacity, highest confidence battery
-        finalBatteries = [realisticBatteries[0]];
-      }
+      console.log(`🎯 Selected high-confidence battery: ${mainBattery.suggestedMatch.brand} ${mainBattery.suggestedMatch.model} ${mainCapacity}kWh`);
     }
   }
   
