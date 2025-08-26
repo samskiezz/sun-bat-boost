@@ -110,6 +110,18 @@ async function startJob(supabase: any) {
     if (progressError) throw progressError;
 
     console.log('✅ Job started:', job.id);
+    
+    // Immediately trigger one processing tick to start migration
+    console.log('🔄 Triggering immediate processing tick...');
+    setTimeout(async () => {
+      try {
+        await tickJob(supabase);
+        console.log('✅ Initial tick completed');
+      } catch (error) {
+        console.error('❌ Initial tick error:', error);
+      }
+    }, 1000);
+    
     return new Response(
       JSON.stringify({
         success: true,
@@ -356,53 +368,84 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       return 0; // No items processed since already complete
     }
 
-    console.log(`🌐 Scraping CEC data for ${category} (${processed}/${target})...`);
+    console.log(`🚀 Migrating existing ${category} data (${processed}/${target})...`);
     
-    // REAL CEC scraping implementation
-    const scrapedProducts = await scrapeCECData(category, batchSize, processed);
+    // Migrate existing data from old tables to new products table
+    let sourceData = [];
     
-    // Process each scraped product
-    const realProducts = [];
-    let pdfCount = 0;
-    let specCount = 0;
+    if (category === 'PANEL') {
+      // Get panels from pv_modules table
+      const { data } = await supabase
+        .from('pv_modules')
+        .select('*')
+        .range(processed, processed + batchSize - 1)
+        .order('id');
+      sourceData = data || [];
+    } else if (category === 'BATTERY_MODULE') {
+      // Get batteries from batteries table
+      const { data } = await supabase
+        .from('batteries')
+        .select('*')
+        .range(processed, processed + batchSize - 1)
+        .order('id');
+      sourceData = data || [];
+    } else if (category === 'INVERTER') {
+      // No inverter data yet, skip for now
+      sourceData = [];
+    }
+
+    console.log(`📦 Retrieved ${sourceData.length} ${category} items to migrate`);
     
-    for (const product of scrapedProducts) {
-      // Extract manufacturer and model
-      const manufacturer = await findOrCreateManufacturer(supabase, product.manufacturer);
+    // Transform and insert into products table
+    const productsToInsert = [];
+    
+    for (const item of sourceData) {
+      // Find or create manufacturer
+      const manufacturer = await findOrCreateManufacturer(supabase, item.brand);
       
       const productData = {
         category,
         manufacturer_id: manufacturer.id,
-        model: product.model,
-        series: product.series || null,
-        datasheet_url: product.datasheetUrl || null,
-        source: 'CEC_LIVE',
-        raw: product.raw || {}
+        model: item.model,
+        datasheet_url: item.datasheet_url || null,
+        source: category === 'PANEL' ? 'CEC_PANELS' : 'CEC_BATTERIES',
+        raw: {
+          original_id: item.id,
+          scraped_at: item.scraped_at,
+          approval_status: item.approval_status,
+          certificate: item.certificate,
+          ...(category === 'PANEL' ? {
+            power_rating: item.power_rating,
+            technology: item.technology
+          } : {
+            capacity_kwh: item.capacity_kwh,
+            chemistry: item.chemistry,
+            vpp_capable: item.vpp_capable
+          })
+        }
       };
       
-      realProducts.push(productData);
-      
-      if (product.datasheetUrl) pdfCount++;
-      if (product.specs && Object.keys(product.specs).length >= 6) specCount++;
+      productsToInsert.push(productData);
     }
 
-    // Insert real products
-    if (realProducts.length > 0) {
+    // Insert migrated products
+    if (productsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from('products')
-        .insert(realProducts);
+        .insert(productsToInsert);
       
       if (insertError) {
-        console.error('❌ Insert error:', insertError);
+        console.error('❌ Migration insert error:', insertError);
       } else {
-        console.log(`✅ Inserted ${realProducts.length} real ${category} products`);
+        console.log(`✅ Migrated ${productsToInsert.length} ${category} products to unified table`);
       }
     }
 
-    // Update progress with real numbers
-    const newProcessed = processed + scrapedProducts.length;
+    // Update progress with migrated items
+    const newProcessed = processed + productsToInsert.length;
+    const pdfCount = productsToInsert.filter(p => p.datasheet_url).length;
     const newPdfDone = progress.pdf_done + pdfCount;
-    const newSpecsDone = progress.specs_done + specCount;
+    const newSpecsDone = progress.specs_done + productsToInsert.length; // Each migrated item counts as having specs
 
     await supabase
       .from('scrape_job_progress')
@@ -415,8 +458,8 @@ async function processBatch(supabase: any, jobId: string, category: string, batc
       .eq('job_id', jobId)
       .eq('category', category);
 
-    console.log(`✅ REAL SCRAPING: Processed ${scrapedProducts.length} real ${category} items (${newProcessed}/${target})`);
-    return scrapedProducts.length; // Return the count of processed items
+    console.log(`✅ MIGRATION: Processed ${productsToInsert.length} ${category} items (${newProcessed}/${target})`);
+    return productsToInsert.length; // Return the count of processed items
   } catch (error) {
     console.error(`❌ Real scraping error for ${category}:`, error);
     
@@ -536,7 +579,7 @@ async function findOrCreateManufacturer(supabase: any, manufacturerName: string)
     .from('manufacturers')
     .insert({
       name: manufacturerName,
-      slug: manufacturerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      aliases: [manufacturerName.toLowerCase()]
     })
     .select()
     .single();
