@@ -103,9 +103,14 @@ export default function DataCollectionPanel() {
         console.log('⚠️ Job already running, using existing job');
         setJobId(statusData.job.id);
         localStorage.setItem('scrape_job_id', statusData.job.id);
+        
+        // Set the status immediately so UI updates
+        const adapted = adaptStatus(statusData);
+        setStatus(adapted);
+        
         toast({
           title: "Job Already Running",
-          description: "A scraping job is already in progress.",
+          description: "Resuming existing scraping job.",
         });
         return;
       }
@@ -129,6 +134,12 @@ export default function DataCollectionPanel() {
       console.log('💾 Saving job_id to localStorage:', newJobId);
       localStorage.setItem('scrape_job_id', newJobId);
       setJobId(newJobId);
+      
+      // If we got progress data back, set it immediately
+      if (startData.progress) {
+        const adapted = adaptStatus(startData);
+        setStatus(adapted);
+      }
       
       toast({
         title: "Scraping Started",

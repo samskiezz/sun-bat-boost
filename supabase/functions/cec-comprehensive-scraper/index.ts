@@ -57,7 +57,7 @@ async function startJob(supabase: any) {
   console.log('🚀 Starting new scraping job...');
   
   try {
-    // Check for existing running jobs
+    // Check for existing running jobs first
     const { data: existingJobs } = await supabase
       .from('scrape_jobs')
       .select('id, status')
@@ -65,13 +65,20 @@ async function startJob(supabase: any) {
       .limit(1);
 
     if (existingJobs && existingJobs.length > 0) {
-      console.log('⚠️ Job already running:', existingJobs[0].id);
+      const existingJobId = existingJobs[0].id;
+      console.log('⚠️ Job already running:', existingJobId);
+      
+      // Get the full status for this existing job
+      const statusResponse = await getJobStatus(supabase);
+      const statusData = await statusResponse.json();
+      
       return new Response(
         JSON.stringify({
           success: true,
-          job_id: existingJobs[0].id,
-          status: existingJobs[0].status,
-          message: 'Job already running'
+          job_id: existingJobId,
+          status: 'running',
+          message: 'Job already running',
+          ...statusData  // Include all progress data
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
