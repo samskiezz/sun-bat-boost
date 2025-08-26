@@ -1531,57 +1531,63 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
   console.log(`🔄 Syncing ${category} job progress with database state...`);
   
   try {
-    // Get actual product counts from database
-    const { count: actualCount } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('category', category);
+    // Get actual counts from database in a single atomic operation
+    const [productsResult, specsResult, pdfsResult, currentProgress] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', category)
+        .eq('status', 'active'),
+      supabase
+        .from('specs')
+        .select('product_id, products!inner(category)')
+        .eq('products.category', category),
+      supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', category)
+        .eq('status', 'active')
+        .not('pdf_path', 'is', null),
+      supabase
+        .from('scrape_job_progress')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('category', category)
+        .single()
+    ]);
     
-    const { count: withDatasheetCount } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('category', category)
-      .not('datasheet_url', 'is', null);
-    
-    const { count: withPdfCount } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('category', category)
-      .not('pdf_path', 'is', null);
-    
-    // Get actual spec counts from database 
-    const { data: specsData } = await supabase
-      .from('specs')
-      .select('product_id, products!inner(category)')
-      .eq('products.category', category);
-    
-    // Count unique products with specs for this category
-    const uniqueProductsWithSpecs = new Set(specsData?.map(s => s.product_id) || []).size;
+    const actualCount = productsResult.count || 0;
+    const uniqueProductsWithSpecs = new Set(specsResult.data?.map(s => s.product_id) || []).size;
+    const withPdfCount = pdfsResult.count || 0;
     
     console.log(`📊 ${category} actual stats: ${actualCount} products, ${uniqueProductsWithSpecs} with specs, ${withPdfCount} with PDFs`);
     
-    // Get current job progress
-    const { data: currentProgress } = await supabase
-      .from('scrape_job_progress')
-      .select('*')
-      .eq('job_id', jobId)
-      .eq('category', category)
-      .single();
-    
-    if (currentProgress) {
-      // Force specs re-extraction for panels and batteries if they have significant missing specs
-      const shouldForceSpecs = ['PANEL', 'BATTERY_MODULE'].includes(category) && uniqueProductsWithSpecs < (currentProgress.target * 0.8);
+    if (currentProgress.data) {
+      const progress = currentProgress.data;
+      
+      // Only update if there's a significant change to prevent flickering
+      const hasSignificantChange = 
+        Math.abs((progress.processed || 0) - actualCount) > 10 ||
+        Math.abs((progress.specs_done || 0) - uniqueProductsWithSpecs) > 10 ||
+        Math.abs((progress.pdf_done || 0) - withPdfCount) > 10;
+      
+      // Always allow first update or if processed is 0
+      const shouldUpdate = hasSignificantChange || progress.processed === 0 || !progress.processed;
+      
+      if (!shouldUpdate) {
+        console.log(`⏭️ Skipping ${category} update - no significant changes (processed: ${progress.processed}, specs: ${progress.specs_done})`);
+        return;
+      }
       
       // Update progress to match database reality
       const updatedProgress = {
-        processed: actualCount || 0,
-        pdf_done: withPdfCount || 0,
-        specs_done: uniqueProductsWithSpecs, // Real spec count
-        // Only mark completed if ALL products have specs extracted (100% coverage required)
-        state: uniqueProductsWithSpecs >= currentProgress.target ? 'completed' : 'running'
+        processed: actualCount,
+        pdf_done: withPdfCount,
+        specs_done: uniqueProductsWithSpecs,
+        state: 'running' // Keep running to allow continuous specs extraction
       };
       
-      console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}, force_specs=${shouldForceSpecs}`);
+      console.log(`🔧 ${category} progress update: specs_done=${updatedProgress.specs_done}`);
       
       await supabase
         .from('scrape_job_progress')
@@ -1589,22 +1595,40 @@ async function syncJobProgressWithDatabase(supabase: any, jobId: string, categor
         .eq('job_id', jobId)
         .eq('category', category);
       
-      console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${currentProgress.target} processed, ${updatedProgress.specs_done} specs, ${updatedProgress.pdf_done} PDFs`);
+      console.log(`✅ Synced ${category}: ${updatedProgress.processed}/${progress.target} processed, ${updatedProgress.specs_done} specs, ${updatedProgress.pdf_done} PDFs`);
       
-      // Trigger specs enhancement if we have products without specs
-      if ((category === 'PANEL' || category === 'BATTERY_MODULE') && uniqueProductsWithSpecs < actualCount) {
-        console.log(`🚀 Triggering specs enhancement for ${category} - ${actualCount - uniqueProductsWithSpecs} products need specs`);
-        try {
-          const specsResponse = await supabase.functions.invoke('specs-enhancer', {
-            body: { 
-              action: 'enhance_specs', 
-              batchSize: 50, 
-              offset: 0 
-            }
-          });
-          console.log(`✅ Specs enhancement triggered for ${category}:`, specsResponse.data);
-        } catch (error) {
-          console.error(`❌ Failed to trigger specs enhancement for ${category}:`, error);
+      // Only trigger specs enhancement for categories that need it and have significant missing specs
+      const specsCompletion = actualCount > 0 ? uniqueProductsWithSpecs / actualCount : 1;
+      if ((category === 'PANEL' || category === 'BATTERY_MODULE') && specsCompletion < 0.95 && actualCount > 0) {
+        const missingSpecs = actualCount - uniqueProductsWithSpecs;
+        console.log(`🚀 Triggering specs enhancement for ${category} - ${missingSpecs} products need specs (${(specsCompletion * 100).toFixed(1)}% complete)`);
+        
+        // Throttle the specs enhancement calls
+        const lastTriggered = progress.last_specs_trigger || 0;
+        const now = Date.now();
+        if (now - lastTriggered > 30000) { // Only trigger every 30 seconds
+          try {
+            await supabase.functions.invoke('specs-enhancer', {
+              body: { 
+                action: 'enhance_specs', 
+                batchSize: 25, 
+                offset: 0 
+              }
+            });
+            
+            // Update last trigger time
+            await supabase
+              .from('scrape_job_progress')
+              .update({ last_specs_trigger: now })
+              .eq('job_id', jobId)
+              .eq('category', category);
+              
+            console.log(`✅ Specs enhancement triggered for ${category}`);
+          } catch (error) {
+            console.error(`❌ Failed to trigger specs enhancement for ${category}:`, error);
+          }
+        } else {
+          console.log(`⏳ Specs enhancement for ${category} throttled (last trigger ${Math.round((now - lastTriggered) / 1000)}s ago)`);
         }
       }
     }
