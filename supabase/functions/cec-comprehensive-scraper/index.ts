@@ -278,13 +278,23 @@ async function tickJob(supabase: any) {
       } else if (result?.enhanced_count > 0) {
         console.log(`✅ Enhanced ${result.enhanced_count} product specs this tick`);
         
-        // Update progress tracking for all categories  
-        await supabase
+        // Update progress tracking for all categories by getting current progress first
+        const { data: currentProgress } = await supabase
           .from('scrape_job_progress')
-          .update({
-            specs_done: supabase.raw(`LEAST(specs_done + ${Math.ceil(result.enhanced_count / 3)}, target)`)
-          })
+          .select('category, specs_done, target')
           .eq('job_id', jobId);
+        
+        if (currentProgress) {
+          const specsPerCategory = Math.ceil(result.enhanced_count / 3);
+          for (const progress of currentProgress) {
+            const newSpecsDone = Math.min(progress.specs_done + specsPerCategory, progress.target);
+            await supabase
+              .from('scrape_job_progress')
+              .update({ specs_done: newSpecsDone })
+              .eq('job_id', jobId)
+              .eq('category', progress.category);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Specs enhancement error:', error);
