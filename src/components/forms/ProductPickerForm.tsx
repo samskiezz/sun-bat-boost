@@ -5,16 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Zap, Battery, MapPin, Calendar, Check, RefreshCw } from "lucide-react";
+import { Search, Zap, Battery, MapPin, Calendar, Check, RefreshCw, Sparkles } from "lucide-react";
 import { useCECData } from "@/hooks/useCECData";
 import { useToast } from "@/hooks/use-toast";
 import { brandStrictFilter } from "@/utils/brandStrictFilter";
 
 interface ProductPickerFormProps {
   onSubmit: (data: any) => void;
+  appMode?: 'lite' | 'pro';
 }
 
-export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
+export const ProductPickerForm = ({ onSubmit, appMode = 'lite' }: ProductPickerFormProps) => {
   const { 
     panels, 
     batteries, 
@@ -207,9 +208,18 @@ export const ProductPickerForm = ({ onSubmit }: ProductPickerFormProps) => {
         <CardTitle className="flex items-center gap-2">
           <Search className="w-5 h-5 text-primary" />
           Product Picker
+          {appMode === 'pro' && (
+            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+              <Sparkles className="w-3 h-3 mr-1" />
+              AI Enhanced
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription>
-          Choose from CEC-approved solar panels and batteries
+          {appMode === 'pro' 
+            ? 'Choose from CEC-approved products with AI-powered smart search and recommendations' 
+            : 'Choose from CEC-approved solar panels and batteries'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>

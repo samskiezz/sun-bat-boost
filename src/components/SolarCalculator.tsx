@@ -1,23 +1,46 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { HeroHeader } from "./HeroHeader";
 import { InputModeTabs } from "./InputModeTabs";
 import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
 import { SEOHead } from "./SEOHead";
+import { AIAssistant } from "./AIAssistant";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
 import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
+import { AICore, type AppMode } from "@/lib/ai/AICore";
+import { Sparkles, Zap, Brain } from "lucide-react";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
+  const [appMode, setAppMode] = useState<AppMode>('lite');
+  const [showAI, setShowAI] = useState(false);
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
+  const aiCoreRef = useRef<AICore | null>(null);
 
-  const handleCalculate = (formData: any) => {
+  useEffect(() => {
+    // Initialize AI Core when mode changes
+    if (appMode === 'pro') {
+      aiCoreRef.current = new AICore({ mode: appMode });
+      setShowAI(true);
+    } else {
+      setShowAI(false);
+    }
+  }, [appMode]);
+
+  const handleCalculate = async (formData: any) => {
+    // Notify AI Core of user action if in pro mode
+    if (appMode === 'pro' && aiCoreRef.current) {
+      await aiCoreRef.current.onUserAction('USER_STARTED_CALCULATION', formData);
+    }
     try {
       // Ensure proper data extraction for both picker and quick modes
       const solarKw = formData.solarKw || formData.systemKw || 0;
@@ -95,6 +118,11 @@ const SolarCalculator = () => {
         title: "Calculation complete",
         description: `Total rebates available: $${calculationResults.totals.today.toLocaleString()}`
       });
+
+      // Notify AI Core of successful calculation
+      if (appMode === 'pro' && aiCoreRef.current) {
+        await aiCoreRef.current.onUserAction('USER_COMPLETED_CALCULATION', calculationResults);
+      }
     } catch (error) {
       toast({
         title: "Calculation failed",
@@ -111,10 +139,52 @@ const SolarCalculator = () => {
     });
   };
 
+  const handleSuggestionAccept = (suggestion: any) => {
+    toast({
+      title: "AI Suggestion Applied",
+      description: `Applied: ${suggestion.reason}`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <SEOHead results={results} location={results?.input?.postcode} />
       <InitialDataLoader />
+      
+      {/* Mode Toggle Header */}
+      <div className="border-b bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-lg font-semibold">Rebate Calculator</h1>
+              <Badge variant={appMode === 'pro' ? 'default' : 'outline'} className="gap-1">
+                {appMode === 'pro' ? <Sparkles className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
+                {appMode === 'pro' ? 'Pro Mode' : 'Lite Mode'}
+              </Badge>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant={appMode === 'lite' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAppMode('lite')}
+              >
+                <Zap className="w-4 h-4 mr-1" />
+                Lite
+              </Button>
+              <Button
+                variant={appMode === 'pro' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAppMode('pro')}
+              >
+                <Sparkles className="w-4 h-4 mr-1" />
+                Pro
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div className="container mx-auto px-4 py-8">
         <HeroHeader lastUpdated={lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-AU', { 
           year: 'numeric', 
@@ -122,30 +192,46 @@ const SolarCalculator = () => {
           day: 'numeric' 
         }) : "Loading..."} />
         
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="space-y-8">
-            <InputModeTabs onCalculate={handleCalculate} />
+        <div className={`mx-auto space-y-8 ${showAI ? 'max-w-7xl' : 'max-w-4xl'}`}>
+          <div className={`grid gap-8 ${showAI ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'}`}>
+            {/* Main Calculator Area */}
+            <div className={`space-y-8 ${showAI ? 'lg:col-span-2' : ''}`}>
+              <InputModeTabs onCalculate={handleCalculate} appMode={appMode} />
+              
+              {results && (
+                <ResultCards results={results} />
+              )}
+              
+              {results && eligibility && (
+                <div className="space-y-8">
+                  <LimitLine 
+                    status={eligibility.status}
+                    reasons={eligibility.reasons}
+                    suggestions={eligibility.suggestions}
+                    onRequestCall={handleRequestCall}
+                  />
+                  
+                  <div className="text-center text-sm text-muted-foreground">
+                    <p>Figures use current published formulas and datasets.</p>
+                    <p>Verified by a CEC-accredited designer before final quote.</p>
+                  </div>
+                </div>
+              )}
+            </div>
             
-            {results && (
-              <ResultCards results={results} />
+            {/* AI Assistant Panel (Pro Mode Only) */}
+            {showAI && (
+              <div className="lg:col-span-1">
+                <div className="sticky top-8">
+                  <AIAssistant 
+                    mode={appMode} 
+                    onSuggestionAccept={handleSuggestionAccept}
+                    className="h-[600px]"
+                  />
+                </div>
+              </div>
             )}
           </div>
-          
-          {results && eligibility && (
-            <div className="space-y-8">
-              <LimitLine 
-                status={eligibility.status}
-                reasons={eligibility.reasons}
-                suggestions={eligibility.suggestions}
-                onRequestCall={handleRequestCall}
-              />
-              
-              <div className="text-center text-sm text-muted-foreground">
-                <p>Figures use current published formulas and datasets.</p>
-                <p>Verified by a CEC-accredited designer before final quote.</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
