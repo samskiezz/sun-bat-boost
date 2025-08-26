@@ -9,6 +9,7 @@ import { useState } from 'react';
 import ComprehensiveCatalogManager from '@/components/ComprehensiveCatalogManager';
 import ComprehensiveTrainingDashboard from '@/components/ComprehensiveTrainingDashboard';
 import TrainingDashboard from '@/train/dashboard';
+import MasterTrainingControl from '@/components/MasterTrainingControl';
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -117,7 +118,7 @@ export default function SystemManager() {
         </TabsContent>
 
         <TabsContent value="training">
-          <ComprehensiveTrainingDashboard />
+          <MasterTrainingControl />
         </TabsContent>
 
         <TabsContent value="analytics">

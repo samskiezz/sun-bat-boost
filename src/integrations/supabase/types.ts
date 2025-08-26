@@ -287,6 +287,92 @@ export type Database = {
         }
         Relationships: []
       }
+      orchestrator_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          details: Json
+          error: string | null
+          id: string
+          phase_name: string
+          phase_status: string
+          progress_percent: number
+          session_id: string
+          started_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json
+          error?: string | null
+          id?: string
+          phase_name: string
+          phase_status?: string
+          progress_percent?: number
+          session_id: string
+          started_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json
+          error?: string | null
+          id?: string
+          phase_name?: string
+          phase_status?: string
+          progress_percent?: number
+          session_id?: string
+          started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orchestrator_progress_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "orchestrator_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orchestrator_sessions: {
+        Row: {
+          completed_at: string | null
+          completed_phases: number
+          config: Json
+          current_phase: string | null
+          error: string | null
+          id: string
+          started_at: string
+          status: string
+          total_phases: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_phases?: number
+          config?: Json
+          current_phase?: string | null
+          error?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          total_phases?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_phases?: number
+          config?: Json
+          current_phase?: string | null
+          error?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          total_phases?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       postcode_zones: {
         Row: {
           created_at: string
