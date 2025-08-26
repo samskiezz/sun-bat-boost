@@ -18,12 +18,12 @@ export const ReliableSpecsExtractor = () => {
     
     setIsExtracting(true);
     setProgress(0);
-    setCurrentStatus('Getting products that need specs...');
+    setCurrentStatus('Finding products that need specs...');
     setResults(null);
     
     try {
-      // Get products needing specs (panels and batteries only)
-      setCurrentStatus('Fetching products needing specs...');
+      // Get products needing specs
+      setCurrentStatus('Fetching products...');
       const { data: products, error: productsError } = await supabase.rpc('get_products_needing_specs', {
         min_specs: 6,
         categories: ['PANEL', 'BATTERY_MODULE']
@@ -38,66 +38,70 @@ export const ReliableSpecsExtractor = () => {
           title: "All Done! 🎉",
           description: "All products already have sufficient specifications",
         });
+        setResults({ success: true, totalProducts: 0, processed: 0, successful: 0 });
         return;
       }
 
       console.log(`🎯 Found ${products.length} products needing specs`);
-      setCurrentStatus(`Processing ${products.length} products with GPT-5...`);
+      setCurrentStatus(`Processing ${products.length} products...`);
 
       const productIds = products.map(p => p.product_id);
-      const batchSize = 20; // Smaller batches for reliability
+      const batchSize = 10; // Small batches for reliability
       let totalProcessed = 0;
       let totalSuccessful = 0;
       
-      // Process in small, reliable batches
+      // Process in small batches
       for (let i = 0; i < productIds.length; i += batchSize) {
         const batch = productIds.slice(i, i + batchSize);
         const batchNum = Math.floor(i / batchSize) + 1;
         const totalBatches = Math.ceil(productIds.length / batchSize);
         
         setProgress((i / productIds.length) * 90);
-        setCurrentStatus(`Processing batch ${batchNum}/${totalBatches} (${batch.length} products)...`);
+        setCurrentStatus(`Batch ${batchNum}/${totalBatches}: Processing ${batch.length} products...`);
         
-        console.log(`📦 Batch ${batchNum}: Processing ${batch.length} products`);
+        console.log(`📦 Processing batch ${batchNum} (${batch.length} products)`);
         
         const { data: batchResult, error: batchError } = await supabase.functions.invoke('reliable-specs-extractor', {
           body: { productIds: batch }
         });
         
-        if (batchError || !batchResult?.success) {
-          console.error(`❌ Batch ${batchNum} failed:`, batchError?.message || batchResult?.error);
+        if (batchError) {
+          console.error(`❌ Batch ${batchNum} error:`, batchError);
           toast({
-            title: `Batch ${batchNum} Failed`,
-            description: batchError?.message || batchResult?.error || 'Unknown error',
+            title: `Batch ${batchNum} Error`,
+            description: batchError.message || 'Network error',
             variant: "destructive"
           });
           continue;
         }
+
+        if (!batchResult?.success) {
+          console.error(`❌ Batch ${batchNum} failed:`, batchResult?.error);
+          continue;
+        }
         
-        totalProcessed += batchResult.processed;
-        totalSuccessful += batchResult.successful;
+        totalProcessed += batchResult.processed || 0;
+        totalSuccessful += batchResult.successful || 0;
         
         console.log(`✅ Batch ${batchNum}: ${batchResult.successful}/${batchResult.processed} successful`);
-        setCurrentStatus(`Batch ${batchNum} complete: ${batchResult.successful}/${batchResult.processed} successful. Total: ${totalSuccessful}/${totalProcessed}`);
+        setCurrentStatus(`Batch ${batchNum} done: ${batchResult.successful}/${batchResult.processed} success. Total: ${totalSuccessful}/${totalProcessed}`);
         
-        // Brief pause between batches
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Brief pause
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       setProgress(100);
-      setCurrentStatus('Updating progress and checking results...');
+      setCurrentStatus('Syncing progress...');
       
-      // Update progress tracking
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const { data: progressData } = await supabase.functions.invoke('force-progress-sync');
+      // Force progress sync
+      await supabase.functions.invoke('force-progress-sync');
       
       const finalResults = {
         success: true,
         totalProducts: productIds.length,
         processed: totalProcessed,
         successful: totalSuccessful,
-        failed: totalProcessed - totalSuccessful,
-        progressSync: progressData?.success || false
+        failed: totalProcessed - totalSuccessful
       };
       
       setResults(finalResults);
@@ -105,12 +109,12 @@ export const ReliableSpecsExtractor = () => {
       
       toast({
         title: "Extraction Complete! 🎉",
-        description: `Successfully processed ${totalSuccessful}/${totalProcessed} products with GPT-5`,
+        description: `Successfully processed ${totalSuccessful}/${totalProcessed} products`,
         duration: 5000
       });
       
     } catch (error) {
-      console.error('Reliable extraction error:', error);
+      console.error('Extraction error:', error);
       setCurrentStatus('Error occurred');
       toast({
         title: "Extraction Failed",

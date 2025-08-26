@@ -13,17 +13,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Reliable spec extraction with GPT-5
-async function extractSpecsReliably(product: any): Promise<any[]> {
+// Simple, robust spec extraction
+async function extractSpecs(product: any): Promise<any[]> {
   if (!openAIApiKey) {
-    console.log(`❌ No OpenAI API key for ${product.model}`);
+    console.log(`❌ No OpenAI API key`);
     return [];
   }
 
-  console.log(`🚀 GPT-5 extracting specs for ${product.model} (${product.category})`);
+  console.log(`🔥 Extracting ${product.model} (${product.category})`);
   
+  const specTypes = {
+    'PANEL': ['power_watts', 'efficiency_percent', 'voltage_voc', 'current_isc', 'voltage_vmp', 'current_imp', 'dimensions', 'weight', 'cell_type', 'warranty_years'],
+    'BATTERY_MODULE': ['capacity_kwh', 'usable_capacity_kwh', 'nominal_voltage', 'max_charge_current', 'max_discharge_current', 'chemistry', 'cycle_life', 'warranty_years', 'dimensions', 'weight'],
+    'INVERTER': ['power_rating_kw', 'max_efficiency_percent', 'input_voltage_range', 'output_voltage', 'frequency_hz', 'inverter_topology', 'protection_rating', 'dimensions', 'weight', 'warranty_years']
+  };
+
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // First try GPT-5
+    let response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -34,42 +41,62 @@ async function extractSpecsReliably(product: any): Promise<any[]> {
         messages: [
           {
             role: 'system',
-            content: `Extract EXACTLY 10-15 technical specifications from this product data. 
-
-CRITICAL REQUIREMENTS:
-- Extract ONLY factual specifications from the provided data
-- Return as simple "key: value" pairs, one per line
-- NO explanations, NO markdown, NO JSON formatting
-- Each spec must be precise and technical
-
-For ${product.category}s, focus on: ${
-  product.category === 'PANEL' 
-    ? 'power_watts, efficiency_percent, voltage_voc, current_isc, voltage_vmp, current_imp, dimensions, weight, cell_type, frame_material, connector_type, warranty_years, temperature_coefficient, cell_count, junction_box_rating'
-    : product.category === 'BATTERY_MODULE' 
-    ? 'capacity_kwh, usable_capacity_kwh, nominal_voltage, max_charge_current, max_discharge_current, chemistry, cycle_life, warranty_years, dimensions, weight, operating_temp_min, operating_temp_max, round_trip_efficiency, vpp_compatible, units'
-    : 'power_rating_kw, max_efficiency_percent, input_voltage_range, output_voltage, frequency_hz, max_input_current, inverter_topology, protection_rating, dimensions, weight, operating_temp_range, warranty_years, thd_percent, mppt_channels, grid_type'
-}`
+            content: `Extract technical specifications from solar equipment data. 
+Return only "key: value" pairs, one per line.
+Extract specs like: ${specTypes[product.category]?.join(', ')}`
           },
           {
             role: 'user',
             content: `Product: ${product.model}
-Brand: ${product.manufacturer?.name || 'Unknown'}  
+Brand: ${product.manufacturers?.name || 'Unknown'}
 Category: ${product.category}
-
-Raw Data: ${JSON.stringify(product.raw || {}).substring(0, 1500)}
-
+Data: ${JSON.stringify(product.raw || {}).substring(0, 1000)}
 Datasheet: ${product.datasheet_url || 'None'}
 
-Extract 10-15 precise specifications:`
+Extract specifications:`
           }
         ],
-        max_completion_tokens: 300
+        max_completion_tokens: 500
       }),
     });
 
+    // If GPT-5 fails, try GPT-4.1 as fallback
+    if (!response.ok) {
+      console.log(`⚠️ GPT-5 failed (${response.status}), trying GPT-4.1 fallback`);
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-2025-04-14',
+          messages: [
+            {
+              role: 'system',
+              content: `Extract technical specifications from solar equipment data. 
+Return only "key: value" pairs, one per line.
+Extract specs like: ${specTypes[product.category]?.join(', ')}`
+            },
+            {
+              role: 'user',
+              content: `Product: ${product.model}
+Brand: ${product.manufacturers?.name || 'Unknown'}
+Category: ${product.category}
+Data: ${JSON.stringify(product.raw || {}).substring(0, 1000)}
+
+Extract specifications:`
+            }
+          ],
+          max_completion_tokens: 500,
+          temperature: 0.1
+        }),
+      });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ OpenAI API error for ${product.model}:`, response.status, errorText);
+      console.error(`❌ API error:`, response.status, errorText);
       return [];
     }
 
@@ -77,46 +104,46 @@ Extract 10-15 precise specifications:`
     const content = data.choices?.[0]?.message?.content?.trim();
     
     if (!content) {
-      console.error(`❌ No content from GPT-5 for ${product.model}`);
+      console.error(`❌ No content returned`);
       return [];
     }
 
-    // Parse the response into specs
+    console.log(`📝 Raw response:`, content.substring(0, 200));
+
+    // Parse specs
     const specs = content
       .split('\n')
       .map(line => line.trim())
-      .filter(line => line.includes(':') && line.length > 5)
+      .filter(line => line.includes(':') && line.length > 3)
       .map(line => {
-        const colonIndex = line.indexOf(':');
-        const key = line.substring(0, colonIndex).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const value = line.substring(colonIndex + 1).trim().replace(/^["'\s]+|["'\s]+$/g, '');
-        
+        const [key, ...valueParts] = line.split(':');
+        const value = valueParts.join(':').trim();
         return {
           product_id: product.id,
-          key: key,
-          value: value,
-          source: 'gpt5_extracted'
+          key: key.trim().toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          value: value.replace(/^["'\s]+|["'\s]+$/g, ''),
+          source: 'ai_extracted'
         };
       })
       .filter(spec => 
-        spec.key.length > 2 && 
+        spec.key.length > 1 && 
         spec.value.length > 0 && 
-        !['unknown', 'n/a', 'not specified', 'tbd'].includes(spec.value.toLowerCase())
+        !['unknown', 'n/a', 'not specified', 'tbd', 'none'].includes(spec.value.toLowerCase())
       )
-      .slice(0, 15);
+      .slice(0, 12);
 
-    console.log(`✅ GPT-5 extracted ${specs.length} specs for ${product.model}`);
+    console.log(`✅ Extracted ${specs.length} valid specs`);
     return specs;
 
   } catch (error) {
-    console.error(`❌ GPT-5 error for ${product.model}:`, error.message);
+    console.error(`❌ Extraction error:`, error.message);
     return [];
   }
 }
 
-// Process products and GUARANTEE database saves
-async function processProductsBatch(productIds: string[]): Promise<any> {
-  console.log(`🎯 Processing batch of ${productIds.length} products`);
+// Process products with guaranteed results
+async function processBatch(productIds: string[]): Promise<any> {
+  console.log(`🎯 Processing ${productIds.length} products`);
   
   // Get products with manufacturer info
   const { data: products, error: fetchError } = await supabase
@@ -131,76 +158,63 @@ async function processProductsBatch(productIds: string[]): Promise<any> {
 
   let successful = 0;
   let processed = 0;
-  const results = [];
 
   for (const product of products) {
     processed++;
-    console.log(`📋 Processing ${processed}/${products.length}: ${product.model}`);
+    console.log(`\n📋 [${processed}/${products.length}] ${product.model}`);
 
     try {
-      // First check if product already has enough specs
+      // Check existing specs
       const { count: existingSpecs } = await supabase
         .from('specs')
         .select('*', { count: 'exact', head: true })
         .eq('product_id', product.id);
 
       if (existingSpecs >= 6) {
-        console.log(`⏭️ ${product.model} already has ${existingSpecs} specs - skipping`);
+        console.log(`⏭️ Already has ${existingSpecs} specs - skipping`);
         successful++;
         continue;
       }
 
-      // Extract specs using GPT-5
-      const specs = await extractSpecsReliably(product);
+      // Extract specs
+      const specs = await extractSpecs(product);
       
       if (specs.length === 0) {
-        console.log(`⚠️ No specs extracted for ${product.model}`);
-        results.push({ product: product.model, status: 'no_specs', specs_count: 0 });
+        console.log(`⚠️ No specs extracted`);
         continue;
       }
 
-      // CRITICAL: Delete existing specs first to avoid conflicts
-      const { error: deleteError } = await supabase
-        .from('specs')
-        .delete()
-        .eq('product_id', product.id);
-
-      if (deleteError) {
-        console.error(`❌ Failed to delete old specs for ${product.model}:`, deleteError.message);
-      }
-
-      // Insert new specs
+      // Clear old specs and insert new ones
+      await supabase.from('specs').delete().eq('product_id', product.id);
+      
       const { error: insertError } = await supabase
         .from('specs')
         .insert(specs);
 
       if (insertError) {
-        console.error(`❌ Failed to save specs for ${product.model}:`, insertError.message);
-        results.push({ product: product.model, status: 'save_failed', error: insertError.message });
+        console.error(`❌ Save failed:`, insertError.message);
         continue;
       }
 
-      // Verify specs were saved
+      // Verify save
       const { count: savedSpecs } = await supabase
         .from('specs')
         .select('*', { count: 'exact', head: true })
         .eq('product_id', product.id);
 
-      console.log(`✅ Saved ${savedSpecs} specs for ${product.model} (extracted ${specs.length})`);
+      console.log(`✅ Saved ${savedSpecs} specs`);
       successful++;
-      results.push({ product: product.model, status: 'success', specs_count: savedSpecs });
 
     } catch (error) {
-      console.error(`❌ Error processing ${product.model}:`, error.message);
-      results.push({ product: product.model, status: 'error', error: error.message });
+      console.error(`❌ Error:`, error.message);
     }
 
-    // Small delay to avoid overwhelming the API
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Rate limiting
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
-  console.log(`🎉 Batch complete: ${successful}/${processed} successful`);
-  return { success: true, processed, successful, results };
+  console.log(`\n🎉 Complete: ${successful}/${processed} successful`);
+  return { success: true, processed, successful };
 }
 
 serve(async (req) => {
@@ -222,16 +236,16 @@ serve(async (req) => {
       });
     }
 
-    console.log(`🚀 Reliable extraction starting for ${productIds.length} products`);
+    console.log(`\n🚀 Starting extraction for ${productIds.length} products`);
     
-    const result = await processProductsBatch(productIds);
+    const result = await processBatch(productIds);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('❌ Reliable extractor error:', error);
+    console.error('❌ Function error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 
