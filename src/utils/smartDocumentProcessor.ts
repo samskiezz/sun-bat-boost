@@ -134,9 +134,16 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
     const smartMatcher = new SmartMatcher(allProducts); // Keep for fallback/learning
     await smartMatcher.init();
     
-    // Step 4: Run comprehensive hierarchical matching (Brand → Wattage/kWh → Model)
-    const hierarchicalMatches = hierarchicalMatcher.match(text);
-    const hits = hierarchicalMatcher.convertToMatchHits(hierarchicalMatches);
+  // Step 4: Run comprehensive hierarchical matching (Brand → Wattage/kWh → Model)
+  console.log('🎯 Running hierarchical matching on text length:', text.length);
+  const hierarchicalMatches = hierarchicalMatcher.match(text);
+  console.log('🔍 Hierarchical matches found:', hierarchicalMatches.length);
+  hierarchicalMatches.forEach(match => {
+    console.log(`  - ${match.product.type}: ${match.product.brand} ${match.product.model} (${match.confidence})`);
+  });
+  
+  const hits = hierarchicalMatcher.convertToMatchHits(hierarchicalMatches);
+  console.log('🎯 Converted to match hits:', hits.length);
     
     // Step 5: Process hits by type and determine what needs confirmation
     const extractedData = await processMatchHits(hits, text, smartMatcher);
@@ -218,8 +225,10 @@ async function processMatchHits(
   const batteryHits = hits.filter(h => h.product.type === 'battery');
   const inverterHits = hits.filter(h => h.product.type === 'inverter');
 
-    // Process panels
+    // Process panels - Add debug logging
     for (const hit of panelHits.slice(0, 3)) { // Top 3 panel matches
+      console.log('🔍 Processing panel hit:', hit.product.brand, hit.product.model, 'Score:', hit.score);
+      
       const threshold = await matcher.autoAcceptThreshold(hit.product.brand);
       const needsConfirmation = hit.score < threshold;
       
@@ -252,7 +261,7 @@ async function processMatchHits(
       });
     }
 
-  // Process batteries
+  // Process batteries - Fix capacity extraction
   for (const hit of batteryHits.slice(0, 2)) { // Top 2 battery matches
     const threshold = await matcher.autoAcceptThreshold(hit.product.brand);
     const needsConfirmation = hit.score < threshold;
@@ -262,13 +271,31 @@ async function processMatchHits(
       Math.min(fullText.length, hit.at + 200)
     );
     
-    const capacityMatch = contextWindow.match(/(\d{1,2}(?:\.\d)?)\s*kWh/gi);
-    let extractedCapacity = capacityMatch ? parseFloat(capacityMatch[0].replace(/kWh/gi, '')) : undefined;
+    // Enhanced capacity extraction supporting larger batteries
+    const capacityPatterns = [
+      /(\d{1,3}(?:\.\d{1,2})?)\s*kWh/gi,
+      /(\d{1,3}(?:\.\d{1,2})?)\s*kwh/gi,
+      /(\d{1,3}(?:\.\d{1,2})?)\s*KWH/gi
+    ];
+    
+    let extractedCapacity = hit.product.capacity_kwh; // Default to database value
+    
+    // Try to extract capacity from context
+    for (const pattern of capacityPatterns) {
+      const matches = contextWindow.match(pattern);
+      if (matches && matches.length > 0) {
+        const value = parseFloat(matches[0].replace(/kWh/gi, ''));
+        if (value > 0 && value <= 200) { // Reasonable battery range
+          extractedCapacity = value;
+          break;
+        }
+      }
+    }
     
     extractedData.batteries!.push({
       description: hit.raw,
       confidence: hit.score,
-      capacity_kwh: extractedCapacity || hit.product.capacity_kwh,
+      capacity_kwh: extractedCapacity,
       cecId: hit.product.specs?.certificate || 'CEC-LISTED',
       needsConfirmation,
       candidates: needsConfirmation ? [hit] : undefined,
@@ -276,7 +303,7 @@ async function processMatchHits(
         id: hit.productId,
         brand: hit.product.brand,
         model: hit.product.model,
-        capacity_kwh: hit.product.capacity_kwh || 0,
+        capacity_kwh: extractedCapacity || 0,
         cec_id: hit.product.specs?.certificate || 'CEC-LISTED',
         confidence: hit.score,
         matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'

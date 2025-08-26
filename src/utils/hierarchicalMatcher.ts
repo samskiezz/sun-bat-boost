@@ -339,7 +339,13 @@ export class HierarchicalMatcher {
       .map(brand => brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Escape regex chars
       .join('|');
     
-    // Panel patterns: Brand + Watts (100-700W range)
+    // Panel patterns: Brand + Watts (100-700W range) - More lenient matching
+    patterns.push({
+      regex: new RegExp(`\\b(${brandPattern})\\s*[-\\s]*([\\w\\d]+)\\s*(\\d{3,4})W?\\b`, 'gi'),
+      type: 'panel'
+    });
+    
+    // Additional panel pattern: Just Brand + Watts without model
     patterns.push({
       regex: new RegExp(`\\b(${brandPattern})\\s+(\\d{3,4})W?\\b`, 'gi'),
       type: 'panel'
