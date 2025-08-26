@@ -54,7 +54,7 @@ export default function Explain({ reason, ruleCode }: ExplainProps) {
           productId: data.product_id,
           key: data.key,
           page: data.page,
-          bbox: data.bbox,
+          bbox: data.bbox && typeof data.bbox === 'object' && data.bbox !== null ? data.bbox as { x: number; y: number; w: number; h: number } : undefined,
           text: data.text
         });
       }

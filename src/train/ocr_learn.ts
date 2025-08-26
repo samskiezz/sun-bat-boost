@@ -1,7 +1,7 @@
 import { OCRDeltas, TrainingMetrics } from './types';
 import { mutateForOcr, synthProposalFromSpec, injectCommonOCRErrors } from './ocr_synth';
 import { supabase } from '@/integrations/supabase/client';
-import { extractProposalEntities } from '@/utils/masterOCRPipeline';
+import { masterOCRPipeline } from '@/utils/masterOCRPipeline';
 
 interface OCRTrainingCase {
   pdfPath?: string;
@@ -86,40 +86,38 @@ export function compareEntities(parsed: any, truth: OCRTrainingCase['groundTruth
   let missed = 0;
   let docSpansCaptured = false;
   
-  // Check panels
+  // Check panels - adapt to masterOCRPipeline output format
   if (truth.panels) {
-    if (parsed.panels?.best) {
-      if (parsed.panels.best.brand?.toLowerCase().includes(truth.panels.brand.toLowerCase())) correct++;
-      else if (parsed.panels.best.brand) incorrect++;
+    if (parsed.panels?.length > 0) {
+      const panel = parsed.panels[0];
+      if (panel.brand?.toLowerCase().includes(truth.panels.brand.toLowerCase())) correct++;
+      else if (panel.brand) incorrect++;
       else missed++;
       
-      if (parsed.panels.best.count === truth.panels.count) correct++;
-      else if (parsed.panels.best.count) incorrect++;
+      if (panel.specs?.watts === truth.panels.wattage) correct++;
+      else if (panel.specs?.watts) incorrect++;
       else missed++;
       
-      if (parsed.panels.best.wattage === truth.panels.wattage) correct++;
-      else if (parsed.panels.best.wattage) incorrect++;
-      else missed++;
-      
-      // Check if evidences contain document spans
-      if (parsed.panels.best.evidences?.length > 0) {
+      // Check if evidence exists
+      if (panel.evidence?.length > 0) {
         docSpansCaptured = true;
       }
     } else {
-      missed += 3; // brand, count, wattage
+      missed += 2; // brand, wattage
     }
   }
   
   // Check battery
   if (truth.battery) {
-    if (parsed.battery?.best) {
-      if (parsed.battery.best.brand?.toLowerCase().includes(truth.battery.brand.toLowerCase())) correct++;
-      else if (parsed.battery.best.brand) incorrect++;
+    if (parsed.batteries?.length > 0) {
+      const battery = parsed.batteries[0];
+      if (battery.brand?.toLowerCase().includes(truth.battery.brand.toLowerCase())) correct++;
+      else if (battery.brand) incorrect++;
       else missed++;
       
-      const usableMatch = Math.abs((parsed.battery.best.usableKWh || 0) - truth.battery.usableKWh) < 1;
+      const usableMatch = Math.abs((battery.specs?.kWh || 0) - truth.battery.usableKWh) < 1;
       if (usableMatch) correct++;
-      else if (parsed.battery.best.usableKWh) incorrect++;
+      else if (battery.specs?.kWh) incorrect++;
       else missed++;
     } else {
       missed += 2; // brand, capacity
@@ -128,14 +126,15 @@ export function compareEntities(parsed: any, truth: OCRTrainingCase['groundTruth
   
   // Check inverter
   if (truth.inverter) {
-    if (parsed.inverter?.value) {
-      if (parsed.inverter.value.brandRaw?.toLowerCase().includes(truth.inverter.brand.toLowerCase())) correct++;
-      else if (parsed.inverter.value.brandRaw) incorrect++;
+    if (parsed.inverters?.length > 0) {
+      const inverter = parsed.inverters[0];
+      if (inverter.brand?.toLowerCase().includes(truth.inverter.brand.toLowerCase())) correct++;
+      else if (inverter.brand) incorrect++;
       else missed++;
       
-      const ratingMatch = Math.abs((parsed.inverter.value.ratedKw || 0) - truth.inverter.ratedKw) < 0.5;
+      const ratingMatch = Math.abs((inverter.specs?.kW || 0) - truth.inverter.ratedKw) < 0.5;
       if (ratingMatch) correct++;
-      else if (parsed.inverter.value.ratedKw) incorrect++;
+      else if (inverter.specs?.kW) incorrect++;
       else missed++;
     } else {
       missed += 2; // brand, rating
@@ -216,7 +215,9 @@ export async function ocrPracticeBatch(): Promise<void> {
   
   for (const testCase of cases) {
     try {
-      const parsed = await extractProposalEntities(testCase.text);
+      // Create a mock file from text for the OCR pipeline
+      const mockFile = new File([testCase.text], 'test.txt', { type: 'text/plain' });
+      const parsed = await masterOCRPipeline.process(mockFile);
       const deltas = compareEntities(parsed, testCase.groundTruth);
       
       await recordReplay(deltas, testCase, parsed);
