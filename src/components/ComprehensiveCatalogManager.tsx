@@ -29,13 +29,19 @@ export default function ComprehensiveCatalogManager() {
   const [productCounts, setProductCounts] = useState<ProductCounts[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeOperation, setActiveOperation] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadStatus();
-    const interval = setInterval(loadStatus, 5000); // Update every 5 seconds
+    const interval = setInterval(() => {
+      loadStatus();
+      // Check if any categories are processing
+      const hasProcessing = progress.some(p => p.status === 'processing' || p.status === 'clearing');
+      setIsProcessing(hasProcessing);
+    }, 2000); // Update every 2 seconds for real-time feedback
     return () => clearInterval(interval);
-  }, []);
+  }, [progress]);
 
   async function loadStatus() {
     try {
@@ -202,73 +208,111 @@ export default function ComprehensiveCatalogManager() {
         </TabsList>
 
         <TabsContent value="progress" className="space-y-4">
-          {progress.length > 0 ? (
-            progress.map((item) => (
-              <Card key={item.category}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{item.category.replace('_', ' ')}</h3>
-                      {getStatusIcon(item.status)}
+          {/* Single Card Layout for CEC Catalog Scraping */}
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                CEC Catalog Scraping
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Generate comprehensive product data from the Clean Energy Council database with complete specifications and 100% PDF coverage.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {progress.length > 0 ? (
+                progress.map((item) => (
+                  <div key={item.category} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        {item.category.replace('_', ' ')}
+                        {getStatusIcon(item.status)}
+                      </h3>
+                      <Badge className={getStatusColor(item.status)}>
+                        {item.status}
+                      </Badge>
                     </div>
-                    <Badge className={getStatusColor(item.status)}>
-                      {item.status}
-                    </Badge>
-                  </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{item.total_found}</div>
-                      <div className="text-sm text-muted-foreground">Found</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{item.total_processed}</div>
-                      <div className="text-sm text-muted-foreground">Processed</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">{item.total_with_pdfs}</div>
-                      <div className="text-sm text-muted-foreground">With PDFs</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">{item.total_parsed}</div>
-                      <div className="text-sm text-muted-foreground">Parsed</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Processing Progress</span>
-                      <span>{item.total_found > 0 ? Math.round((item.total_processed / item.total_found) * 100) : 0}%</span>
-                    </div>
-                    <Progress 
-                      value={item.total_found > 0 ? (item.total_processed / item.total_found) * 100 : 0} 
-                      className="h-2"
-                    />
-                  </div>
-
-                  {item.total_processed > 0 && (
-                    <div className="space-y-2 mt-3">
-                      <div className="flex justify-between text-sm">
-                        <span>PDF Collection</span>
-                        <span>{Math.round((item.total_with_pdfs / item.total_processed) * 100)}%</span>
+                    <div className="grid grid-cols-4 gap-4 text-center">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Found: {item.total_found}</div>
                       </div>
-                      <Progress 
-                        value={(item.total_with_pdfs / item.total_processed) * 100} 
-                        className="h-2"
-                      />
+                      <div>
+                        <div className="text-sm text-muted-foreground">Processed: {item.total_processed}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">PDFs: {item.total_with_pdfs}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Parsed: {item.total_parsed}</div>
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No scraping progress data available. Start by running "Scrape All Categories".</p>
-              </CardContent>
-            </Card>
-          )}
+
+                    {/* Animated Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-500 ease-out ${
+                            item.status === 'processing' ? 'bg-blue-500 animate-pulse' : 
+                            item.status === 'completed' ? 'bg-green-500' : 'bg-gray-400'
+                          }`}
+                          style={{ 
+                            width: `${item.total_found > 0 ? (item.total_processed / item.total_found) * 100 : 0}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-right text-muted-foreground">
+                        {item.total_found > 0 ? Math.round((item.total_processed / item.total_found) * 100) : 0}%
+                      </div>
+                    </div>
+
+                    {/* Real-time status messages */}
+                    {item.status === 'processing' && (
+                      <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950 p-2 rounded-md">
+                        <Clock className="w-4 h-4 animate-spin" />
+                        <span>Processing {item.category.toLowerCase().replace('_', ' ')}s... {item.total_processed}/{item.total_found}</span>
+                      </div>
+                    )}
+                    
+                    {item.status === 'completed' && (
+                      <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-2 rounded-md">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Complete - {item.total_processed} products with {item.total_with_pdfs} PDFs</span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No scraping progress data available.</p>
+                  <p className="text-sm">Click "Start Scraping" to begin.</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-4">
+                <Button 
+                  onClick={() => handleOperation('scrape_all')}
+                  disabled={loading || isProcessing}
+                  className="flex-1 flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                >
+                  <Database className="w-4 h-4" />
+                  {isProcessing ? 'Processing...' : 'Start Scraping'}
+                </Button>
+                
+                <Button 
+                  onClick={() => handleOperation('force_complete_reset')}
+                  disabled={loading || isProcessing}
+                  variant="destructive"
+                  className="flex-1 flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Complete Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="catalog" className="space-y-4">

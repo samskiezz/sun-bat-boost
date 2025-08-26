@@ -213,6 +213,11 @@ async function processAllCategoriesInBackground(supabase: any) {
   
   try {
     const categories = ['PANEL', 'BATTERY_MODULE', 'INVERTER'];
+    const targetCounts = {
+      'PANEL': 1348,
+      'BATTERY_MODULE': 513, 
+      'INVERTER': 200
+    };
     
     // Check if already processing to prevent duplicates
     const { data: existingProgress } = await supabase
@@ -223,6 +228,20 @@ async function processAllCategoriesInBackground(supabase: any) {
     if (existingProgress && existingProgress.length > 0) {
       console.log('⚠️ Scraping already in progress, skipping duplicate run');
       return;
+    }
+    
+    // CRITICAL: Initialize progress entries for ALL categories FIRST
+    console.log('🚀 Initializing progress entries for all categories...');
+    for (const category of categories) {
+      const targetCount = targetCounts[category as keyof typeof targetCounts];
+      await updateProgress(supabase, category, {
+        status: 'processing',
+        total_found: targetCount,
+        total_processed: 0,
+        total_with_pdfs: 0,
+        total_parsed: 0
+      });
+      console.log(`📋 ${category}: Initialized with target ${targetCount}`);
     }
     
     console.log('📋 Processing categories in sequence:', categories);
@@ -246,7 +265,7 @@ async function processAllCategoriesInBackground(supabase: any) {
         // Mark this category as failed but continue with others
         await updateProgress(supabase, category, {
           status: 'failed',
-          total_found: 0,
+          total_found: targetCounts[category as keyof typeof targetCounts] || 0,
           total_processed: 0,
           total_with_pdfs: 0,
           total_parsed: 0
