@@ -10,6 +10,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useReadinessGates } from '@/lib/readiness-gates';
 import DataCollectionPanel from './DataCollectionPanel';
 
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms";
+
 interface ScrapeJob {
   id: string;
   status: string;
@@ -79,13 +81,21 @@ export default function ComprehensiveCatalogManager() {
     
     try {
       console.log('🔄 UI: Loading job status...');
-      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'status' }
+      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: 'status' })
       });
 
-      console.log('📊 UI: Status response:', { data, error });
+      const data = await response.json();
+      console.log('📊 UI: Status response:', data);
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load status');
+      }
 
       setJob(data.job);
       setProgress(data.progress || []);
@@ -99,8 +109,13 @@ export default function ComprehensiveCatalogManager() {
     if (!jobId || job?.status !== 'running') return;
     
     try {
-      await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'tick' }
+      await fetch('/functions/v1/cec-comprehensive-scraper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: 'tick' })
       });
     } catch (error) {
       console.error('❌ UI: Failed to tick job:', error);
@@ -112,15 +127,21 @@ export default function ComprehensiveCatalogManager() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'start' }
+      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: 'start' })
       });
 
-      console.log('📊 UI: Start job response:', { data, error });
+      const data = await response.json();
+      console.log('📊 UI: Start job response:', { data, status: response.status });
 
-      if (error) {
-        console.error('❌ UI: Supabase function error:', error);
-        throw error;
+      if (!response.ok) {
+        console.error('❌ UI: HTTP error:', response.status, data);
+        throw new Error(data.error || 'Failed to start scraper');
       }
 
       if (!data) {
@@ -133,7 +154,13 @@ export default function ComprehensiveCatalogManager() {
 
       if (!newJobId) {
         console.error('❌ UI: No job_id in response. Full data:', data);
-        throw new Error('No job_id returned from scraper');
+        // Try to continue anyway in case the job started without returning an ID
+        toast({
+          title: "Warning",
+          description: "Job may have started but no ID was returned. Check the system manager.",
+          variant: "destructive",
+        });
+        return;
       }
 
       setJobId(newJobId);
@@ -169,11 +196,20 @@ export default function ComprehensiveCatalogManager() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('cec-comprehensive-scraper', {
-        body: { action: 'reset' }
+      const response = await fetch('/functions/v1/cec-comprehensive-scraper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: 'reset' })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset jobs');
+      }
 
       // Clear local state
       setJobId(null);
