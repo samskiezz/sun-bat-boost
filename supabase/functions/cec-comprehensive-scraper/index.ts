@@ -360,7 +360,7 @@ async function storeProductWithSpecs(supabase: any, product: Product): Promise<b
     const specs = generateProductSpecs(product.category, product);
     
     // Update product with PDF and specs
-    await supabase
+    const { error: updateError } = await supabase
       .from('products')
       .update({
         pdf_path: pdfPath,
@@ -368,6 +368,13 @@ async function storeProductWithSpecs(supabase: any, product: Product): Promise<b
         specs: specs
       })
       .eq('id', insertedProduct.id);
+      
+    if (updateError) {
+      console.error('Product update error:', updateError);
+      return false;
+    }
+    
+    console.log(`✅ Updated ${product.category} ${product.manufacturer} ${product.model} with PDF: ${pdfPath}`);
       
     // Store individual spec entries
     const specEntries = Object.entries(specs)
