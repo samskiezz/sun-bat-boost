@@ -7,13 +7,13 @@ import { scoreCandidates } from './score';
 const detectContext = (text: string, pageIndex: number, totalPages: number): string => {
   const line = text.trim();
   
-  // Header detection (first 20% of pages or header-like content)
-  if (pageIndex < totalPages * 0.2 || /^.{0,50}(?:solar|battery|inverter|system|proposal)/i.test(line)) {
+  // Header detection - only very specific header patterns, not general solar content
+  if (/^.{0,30}(?:proposal\s+for|prepared\s+by|quote\s*#|valid\s+until)/i.test(line)) {
     return 'HEADER';
   }
   
-  // Footer detection (last 20% of pages or footer-like content)
-  if (pageIndex > totalPages * 0.8 || /(?:page\s*\d+|total|subtotal|©|copyright)/i.test(line)) {
+  // Footer detection - only specific footer patterns
+  if (/(?:page\s*\d+\/\d+|©|copyright|\.com\.au|phone:|email:)/i.test(line)) {
     return 'FOOTER';
   }
   

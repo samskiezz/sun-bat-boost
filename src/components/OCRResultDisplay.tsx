@@ -203,7 +203,7 @@ export default function OCRResultDisplay({ result, onExtractComplete }: OCRResul
       </div>
       
       {/* Action Buttons */}
-      {(result.panels.best || result.battery.best) && onExtractComplete && (
+      {(result.panels?.best || result.battery?.best) && onExtractComplete && (
         <div className="flex justify-center">
           <Button 
             onClick={() => {

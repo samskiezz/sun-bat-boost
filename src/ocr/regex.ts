@@ -62,7 +62,7 @@ export const patterns = {
     table: /\||\t|(?:\s{3,})/,
     header: /^.{0,100}(?:proposal|quote|system|solar|energy|for|prepared\s+by)/i,
     footer: /(?:page\s*\d+|total|subtotal|©|copyright|phone|email|\.com|\.au)/i,
-    noise: /(?:proposal|quote|prepared\s+by|for\s+[A-Z\s]+|valid\s+until|sam@|\.com|phone|address)/i,
+    noise: /(?:^proposal\s+for|^prepared\s+by|^quote\s*#|^valid\s+until|@\w+\.com|^\d{4}\s+\d{3}\s+\d{3})/i,
   },
 };
 
