@@ -16,10 +16,13 @@ export default function SystemStatusIndicator() {
   useEffect(() => {
     checkStatus();
     checkJobStatus();
+    
+    // Auto-refresh more frequently to catch updates
     const interval = setInterval(() => {
       checkStatus();
       checkJobStatus();
-    }, 30000); // Check every 30 seconds
+    }, 10000); // Check every 10 seconds instead of 30
+    
     return () => clearInterval(interval);
   }, []);
 

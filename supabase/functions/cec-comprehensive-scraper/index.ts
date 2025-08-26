@@ -163,8 +163,22 @@ async function getJobStatus(supabase: any) {
       );
     }
 
-    // Get progress for this job
+    // Get progress for this job and sync with real database state
     const { data: progress } = await supabase
+      .from('scrape_job_progress')
+      .select('*')
+      .eq('job_id', job.id)
+      .order('category', { ascending: true });
+
+    // Force sync all categories with database to get real spec counts
+    if (progress) {
+      for (const categoryProgress of progress) {
+        await syncJobProgressWithDatabase(supabase, job.id, categoryProgress.category);
+      }
+    }
+
+    // Get updated progress after sync
+    const { data: updatedProgress } = await supabase
       .from('scrape_job_progress')
       .select('*')
       .eq('job_id', job.id)
@@ -174,12 +188,12 @@ async function getJobStatus(supabase: any) {
     const { data: productCounts } = await supabase
       .rpc('get_product_counts_by_category');
 
-    console.log('✅ Job status retrieved');
+    console.log('✅ Job status retrieved with real data');
     return new Response(
       JSON.stringify({
         success: true,
         job,
-        progress: progress || [],
+        progress: updatedProgress || [],
         productCounts: productCounts || []
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

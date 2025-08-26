@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { extractRealSpecsForProducts, updateProgressOnly } from '@/utils/realSpecsExtractor';
 import { updateProgressAndGatesNow } from '@/utils/directProgressUpdater';
 import { fixJobProgressData } from '@/utils/jobProgressFixer';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Search, Globe, Zap, Brain, RefreshCw, Wrench } from 'lucide-react';
 
 export const RealSpecsExtractor = () => {
@@ -17,9 +18,26 @@ export const RealSpecsExtractor = () => {
   const [result, setResult] = useState<any>(null);
   const { toast } = useToast();
 
-  // Auto-fix job progress on component mount
+  // Auto-fix job progress on component mount using edge function
   useEffect(() => {
-    fixJobProgressData().catch(console.error);
+    const initializeFix = async () => {
+      try {
+        console.log('🔧 Auto-fixing job progress on mount...');
+        
+        // Call the force sync edge function
+        const { data, error } = await supabase.functions.invoke('force-progress-sync');
+        
+        if (error) {
+          console.error('Force sync error:', error);
+        } else {
+          console.log('✅ Force sync completed:', data);
+        }
+      } catch (error) {
+        console.error('Error in auto-fix:', error);
+      }
+    };
+    
+    initializeFix();
   }, []);
 
   const handleFixJobProgress = async () => {
