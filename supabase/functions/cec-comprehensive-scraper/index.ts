@@ -691,11 +691,11 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
       productsToInsert.push(productData);
     }
 
-    // Insert new products using INSERT with ON CONFLICT DO NOTHING to prevent duplicates
+    // Insert new products using upsert to handle duplicates
     if (productsToInsert.length > 0) {
       const { data: insertedData, error: insertError } = await supabase
         .from('products')
-        .insert(productsToInsert)
+        .upsert(productsToInsert)
         .select('id');
       
       if (insertError) {
@@ -725,10 +725,10 @@ async function webSearchScraping(supabase: any, jobId: string, category: string,
         if (specsToInsert.length > 0) {
           const { error: specsError } = await supabase
             .from('specs')
-            .insert(specsToInsert);
+            .upsert(specsToInsert);
             
           if (specsError) {
-            console.error('❌ Web search specs insert error:', specsError);
+            console.error('❌ Web search specs upsert error:', specsError);
           } else {
             console.log(`✅ Inserted ${specsToInsert.length} spec entries for web-scraped ${category} products`);
           }
@@ -796,11 +796,11 @@ async function generateBasicProducts(supabase: any, jobId: string, category: str
       productsToInsert.push(productData);
     }
 
-    // Insert products using INSERT with ON CONFLICT DO NOTHING to handle duplicates
+    // Insert products using upsert to handle duplicates
     if (productsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from('products')
-        .insert(productsToInsert);
+        .upsert(productsToInsert);
       
       if (insertError) {
         console.error('❌ Basic generation insert error:', insertError);
