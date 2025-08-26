@@ -116,9 +116,26 @@ export default function ComprehensiveCatalogManager() {
         body: { action: 'start' }
       });
 
-      if (error) throw error;
+      console.log('📊 UI: Start job response:', { data, error });
 
-      const newJobId = data.job_id;
+      if (error) {
+        console.error('❌ UI: Supabase function error:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('❌ UI: No data returned from function');
+        throw new Error('No data returned from scraper function');
+      }
+
+      const newJobId = data?.job_id;
+      console.log('🔍 UI: Extracted job_id:', newJobId);
+
+      if (!newJobId) {
+        console.error('❌ UI: No job_id in response. Full data:', data);
+        throw new Error('No job_id returned from scraper');
+      }
+
       setJobId(newJobId);
       localStorage.setItem('scrape_job_id', newJobId);
 
