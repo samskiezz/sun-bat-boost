@@ -117,10 +117,8 @@ export async function extractRealSpecsForProducts() {
     console.log(`📊 Results: ${processed} processed, ${successful} successful API calls`);
     console.log(`✅ Final comprehensive specs: ${finalStats.panels} panels, ${finalStats.batteries} batteries, ${finalStats.inverters} inverters`);
     
-    // Update job progress if significant progress was made
-    if (successful > 10) {
-      await updateJobProgressRealTime();
-    }
+    // Always update job progress to reflect real data
+    await updateJobProgressRealTime();
     
     return {
       success: true,
@@ -142,105 +140,100 @@ async function updateJobProgressRealTime() {
   try {
     console.log('🔄 Updating job progress with real data...');
     
-    // Count actual comprehensive specs
-    const { data: panelSpecs } = await supabase
+    // Get accurate spec counts using a more efficient query
+    const { data: specCounts } = await supabase
       .from('products')
       .select(`
+        category,
         id,
         specs!inner(product_id)
       `)
-      .eq('category', 'PANEL')
+      .in('category', ['PANEL', 'BATTERY_MODULE', 'INVERTER'])
       .eq('status', 'active');
 
-    const { data: batterySpecs } = await supabase
-      .from('products')
-      .select(`
-        id,
-        specs!inner(product_id) 
-      `)
-      .eq('category', 'BATTERY_MODULE')
-      .eq('status', 'active');
-
-    const { data: inverterSpecs } = await supabase
-      .from('products')
-      .select(`
-        id,
-        specs!inner(product_id) 
-      `)
-      .eq('category', 'INVERTER')
-      .eq('status', 'active');
-
-    // Count products with 6+ specs
-    let panelCount = 0;
-    let batteryCount = 0;
-    let inverterCount = 0;
-
-    if (panelSpecs) {
-      for (const product of panelSpecs) {
-        const { count } = await supabase
-          .from('specs')
-          .select('*', { count: 'exact', head: true })
-          .eq('product_id', product.id);
-        if ((count || 0) >= 6) panelCount++;
+    // Count products with 6+ specs by category
+    const counts = { PANEL: 0, BATTERY_MODULE: 0, INVERTER: 0 };
+    
+    if (specCounts) {
+      // Group by product and count specs
+      const productSpecs = new Map();
+      
+      for (const row of specCounts) {
+        const key = `${row.category}-${row.id}`;
+        productSpecs.set(key, (productSpecs.get(key) || 0) + 1);
       }
-    }
-
-    if (batterySpecs) {
-      for (const product of batterySpecs) {
-        const { count } = await supabase
-          .from('specs')
-          .select('*', { count: 'exact', head: true })
-          .eq('product_id', product.id);
-        if ((count || 0) >= 6) batteryCount++;
-      }
-    }
-
-    if (inverterSpecs) {
-      for (const product of inverterSpecs) {
-        const { count } = await supabase
-          .from('specs')
-          .select('*', { count: 'exact', head: true })
-          .eq('product_id', product.id);
-        if ((count || 0) >= 6) inverterCount++;
+      
+      // Count products with 6+ specs
+      for (const [key, specCount] of productSpecs.entries()) {
+        const category = key.split('-')[0];
+        if (specCount >= 6) {
+          counts[category]++;
+        }
       }
     }
 
     // Update progress with real counts
-    const { error: updateError1 } = await supabase
-      .from('scrape_job_progress')
-      .update({
-        specs_done: panelCount,
-        state: panelCount >= 1348 ? 'completed' : 'running'
-      })
-      .eq('category', 'PANEL');
+    const updates = [
+      { category: 'PANEL', count: counts.PANEL, target: 1348 },
+      { category: 'BATTERY_MODULE', count: counts.BATTERY_MODULE, target: 513 },
+      { category: 'INVERTER', count: counts.INVERTER, target: 2411 }
+    ];
 
-    const { error: updateError2 } = await supabase
-      .from('scrape_job_progress')
-      .update({
-        specs_done: batteryCount,
-        state: batteryCount >= 513 ? 'completed' : 'running'
-      })
-      .eq('category', 'BATTERY_MODULE');
+    for (const { category, count, target } of updates) {
+      const { error } = await supabase
+        .from('scrape_job_progress')
+        .update({
+          specs_done: count,
+          state: count >= target ? 'completed' : 'running'
+        })
+        .eq('category', category);
 
-    const { error: updateError3 } = await supabase
-      .from('scrape_job_progress')
-      .update({
-        specs_done: inverterCount,
-        state: inverterCount >= 2411 ? 'completed' : 'running'
-      })
-      .eq('category', 'INVERTER');
-
-    if (updateError1 || updateError2 || updateError3) {
-      console.error('❌ Error updating job progress:', updateError1 || updateError2 || updateError3);
-    } else {
-      console.log(`✅ Progress updated - Panels: ${panelCount}/1348, Batteries: ${batteryCount}/513, Inverters: ${inverterCount}/2411`);
+      if (error) {
+        console.error(`❌ Error updating ${category} progress:`, error);
+      }
     }
+
+    console.log(`✅ Progress updated - Panels: ${counts.PANEL}/1348, Batteries: ${counts.BATTERY_MODULE}/513, Inverters: ${counts.INVERTER}/2411`);
+
+    // Update readiness gates
+    await updateReadinessGates(counts);
 
   } catch (error) {
     console.error('❌ Error updating job progress:', error);
   }
 }
 
-// Auto-trigger real specs extraction
-console.log('⚡ Auto-starting REAL specs extraction...');
-extractRealSpecsForProducts().catch(console.error);
+async function updateReadinessGates(counts: { PANEL: number; BATTERY_MODULE: number; INVERTER: number }) {
+  try {
+    // Update readiness gates with actual counts
+    const gates = [
+      { name: 'panel_comprehensive_specs', value: counts.PANEL, required: 1348 },
+      { name: 'battery_comprehensive_specs', value: counts.BATTERY_MODULE, required: 513 },
+      { name: 'inverter_comprehensive_specs', value: counts.INVERTER, required: 2411 }
+    ];
+
+    for (const gate of gates) {
+      await supabase
+        .from('readiness_gates')
+        .update({
+          current_value: gate.value,
+          passing: gate.value >= gate.required,
+          last_checked: new Date().toISOString()
+        })
+        .eq('gate_name', gate.name);
+    }
+
+    console.log('✅ Readiness gates updated');
+  } catch (error) {
+    console.error('❌ Error updating readiness gates:', error);
+  }
+}
+
+// Export for manual triggering only
+
+// Export function to update progress without extraction
+export async function updateProgressOnly() {
+  console.log('🔄 Updating progress and gates with current data...');
+  await updateJobProgressRealTime();
+  return { success: true, message: 'Progress updated' };
+}

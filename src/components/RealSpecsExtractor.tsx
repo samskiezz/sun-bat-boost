@@ -1,17 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
-import { extractRealSpecsForProducts } from '@/utils/realSpecsExtractor';
-import { Loader2, Search, Globe, Zap, Brain } from 'lucide-react';
+import { extractRealSpecsForProducts, updateProgressOnly } from '@/utils/realSpecsExtractor';
+import { Loader2, Search, Globe, Zap, Brain, RefreshCw } from 'lucide-react';
 
 export const RealSpecsExtractor = () => {
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [progress, setProgress] = useState(0);  
   const [currentProduct, setCurrentProduct] = useState('');
   const [result, setResult] = useState<any>(null);
   const { toast } = useToast();
+
+  // Auto-update progress on component mount to fix stuck displays
+  useEffect(() => {
+    updateProgressOnly().catch(console.error);
+  }, []);
+
+  const handleUpdateProgress = async () => {
+    setIsUpdating(true);
+    try {
+      await updateProgressOnly();
+      toast({
+        title: "Progress Updated!",
+        description: "Job progress and readiness gates have been refreshed",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update progress",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleRealExtraction = async () => {
     setIsExtracting(true);
@@ -141,24 +169,39 @@ export const RealSpecsExtractor = () => {
           </div>
         )}
 
-        <Button 
-          onClick={handleRealExtraction}
-          disabled={isExtracting}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          size="lg"
-        >
-          {isExtracting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Extracting Real Specs...
-            </>
-          ) : (
-            <>
-              <Brain className="mr-2 h-4 w-4" />
-              Extract REAL Specs (All Categories)
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleRealExtraction}
+            disabled={isExtracting || isUpdating}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+          >
+            {isExtracting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Extracting Real Specs...
+              </>
+            ) : (
+              <>
+                <Brain className="mr-2 h-4 w-4" />
+                Extract REAL Specs (All Categories)
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={handleUpdateProgress}
+            disabled={isExtracting || isUpdating}
+            variant="outline"
+            size="lg"
+          >
+            {isUpdating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
         
         <div className="text-xs text-center text-muted-foreground">
           This uses OpenAI GPT-4 + Google Search + Web Scraping<br/>
