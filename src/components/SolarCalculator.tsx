@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { HeroHeader } from "./HeroHeader";
-import { InputModeTabs } from "./InputModeTabs";
-import { ResultCards } from "./ResultCards";
-import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
 import { SEOHead } from "./SEOHead";
 import { EnhancedAISystem } from "./EnhancedAISystem";
 import PricingTiers from "./PricingTiers";
+import { SystemManagerCard } from "./SystemManagerCard";
+import { AppTabs } from "./AppTabs";
+import { RebatesCalculator } from "./RebatesCalculator";
+import { BatteryROICalculator } from "./BatteryROICalculator";
+import { BillsQuotesOCR } from "./BillsQuotesOCR";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
 import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalculations";
@@ -17,19 +18,27 @@ import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
 import { AICore, type AppMode } from "@/lib/ai/AICore";
-import { Sparkles, Zap, Brain, Crown, Users, Infinity } from "lucide-react";
+import { Settings, Crown, Users, Infinity } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Glass } from "./Glass";
+
+type Tab = "Rebates Calculator" | "Battery ROI Calculator" | "Bills & Quotes (OCR)";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
   const [appMode, setAppMode] = useState<AppMode>('lite');
   const [userTier, setUserTier] = useState<'free' | 'lite' | 'pro'>('free');
+  const [activeTab, setActiveTab] = useState<Tab>(() => 
+    (localStorage.getItem('activeTab') as Tab) || "Rebates Calculator"
+  );
   const [showAI, setShowAI] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [unlimitedTokens, setUnlimitedTokens] = useState(false);
+  const [devMode, setDevMode] = useState(false);
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
   const aiCoreRef = useRef<AICore | null>(null);
@@ -49,6 +58,7 @@ const SolarCalculator = () => {
     // Load user tier from localStorage
     const savedTier = localStorage.getItem('userTier') as 'free' | 'lite' | 'pro' | null;
     const savedAuth = localStorage.getItem('isAuthenticated') === 'true';
+    const savedDevMode = localStorage.getItem('devMode') === 'true';
     
     if (savedTier) {
       setUserTier(savedTier);
@@ -57,7 +67,13 @@ const SolarCalculator = () => {
         setAppMode('pro');
       }
     }
+    
+    setDevMode(savedDevMode);
   }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   const handleCalculate = async (formData: any) => {
     // Check usage limits
@@ -235,68 +251,71 @@ const SolarCalculator = () => {
     }
   };
 
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+  };
+
+  const toggleDevMode = () => {
+    const newDevMode = !devMode;
+    setDevMode(newDevMode);
+    localStorage.setItem('devMode', newDevMode.toString());
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <SEOHead results={results} location={results?.input?.postcode} />
       <InitialDataLoader />
       
-      {/* Tier Status Header */}
+      {/* Header with Dev Mode toggle hidden in dropdown */}
       <div className="border-b bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-semibold">Solar Rebate Calculator</h1>
+              <h1 className="text-lg font-semibold">Hilts Solar Calculator</h1>
               <Badge variant={
                 (unlimitedTokens || userTier === 'pro') ? 'default' : 
                 userTier === 'lite' ? 'secondary' : 
                 'outline'
               } className="gap-1">
                 {(unlimitedTokens || userTier === 'pro') && <Crown className="w-3 h-3" />}
-                {(userTier === 'lite' && !unlimitedTokens) && <Zap className="w-3 h-3" />}
-                {(userTier === 'free' && !unlimitedTokens) && <Users className="w-3 h-3" />}
                 {unlimitedTokens ? 'Pro (Dev)' : userTier === 'pro' ? 'Pro' : userTier === 'lite' ? 'Lite' : 'Free'} 
-                {(userTier === 'free' && !unlimitedTokens) && ' (3 daily)'}
+                {(userTier === 'free' && !unlimitedTokens && !devMode) && ' (3 daily)'}
               </Badge>
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Unlimited Tokens Dev Toggle */}
-              <div className="flex items-center gap-2 px-3 py-1 bg-card border rounded-lg">
-                <Label htmlFor="unlimited-tokens" className="text-xs font-medium">
-                  <Infinity className="w-3 h-3 inline mr-1" />
-                  Dev Mode
-                </Label>
-                <Switch
-                  id="unlimited-tokens"
-                  checked={unlimitedTokens}
-                  onCheckedChange={setUnlimitedTokens}
-                />
-              </div>
+              {/* Dev Mode in dropdown menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={toggleDevMode}>
+                    <div className="flex items-center gap-2">
+                      <Infinity className="w-4 h-4" />
+                      <span>Dev Mode</span>
+                      <Switch
+                        checked={devMode}
+                        onCheckedChange={toggleDevMode}
+                        className="ml-auto"
+                      />
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
-              {(userTier === 'free' && !unlimitedTokens) && (
+              {(userTier === 'free' && !devMode) && (
                 <Button size="sm" onClick={() => setShowPricing(true)} className="bg-blue-600 hover:bg-blue-700">
                   Sign Up Free
                 </Button>
               )}
-              {(userTier === 'lite' && !unlimitedTokens) && (
+              {(userTier === 'lite' && !devMode) && (
                 <Button size="sm" onClick={handleUpgrade} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
                   <Crown className="w-4 h-4 mr-1" />
                   Upgrade to Pro
                 </Button>
-              )}
-              {(unlimitedTokens || userTier === 'pro') && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-indigo-600">
-                    <Crown className="w-3 h-3 mr-1" />
-                    {unlimitedTokens ? 'Pro (Dev Mode)' : 'Pro Active'}
-                  </Badge>
-                  {!showAI && (
-                    <Button size="sm" onClick={() => setShowAI(true)} variant="outline">
-                      <Brain className="w-4 h-4 mr-1" />
-                      Open AI Assistant
-                    </Button>
-                  )}
-                </div>
               )}
             </div>
           </div>
@@ -310,62 +329,51 @@ const SolarCalculator = () => {
           day: 'numeric' 
         }) : "Loading..."} />
         
-        <div className="mx-auto max-w-4xl space-y-8">
-          <InputModeTabs 
-            onCalculate={handleCalculate} 
-            appMode={appMode}
-            tier={unlimitedTokens ? 'pro' : userTier}
-            unlimitedTokens={unlimitedTokens}
-          />
+        <div className="mx-auto max-w-6xl space-y-8">
+          <SystemManagerCard devMode={devMode} />
           
-          {/* AI Assistant - Compact version right after input */}
-          {showAI && (
-            <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-lg">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-purple-600" />
-                    AI Solar Assistant
-                    <Badge variant="default" className="bg-purple-600">
-                      <Crown className="w-3 h-3 mr-1" />
-                      {unlimitedTokens ? 'Pro (Dev)' : 'Pro'}
-                    </Badge>
-                  </div>
-                  <Button size="sm" onClick={() => setShowAI(false)} variant="ghost">
-                    ×
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EnhancedAISystem 
-                  mode={appMode} 
-                  tier={unlimitedTokens ? 'pro' : userTier}
-                  onSuggestionAccept={handleSuggestionAccept}
-                  onUpgradeRequest={handleUpgrade}
-                  className="h-[400px]"
-                />
-              </CardContent>
-            </Card>
+          <AppTabs activeTab={activeTab} onTabChange={handleTabChange} />
+          
+          {activeTab === "Rebates Calculator" && (
+            <RebatesCalculator
+              onCalculate={handleCalculate}
+              results={results}
+              eligibility={eligibility}
+              onRequestCall={handleRequestCall}
+              appMode={appMode}
+              userTier={userTier}
+              unlimitedTokens={devMode}
+            />
           )}
           
-          {results && (
-            <ResultCards results={results} />
+          {activeTab === "Battery ROI Calculator" && (
+            <BatteryROICalculator />
           )}
           
-          {results && eligibility && (
-            <div className="space-y-8">
-              <LimitLine 
-                status={eligibility.status}
-                reasons={eligibility.reasons}
-                suggestions={eligibility.suggestions}
-                onRequestCall={handleRequestCall}
-              />
-              
-              <div className="text-center text-sm text-muted-foreground">
-                <p>Figures use current published formulas and datasets.</p>
-                <p>Verified by a CEC-accredited designer before final quote.</p>
+          {activeTab === "Bills & Quotes (OCR)" && (
+            <BillsQuotesOCR />
+          )}
+          
+          {/* AI Assistant - Only shown in dev mode */}
+          {devMode && showAI && (
+            <Glass className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">AI Assistant (Dev Mode)</span>
+                </div>
+                <Button size="sm" onClick={() => setShowAI(false)} variant="ghost">
+                  ×
+                </Button>
               </div>
-            </div>
+              <EnhancedAISystem 
+                mode={appMode} 
+                tier='pro'
+                onSuggestionAccept={handleSuggestionAccept}
+                onUpgradeRequest={handleUpgrade}
+                className="h-[400px]"
+              />
+            </Glass>
           )}
         </div>
       </div>

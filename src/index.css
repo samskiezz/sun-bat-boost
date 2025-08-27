@@ -127,3 +127,48 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Glassmorphism Utilities */
+@layer utilities {
+  .glass {
+    @apply backdrop-blur-2xl bg-white/10 dark:bg-white/5 border border-white/20 rounded-2xl shadow-glass;
+  }
+  
+  .glass-card {
+    @apply backdrop-blur-2xl bg-white/10 dark:bg-white/5 border border-white/20 rounded-2xl shadow-2xl;
+  }
+  
+  .hover-glass {
+    @apply hover:scale-[1.01] transition-transform duration-200;
+  }
+  
+  .hologram-track {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .hologram-track::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: hologram 3s infinite linear;
+  }
+  
+  @keyframes hologram {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+  
+  .gradient-glass {
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  }
+  
+  .gradient-violet-subtle {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1), transparent);
+  }
+}
+}
