@@ -206,7 +206,7 @@ function calculateRebateReward(deltas: RebateDeltas): number {
 }
 
 async function updateAICoreRebateModels(accuracy: number): Promise<void> {
-  // Store updated model weights for AI Core to use
+  // Store updated model weights using training_metrics table for now
   const modelUpdate = {
     accuracy_score: accuracy,
     last_trained: new Date().toISOString(),
@@ -233,12 +233,12 @@ async function updateAICoreRebateModels(accuracy: number): Promise<void> {
     }
   };
   
-  await supabase.from('ai_model_weights').upsert({
-    model_type: 'REBATE_NEURAL_PROCESSOR',
-    weights: JSON.parse(JSON.stringify(modelUpdate)),
-    version: `v${Date.now()}`,
-    performance_score: accuracy
-  }, { onConflict: 'model_type' });
+  // Store in training_metrics as metadata until ai_model_weights table is recognized
+  await supabase.from('training_metrics').insert({
+    metric_type: 'REBATE_NEURAL_PROCESSOR_WEIGHTS',
+    value: accuracy,
+    metadata: JSON.parse(JSON.stringify(modelUpdate))
+  });
   
   console.log(`🔄 AI Core rebate models updated with ${(accuracy * 100).toFixed(1)}% accuracy`);
 }
@@ -259,11 +259,13 @@ export async function optimizeRebatesWithML(inputs: RebateInputs): Promise<{
   confidenceScore: number;
   recommendations: string[];
 }> {
-  // Load trained neural weights
+  // Load trained neural weights from training_metrics table
   const { data: modelWeights } = await supabase
-    .from('ai_model_weights')
-    .select('weights')
-    .eq('model_type', 'REBATE_NEURAL_PROCESSOR')
+    .from('training_metrics')
+    .select('metadata, value')
+    .eq('metric_type', 'REBATE_NEURAL_PROCESSOR_WEIGHTS')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single();
   
   if (!modelWeights) {
@@ -275,14 +277,14 @@ export async function optimizeRebatesWithML(inputs: RebateInputs): Promise<{
     };
   }
   
-  const weights = modelWeights.weights;
+  const weights = modelWeights.metadata as any;
   const recommendations: string[] = [];
   let optimizedInputs = { ...inputs };
   
   // Apply neural network optimizations
-  const stateMultiplier = weights.neural_weights?.state_factors?.[inputs.state_or_territory] || 1.0;
+  const stateMultiplier = weights?.neural_weights?.state_factors?.[inputs.state_or_territory] || 1.0;
   const capacityCategory = inputs.battery.usable_kWh < 10 ? 'small' : inputs.battery.usable_kWh < 20 ? 'medium' : 'large';
-  const capacityMultiplier = weights.neural_weights?.capacity_multipliers?.[capacityCategory] || 1.0;
+  const capacityMultiplier = weights?.neural_weights?.capacity_multipliers?.[capacityCategory] || 1.0;
   
   // Neural-enhanced recommendations
   if (!inputs.joins_vpp && inputs.battery.vpp_capable && stateMultiplier > 0.9) {

@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_model_weights: {
+        Row: {
+          created_at: string
+          id: string
+          model_type: string
+          performance_score: number
+          updated_at: string
+          version: string
+          weights: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_type: string
+          performance_score?: number
+          updated_at?: string
+          version: string
+          weights: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_type?: string
+          performance_score?: number
+          updated_at?: string
+          version?: string
+          weights?: Json
+        }
+        Relationships: []
+      }
       automation_logs: {
         Row: {
           created_at: string

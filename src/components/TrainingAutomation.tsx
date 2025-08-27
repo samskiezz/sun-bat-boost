@@ -31,6 +31,12 @@ interface AutomationConfig {
     performanceThreshold: boolean;
     minimumInterval: number; // hours
   };
+  trainingModes: {
+    ocrTraining: boolean;
+    designTraining: boolean;
+    rebateOptimization: boolean;
+    ruleGeneration: boolean;
+  };
   autoRetry: boolean;
   maxRetries: number;
 }
@@ -54,6 +60,12 @@ export default function TrainingAutomation() {
       dataFreshness: true,
       performanceThreshold: false,
       minimumInterval: 24
+    },
+    trainingModes: {
+      ocrTraining: true,
+      designTraining: true,
+      rebateOptimization: true,
+      ruleGeneration: true
     },
     autoRetry: true,
     maxRetries: 3
@@ -488,6 +500,69 @@ export default function TrainingAutomation() {
               )}
             </div>
           )}
+
+          {/* Advanced Options */}
+          <div className="space-y-3 pt-4 border-t">
+            <h4 className="font-medium text-sm">Training Modes</h4>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">OCR Training</div>
+                  <div className="text-xs text-muted-foreground">Document text recognition</div>
+                </div>
+                <Switch 
+                  checked={config.trainingModes.ocrTraining}
+                  onCheckedChange={(checked) => saveAutomationConfig({ 
+                    ...config, 
+                    trainingModes: { ...config.trainingModes, ocrTraining: checked } 
+                  })}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">Design Training</div>
+                  <div className="text-xs text-muted-foreground">System design validation</div>
+                </div>
+                <Switch 
+                  checked={config.trainingModes.designTraining}
+                  onCheckedChange={(checked) => saveAutomationConfig({ 
+                    ...config, 
+                    trainingModes: { ...config.trainingModes, designTraining: checked } 
+                  })}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">🧠 Neural Rebate Optimizer</div>
+                  <div className="text-xs text-muted-foreground">ML rebate calculation enhancement</div>
+                </div>
+                <Switch 
+                  checked={config.trainingModes.rebateOptimization}
+                  onCheckedChange={(checked) => saveAutomationConfig({ 
+                    ...config, 
+                    trainingModes: { ...config.trainingModes, rebateOptimization: checked } 
+                  })}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">Rule Generation</div>
+                  <div className="text-xs text-muted-foreground">Auto constraint synthesis</div>
+                </div>
+                <Switch 
+                  checked={config.trainingModes.ruleGeneration}
+                  onCheckedChange={(checked) => saveAutomationConfig({ 
+                    ...config, 
+                    trainingModes: { ...config.trainingModes, ruleGeneration: checked } 
+                  })}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Advanced Options */}
           <div className="space-y-3 pt-4 border-t">
