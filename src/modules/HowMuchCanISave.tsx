@@ -250,14 +250,21 @@ export default function HowMuchCanISave() {
                     className="flex items-center justify-center gap-2 mt-2"
                   >
                     <span className="text-lg text-muted-foreground">Compare with</span>
-                    <motion.span 
-                      key={planCount}
-                      initial={{ scale: 1.2, color: "#22c55e" }}
-                      animate={{ scale: 1, color: "currentColor" }}
-                      className="text-lg font-bold text-primary"
-                    >
-                      {planCount.toLocaleString()}
-                    </motion.span>
+                     <motion.span 
+                       key={planCount}
+                       initial={{ scale: 1.2, color: "#3b82f6" }}
+                       animate={{ 
+                         scale: 1,
+                         color: ["#3b82f6", "#8b5cf6", "#3b82f6"]
+                       }}
+                       transition={{
+                         scale: { duration: 0.5 },
+                         color: { duration: 2, repeat: Infinity }
+                       }}
+                       className="text-lg font-bold text-primary"
+                     >
+                       {planCount.toLocaleString()}
+                     </motion.span>
                     <span className="text-lg text-muted-foreground">live energy plans</span>
                   </motion.div>
                 </div>

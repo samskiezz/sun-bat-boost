@@ -44,6 +44,7 @@ interface ExtractedField {
 type Step = 'method' | 'bills' | 'system' | 'site' | 'results';
 
 export default function BatteryRoi() {
+  const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('method');
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -51,6 +52,192 @@ export default function BatteryRoi() {
   const [processing, setProcessing] = useState(false);
   const [showManualSystem, setShowManualSystem] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [batteryCount, setBatteryCount] = useState(342);
+  
+  // Fetch battery count for display
+  useEffect(() => {
+    const fetchBatteryCount = async () => {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { count } = await supabase
+          .from('batteries')
+          .select('*', { count: 'exact', head: true });
+        setBatteryCount(count || 342); // fallback to demo number
+      } catch (error) {
+        console.error('Error fetching battery count:', error);
+        setBatteryCount(342);
+      }
+    };
+    fetchBatteryCount();
+  }, []);
+
+  if (!started) {
+    return (
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background Orbs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <motion.div
+            className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-r from-orange-400/30 to-amber-500/30 rounded-full blur-3xl"
+            animate={{
+              x: [0, 60, 0],
+              y: [0, -25, 0],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 9,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute top-1/3 right-1/3 w-48 h-48 bg-gradient-to-l from-yellow-400/25 to-orange-500/25 rounded-full blur-2xl"
+            animate={{
+              x: [0, -35, 0],
+              y: [0, 45, 0],
+              scale: [1, 0.8, 1],
+            }}
+            transition={{
+              duration: 7,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-gradient-to-br from-red-400/20 to-orange-500/20 rounded-full blur-3xl"
+            animate={{
+              x: [0, 25, 0],
+              y: [0, -55, 0],
+              rotate: [0, 270, 360],
+            }}
+            transition={{
+              duration: 11,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 p-12 shadow-2xl"
+          >
+            {/* Header */}
+            <motion.div 
+              className="flex items-center justify-center gap-4 mb-8"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-600/20 border border-orange-400/30 backdrop-blur-sm">
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  🔋
+                </motion.div>
+              </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-orange-100 to-amber-300 bg-clip-text text-transparent">
+                  Battery ROI Calculator
+                </h1>
+                <p className="text-lg text-orange-100 mt-2">
+                  Analyze with <motion.span 
+                    className="font-semibold text-orange-300"
+                    animate={{ color: ["#fed7aa", "#fb923c", "#fed7aa"] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {batteryCount.toLocaleString()}
+                  </motion.span> battery models
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Description */}
+            <motion.p 
+              className="text-xl text-white/80 mb-12 leading-relaxed max-w-3xl mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+            >
+              Get comprehensive ROI analysis for your battery investment with our AI-powered calculator
+            </motion.p>
+
+            {/* Feature Cards */}
+            <motion.div 
+              className="grid md:grid-cols-3 gap-6 mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.6 }}
+            >
+              <motion.div 
+                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-400/30 w-fit mx-auto mb-4">
+                  📄
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-white">Smart Bill Analysis</h3>
+                <p className="text-sm text-white/70 leading-relaxed">
+                  Upload your electricity bill for AI-powered extraction of usage patterns, TOU rates, and tariff details
+                </p>
+              </motion.div>
+
+              <motion.div 
+                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-600/20 border border-orange-400/30 w-fit mx-auto mb-4">
+                  ⚡
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-white">ROI Optimization</h3>
+                <p className="text-sm text-white/70 leading-relaxed">
+                  AI calculates optimal battery size based on your energy profile, or upload your battery quote
+                </p>
+              </motion.div>
+
+              <motion.div 
+                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 w-fit mx-auto mb-4">
+                  💰
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-white">Financial Analysis</h3>
+                <p className="text-sm text-white/70 leading-relaxed">
+                  Complete payback period, savings projections, and total return on investment calculations
+                </p>
+              </motion.div>
+            </motion.div>
+
+            {/* CTA Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.6 }}
+            >
+              <Button
+                onClick={() => setStarted(true)}
+                size="lg"
+                className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-lg px-12 py-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              >
+                Start ROI Analysis
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
   
   // Form data
   const [formData, setFormData] = useState({
@@ -190,32 +377,34 @@ export default function BatteryRoi() {
         </Glass>
       )}
 
-      {/* Progress Header */}
-      <Glass className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Battery ROI Calculator</h2>
-          <Badge variant="outline">{currentStepIndex + 1} of {steps.length}</Badge>
-        </div>
-        
-        <Progress value={progress} className="mb-4 hologram-track" />
-        
-        <div className="flex items-center justify-between text-sm">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <div 
-                key={step.id}
-                className={`flex items-center gap-2 ${
-                  index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{step.title}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Glass>
+      {/* Progress Header - Only show when started */}
+      {currentStep !== 'method' && (
+        <Glass className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Battery ROI Calculator</h2>
+            <Badge variant="outline">{currentStepIndex + 1} of {steps.length}</Badge>
+          </div>
+          
+          <Progress value={progress} className="mb-4 hologram-track" />
+          
+          <div className="flex items-center justify-between text-sm">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <div 
+                  key={step.id}
+                  className={`flex items-center gap-2 ${
+                    index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{step.title}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Glass>
+      )}
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
