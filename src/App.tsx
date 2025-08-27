@@ -10,7 +10,7 @@ import SystemManager from "./pages/SystemManager";
 import TopBar from "@/components/TopBar";
 import HowMuchCanISave from "@/modules/HowMuchCanISave";
 import BatteryRoi from "@/modules/BatteryRoi";
-import RebatesCalculator from "@/modules/RebatesCalculator";
+import RebatesCalculatorModule from "@/modules/RebatesCalculator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Battery, Sparkles } from "lucide-react";
 import "@/ai/bootstrap";
@@ -40,7 +40,7 @@ const EnergyApp = () => (
           </TabsList>
           
           <TabsContent value="rebates" className="mt-0">
-            <RebatesCalculator />
+            <RebatesCalculatorModule />
           </TabsContent>
           
           <TabsContent value="savings" className="mt-0">
