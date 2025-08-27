@@ -24,8 +24,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Glass } from "./Glass";
+import { TopBar } from "./TopBar";
+import { messageBus } from "@/lib/ai/MessageBus";
+import { modelRegistry } from "@/lib/ai/ModelRegistry";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "Bills & Quotes (OCR)";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -254,6 +257,13 @@ const SolarCalculator = () => {
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
+    
+    // Publish tab change to message bus
+    messageBus.publish('user.action', 
+      { action: 'tab_changed', tab }, 
+      1.0, 
+      { model_id: 'UI', version: '1.0.0' }
+    );
   };
 
   const toggleDevMode = () => {
@@ -266,6 +276,15 @@ const SolarCalculator = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <SEOHead results={results} location={results?.input?.postcode} />
       <InitialDataLoader />
+      
+      {/* Top Bar */}
+      <div className="container mx-auto px-4 pt-4">
+        <TopBar 
+          userTier={userTier} 
+          onTierChange={handleTierUpgrade}
+          devMode={devMode}
+        />
+      </div>
       
       {/* Header with Dev Mode toggle hidden in dropdown */}
       <div className="border-b bg-card/50 backdrop-blur-sm">
@@ -362,6 +381,10 @@ const SolarCalculator = () => {
           
           {activeTab === "Battery ROI Calculator" && (
             <BatteryROICalculator />
+          )}
+          
+          {activeTab === "Bills & Quotes (OCR)" && (
+            <BillsQuotesOCR />
           )}
           
           {/* AI Assistant - Only shown in dev mode */}
