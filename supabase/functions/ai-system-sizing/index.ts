@@ -220,11 +220,30 @@ async function analyzeUsagePatterns(billData: any) {
   const annualUsage = billData.quarterlyUsage * 4;
   const dailyUsage = annualUsage / 365;
   
+  // CRITICAL: Validate realistic usage - Australian household minimum
+  if (annualUsage < 1000) {
+    console.warn(`⚠️ USAGE TOO LOW: ${annualUsage} kWh/year - Adjusting to realistic minimum`);
+    // Adjust to realistic Australian household minimum (1800 kWh/year)
+    const adjustedAnnual = 1800;
+    const adjustedDaily = adjustedAnnual / 365;
+    
+    console.log(`📊 ADJUSTED USAGE BREAKDOWN:`);
+    console.log(`  Adjusted Annual: ${adjustedAnnual} kWh (was ${annualUsage})`);
+    console.log(`  Adjusted Daily: ${adjustedDaily.toFixed(1)} kWh (was ${dailyUsage.toFixed(1)})`);
+    
+    return analyzeWithValidUsage(adjustedDaily, adjustedAnnual);
+  }
+  
+  return analyzeWithValidUsage(dailyUsage, annualUsage);
+}
+
+function analyzeWithValidUsage(dailyUsage: number, annualUsage: number) {
   // CRITICAL: Proper 60/40 day/night split methodology
   const dayUsage = dailyUsage * 0.60; // 60% consumed during solar hours (9am-3pm)
   const nightUsage = dailyUsage * 0.40; // 40% consumed during evening/night (4pm-8am)
   
   console.log(`📊 USAGE BREAKDOWN:`);
+  console.log(`  Annual Total: ${annualUsage} kWh`);
   console.log(`  Daily Total: ${dailyUsage.toFixed(1)} kWh`);
   console.log(`  Day Usage (60%): ${dayUsage.toFixed(1)} kWh`);
   console.log(`  Night Usage (40%): ${nightUsage.toFixed(1)} kWh`);

@@ -152,18 +152,47 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // Total Usage (most important for navigation) - Enhanced patterns
-    const totalUsageMatches = text.match(/(?:total|consumption|usage|electricity)[\s\w]*?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/i) ||
-                              text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh[\s\w]*?(?:total|consumption|usage|electricity)/i) ||
-                              text.match(/kwh[\s:]*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/i) ||
-                              text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/i);
-    if (totalUsageMatches) {
-      const usageValue = parseFloat(totalUsageMatches[1].replace(/,/g, ''));
-      console.log('✅ Found usage:', usageValue, 'kWh');
+    // Total Usage (most important for navigation) - Enhanced patterns for quarterly bills
+    const allUsageMatches = [
+      // Look for quarterly/billing period usage first (highest priority)
+      ...Array.from(text.matchAll(/(?:quarter|billing\s+period|this\s+period|usage\s+charges?)[\s\w]*?(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.95, source: 'quarterly' })),
+      ...Array.from(text.matchAll(/(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh[\s\w]*?(?:quarter|billing\s+period|this\s+period)/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.95, source: 'quarterly' })),
+      
+      // Look for total consumption patterns (medium priority)
+      ...Array.from(text.matchAll(/(?:total|consumption|electricity\s+used)[\s\w]*?(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.85, source: 'total' })),
+      ...Array.from(text.matchAll(/(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh[\s\w]*?(?:total|consumption|electricity\s+used)/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.85, source: 'total' })),
+      
+      // Generic kWh patterns (lowest priority)
+      ...Array.from(text.matchAll(/(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.60, source: 'generic' }))
+    ];
+
+    // Filter for realistic quarterly usage (200+ kWh) and sort by confidence and value
+    const validUsage = allUsageMatches
+      .filter(match => match.value >= 200) // Minimum realistic quarterly usage
+      .sort((a, b) => {
+        if (a.confidence !== b.confidence) return b.confidence - a.confidence;
+        return b.value - a.value; // Prefer higher usage values
+      });
+
+    if (validUsage.length > 0) {
+      const bestMatch = validUsage[0];
+      console.log(`✅ Found usage: ${bestMatch.value} kWh (${bestMatch.source}, confidence: ${bestMatch.confidence})`);
       fields.push({
         label: "Total Usage (kWh)",
-        value: usageValue,
-        confidence: 0.90,
+        value: bestMatch.value,
+        confidence: bestMatch.confidence,
+        editable: true,
+        key: "usage",
+        category: "basic"
+      });
+    } else if (allUsageMatches.length > 0) {
+      // If no realistic quarterly usage found, take the highest value but mark as low confidence
+      const fallbackMatch = allUsageMatches.sort((a, b) => b.value - a.value)[0];
+      console.log(`⚠️ Found low usage: ${fallbackMatch.value} kWh (${fallbackMatch.source}) - may need manual adjustment`);
+      fields.push({
+        label: "Total Usage (kWh)",
+        value: fallbackMatch.value,
+        confidence: 0.30, // Low confidence for unrealistic values
         editable: true,
         key: "usage",
         category: "basic"
