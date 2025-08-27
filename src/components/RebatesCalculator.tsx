@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDropzone } from 'react-dropzone';
 import { 
   Upload, 
   FileText, 
@@ -39,7 +40,7 @@ import { QuickSizesForm } from './forms/QuickSizesForm';
 import { ResultCards } from './ResultCards';
 import { LimitLine } from './LimitLine';
 import { Glass } from './Glass';
-import { useDropzone } from 'react-dropzone';
+import { useCECData } from '@/hooks/useCECData';
 import { SavingsWizard } from './SavingsWizard';
 import { SavingsCTACard } from './SavingsCTACard';
 
@@ -78,6 +79,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   const [processing, setProcessing] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
   
+  const { vppProviders } = useCECData();
   const isProUser = unlimitedTokens || userTier === 'pro';
   
   // Form data
@@ -191,6 +193,21 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         vppProvider: formData.vppProvider,
         extractedData: extractedData.length > 0 ? extractedData : undefined,
         rebateResults: rebateResults
+      };
+      
+      onCalculate(calculationData);
+    }).catch(error => {
+      console.error('Failed to calculate rebates:', error);
+      // Fallback calculation without rebates
+      const calculationData = {
+        mode: inputMethod,
+        postcode: formData.postcode,
+        solarKw: formData.solarKw,
+        batteryKwh: formData.batteryKwh,
+        installDate: formData.installDate,
+        stcPrice: formData.stcPrice,
+        vppProvider: formData.vppProvider,
+        extractedData: extractedData.length > 0 ? extractedData : undefined
       };
       
       onCalculate(calculationData);
@@ -571,22 +588,28 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                     />
                     <p className="text-xs text-muted-foreground mt-1">Current market rate: $38</p>
                   </div>
-                  
-                  <div>
-                    <Label>VPP Provider (Optional)</Label>
-                    <Select value={formData.vppProvider} onValueChange={(value) => setFormData(prev => ({ ...prev, vppProvider: value }))}>
-                      <SelectTrigger className="bg-white/5 border-white/20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="None">No VPP</SelectItem>
-                        <SelectItem value="Tesla">Tesla Energy Plan</SelectItem>
-                        <SelectItem value="AGL">AGL VPP</SelectItem>
-                        <SelectItem value="Origin">Origin Loop</SelectItem>
-                        <SelectItem value="EnergyAustralia">EnergyAustralia</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                   <div>
+                     <Label>VPP Provider (Optional)</Label>
+                     <Select value={formData.vppProvider} onValueChange={(value) => setFormData(prev => ({ ...prev, vppProvider: value }))}>
+                       <SelectTrigger className="bg-white/5 border-white/20 z-50">
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent className="bg-card border-border z-50 max-h-60 overflow-y-auto">
+                         <SelectItem value="None">No VPP</SelectItem>
+                         {vppProviders.map(vpp => (
+                           <SelectItem key={vpp.id} value={vpp.name}>
+                             <div className="flex flex-col py-1">
+                               <div className="font-medium">{vpp.name}</div>
+                               <div className="text-xs text-muted-foreground">
+                                 {vpp.company} • ${vpp.estimated_annual_reward}/year
+                                 {vpp.signup_bonus > 0 && ` • $${vpp.signup_bonus} signup`}
+                               </div>
+                             </div>
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
                 </div>
 
                 <div className="space-y-4">

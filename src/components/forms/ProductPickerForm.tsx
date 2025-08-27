@@ -43,8 +43,7 @@ export const ProductPickerForm = ({ onSubmit, appMode = 'lite' }: ProductPickerF
     panelId: "",
     panelQty: "",
     batteryId: "",
-    stcPrice: "38",
-    vppProvider: ""
+    stcPrice: "38"
   });
 
   const [panelSearch, setPanelSearch] = useState("");
@@ -486,56 +485,6 @@ export const ProductPickerForm = ({ onSubmit, appMode = 'lite' }: ProductPickerF
             </div>
           )}
 
-          {/* VPP Provider Selection */}
-          <div className="space-y-4">
-            <Label>VPP Provider (Optional)</Label>
-            <Select 
-              value={formData.vppProvider} 
-              onValueChange={(value) => setFormData({...formData, vppProvider: value})}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a Virtual Power Plant provider (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No VPP Provider</SelectItem>
-                {vppProviders.map(vpp => (
-                  <SelectItem key={vpp.id} value={vpp.id}>
-                    <div className="flex items-start gap-3 py-2">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{vpp.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>${vpp.signup_bonus} signup</span>
-                            <span>• ${vpp.estimated_annual_reward}/year</span>
-                            {selectedBattery && compatibleVPPs.includes(vpp) && (
-                              <span className="text-green-600">• Compatible with {selectedBattery.brand}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedBattery && (
-              <div className="text-sm">
-                {compatibleVPPs.length > 0 ? (
-                  <div className="text-green-600">
-                    ✅ {compatibleVPPs.length} VPP provider{compatibleVPPs.length > 1 ? 's' : ''} support {selectedBattery.brand} batteries:
-                    <div className="mt-1 text-xs">
-                      {compatibleVPPs.map(vpp => `${vpp.name} ($${vpp.signup_bonus + vpp.estimated_annual_reward} total value)`).join(', ')}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-yellow-600">
-                    ⚠️ No VPP providers currently support {selectedBattery.brand} batteries in our database
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* STC Price */}
           <div className="space-y-2">
             <Label htmlFor="stcPrice">STC Price ($)</Label>
@@ -552,14 +501,6 @@ export const ProductPickerForm = ({ onSubmit, appMode = 'lite' }: ProductPickerF
               Current market STC price (typically $35-$45)
             </div>
           </div>
-
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={!selectedPanel || !formData.panelQty || !formData.postcode}
-          >
-            Calculate Rebates
-          </Button>
         </form>
       </CardContent>
     </Card>
