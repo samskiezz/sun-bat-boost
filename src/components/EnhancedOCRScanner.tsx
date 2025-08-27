@@ -49,12 +49,21 @@ interface ExtractedField {
 }
 
 const RETAILER_PATTERNS = [
-  { name: "AGL Energy", patterns: ["AGL", "A.G.L"] },
-  { name: "Origin Energy", patterns: ["ORIGIN", "ORIGIN ENERGY"] },
-  { name: "Energy Australia", patterns: ["ENERGY AUSTRALIA", "ENERGYAUSTRALIA"] },
-  { name: "Red Energy", patterns: ["RED ENERGY", "RED"] },
-  { name: "Alinta Energy", patterns: ["ALINTA", "ALINTA ENERGY"] },
-  { name: "Simply Energy", patterns: ["SIMPLY ENERGY", "SIMPLY"] }
+  { name: "AGL Energy", patterns: ["AGL", "A.G.L", "AGL ENERGY", "AGL AUSTRALIA"] },
+  { name: "Origin Energy", patterns: ["ORIGIN", "ORIGIN ENERGY", "ORIGIN AUSTRALIA"] },
+  { name: "Energy Australia", patterns: ["ENERGY AUSTRALIA", "ENERGYAUSTRALIA", "EA", "ENERGY AUST"] },
+  { name: "Red Energy", patterns: ["RED ENERGY", "RED", "RED AUSTRALIA"] },
+  { name: "Alinta Energy", patterns: ["ALINTA", "ALINTA ENERGY", "ALINTA AUSTRALIA"] },
+  { name: "Simply Energy", patterns: ["SIMPLY ENERGY", "SIMPLY", "SIMPLY AUSTRALIA"] },
+  { name: "EnergyLocals", patterns: ["ENERGYLOCALS", "ENERGY LOCALS", "LOCALS"] },
+  { name: "Amber Electric", patterns: ["AMBER", "AMBER ELECTRIC", "AMBER ENERGY"] },
+  { name: "Powershop", patterns: ["POWERSHOP", "POWER SHOP"] },
+  { name: "Lumo Energy", patterns: ["LUMO", "LUMO ENERGY"] },
+  { name: "ActewAGL", patterns: ["ACTEWAGL", "ACTEW AGL", "ACTEW"] },
+  { name: "Aurora Energy", patterns: ["AURORA", "AURORA ENERGY"] },
+  { name: "Synergy", patterns: ["SYNERGY"] },
+  { name: "Ergon Energy", patterns: ["ERGON", "ERGON ENERGY"] },
+  { name: "Energex", patterns: ["ENERGEX"] }
 ];
 
 export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }: EnhancedOCRScannerProps) {
@@ -65,6 +74,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   const { toast } = useToast();
 
   const extractBillData = (text: string): ExtractedField[] => {
+    console.log('🔍 Extracting bill data from text:', text.substring(0, 200) + '...');
     const upperText = text.toUpperCase();
     const fields: ExtractedField[] = [];
 
@@ -76,6 +86,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
         if (upperText.includes(pattern)) {
           retailer = name;
           retailerConfidence = 0.95;
+          console.log('✅ Found retailer:', name, 'via pattern:', pattern);
           break;
         }
       }
@@ -93,13 +104,16 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // TOU Analysis
-    const peakMatches = text.match(/peak[:\s]*(\d+(?:\.\d{1,2})?)/i) ||
-                       text.match(/(\d+(?:\.\d{1,2})?)\s*c\/kwh.*peak/i);
+    // TOU Analysis - Enhanced patterns
+    const peakMatches = text.match(/peak[\s\w]*?(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?/i) ||
+                       text.match(/(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?peak/i) ||
+                       text.match(/peak\s+rate[\s:]*(\d{1,2}(?:\.\d{1,2})?)/i);
     if (peakMatches) {
+      const peakValue = parseFloat(peakMatches[1]);
+      console.log('✅ Found peak rate:', peakValue, 'c/kWh');
       fields.push({
         label: "Peak Rate (c/kWh)",
-        value: parseFloat(peakMatches[1]),
+        value: peakValue,
         confidence: 0.85,
         editable: true,
         key: "peakRate",
@@ -107,12 +121,15 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    const offPeakMatches = text.match(/off.?peak[:\s]*(\d+(?:\.\d{1,2})?)/i) ||
-                          text.match(/(\d+(?:\.\d{1,2})?)\s*c\/kwh.*off.?peak/i);
+    const offPeakMatches = text.match(/off.?peak[\s\w]*?(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?/i) ||
+                          text.match(/(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?off.?peak/i) ||
+                          text.match(/off.?peak\s+rate[\s:]*(\d{1,2}(?:\.\d{1,2})?)/i);
     if (offPeakMatches) {
+      const offPeakValue = parseFloat(offPeakMatches[1]);
+      console.log('✅ Found off-peak rate:', offPeakValue, 'c/kWh');
       fields.push({
         label: "Off-Peak Rate (c/kWh)",
-        value: parseFloat(offPeakMatches[1]),
+        value: offPeakValue,
         confidence: 0.85,
         editable: true,
         key: "offPeakRate",
@@ -120,11 +137,14 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    const shoulderMatches = text.match(/shoulder[:\s]*(\d+(?:\.\d{1,2})?)/i);
+    const shoulderMatches = text.match(/shoulder[\s\w]*?(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?/i) ||
+                           text.match(/(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?shoulder/i);
     if (shoulderMatches) {
+      const shoulderValue = parseFloat(shoulderMatches[1]);
+      console.log('✅ Found shoulder rate:', shoulderValue, 'c/kWh');
       fields.push({
         label: "Shoulder Rate (c/kWh)",
-        value: parseFloat(shoulderMatches[1]),
+        value: shoulderValue,
         confidence: 0.80,
         editable: true,
         key: "shoulderRate",
@@ -132,16 +152,17 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // Total Usage (most important for navigation)
-    const totalUsageMatches = text.match(/total.*?(\d+(?:,\d{3})*)\s*kwh/i) ||
-                              text.match(/consumption[:\s]*(\d+(?:,\d{3})*)\s*kwh/i) ||
-                              text.match(/(\d+(?:,\d{3})*)\s*kwh.*total/i) ||
-                              text.match(/usage[:\s]*(\d+(?:,\d{3})*)\s*kwh/i) ||
-                              text.match(/electricity.*?(\d+(?:,\d{3})*)\s*kwh/i);
+    // Total Usage (most important for navigation) - Enhanced patterns
+    const totalUsageMatches = text.match(/(?:total|consumption|usage|electricity)[\s\w]*?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/i) ||
+                              text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh[\s\w]*?(?:total|consumption|usage|electricity)/i) ||
+                              text.match(/kwh[\s:]*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/i) ||
+                              text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/i);
     if (totalUsageMatches) {
+      const usageValue = parseFloat(totalUsageMatches[1].replace(/,/g, ''));
+      console.log('✅ Found usage:', usageValue, 'kWh');
       fields.push({
         label: "Total Usage (kWh)",
-        value: parseInt(totalUsageMatches[1].replace(/,/g, '')),
+        value: usageValue,
         confidence: 0.90,
         editable: true,
         key: "usage",
@@ -149,16 +170,17 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // Total Bill Amount (most important for navigation)
-    const billAmountMatches = text.match(/total[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
-                              text.match(/amount[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
-                              text.match(/\$(\d+(?:,\d{3})*(?:\.\d{2})?).{0,20}total/i) ||
-                              text.match(/bill[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
-                              text.match(/charges[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
+    // Total Bill Amount (most important for navigation) - Enhanced patterns
+    const billAmountMatches = text.match(/(?:total|amount|due|payable|bill|charges|balance)[\s\w]*?\$?(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i) ||
+                              text.match(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)[\s\w]*?(?:total|amount|due|payable|bill|charges)/i) ||
+                              text.match(/(?:this\s+bill|new\s+charges|amount\s+due)[\s:]*\$?(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i) ||
+                              text.match(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i);
     if (billAmountMatches) {
+      const billValue = parseFloat(billAmountMatches[1].replace(/,/g, ''));
+      console.log('✅ Found bill amount: $', billValue);
       fields.push({
         label: "Bill Amount ($)",
-        value: parseFloat(billAmountMatches[1].replace(/,/g, '')),
+        value: billValue,
         confidence: 0.90,
         editable: true,
         key: "billAmount",
@@ -166,15 +188,17 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // Daily Supply Charge
-    const dailySupplyMatches = text.match(/daily.*?(\d+(?:\.\d{2})?)\s*c/i) ||
-                               text.match(/supply.*?(\d+(?:\.\d{2})?)\s*c/i) ||
-                               text.match(/(\d+(?:\.\d{2})?)\s*c.*daily/i) ||
-                               text.match(/(\d+(?:\.\d{2})?)\s*c.*supply/i);
+    // Daily Supply Charge - Enhanced patterns
+    const dailySupplyMatches = text.match(/(?:daily|supply)[\s\w]*?(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?/i) ||
+                               text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?(?:daily|supply|per\s+day)/i) ||
+                               text.match(/supply\s+charge[\s:]*(\d{1,3}(?:\.\d{1,2})?)/i) ||
+                               text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*c\/day/i);
     if (dailySupplyMatches) {
+      const dailyValue = parseFloat(dailySupplyMatches[1]);
+      console.log('✅ Found daily supply:', dailyValue, 'c/day');
       fields.push({
         label: "Daily Supply (c/day)",
-        value: parseFloat(dailySupplyMatches[1]),
+        value: dailyValue,
         confidence: 0.85,
         editable: true,
         key: "dailySupply",
