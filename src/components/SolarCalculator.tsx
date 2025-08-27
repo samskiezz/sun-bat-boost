@@ -8,7 +8,6 @@ import { SystemManagerCard } from "./SystemManagerCard";
 import { AppTabs } from "./AppTabs";
 import { RebatesCalculator } from "./RebatesCalculator";
 import { BatteryROICalculator } from "./BatteryROICalculator";
-import { BillsQuotesOCR } from "./BillsQuotesOCR";
 import { SavingsWizard } from "./SavingsWizard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,13 +27,13 @@ import { TopBar } from "./TopBar";
 import { messageBus } from "@/lib/ai/MessageBus";
 import { modelRegistry } from "@/lib/ai/ModelRegistry";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "Bills & Quotes (OCR)";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
   const [appMode, setAppMode] = useState<AppMode>('lite');
-  const [userTier, setUserTier] = useState<'free' | 'lite' | 'pro'>('free');
+  const [userTier, setUserTier] = useState<'free' | 'lite' | 'pro'>('lite');
   const [activeTab, setActiveTab] = useState<Tab>(() => 
     (localStorage.getItem('activeTab') as Tab) || "Rebates Calculator"
   );
@@ -381,10 +380,6 @@ const SolarCalculator = () => {
           
           {activeTab === "Battery ROI Calculator" && (
             <BatteryROICalculator />
-          )}
-          
-          {activeTab === "Bills & Quotes (OCR)" && (
-            <BillsQuotesOCR />
           )}
           
           {/* AI Assistant - Only shown in dev mode */}
