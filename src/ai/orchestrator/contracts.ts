@@ -27,7 +27,11 @@ export type RetailPlan = {
   demand_c_per_kw?: number|null; 
   controlled_c_per_kwh?: number|null; 
   tou_windows: TouWindow[]; 
-  effective_from?: string; 
+  effective_from?: string;
+  effective_to?: string|null;
+  source?: string;
+  hash?: string;
+  last_refreshed?: string;
 };
 
 export type BillFields = { 
