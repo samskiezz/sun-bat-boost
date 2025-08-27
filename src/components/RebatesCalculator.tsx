@@ -22,9 +22,7 @@ import {
   RefreshCw,
   Award,
   Search,
-  Settings,
-  Brain,
-  Sparkles
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +32,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import UniversalOCRScanner from './UniversalOCRScanner';
-import ComprehensiveTrainingDashboard from './ComprehensiveTrainingDashboard';
 import { ProductPickerForm } from './forms/ProductPickerForm';
 import { QuickSizesForm } from './forms/QuickSizesForm';
 import { ResultCards } from './ResultCards';
@@ -77,7 +74,6 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
   const [processing, setProcessing] = useState(false);
-  const [showTraining, setShowTraining] = useState(false);
   
   const { vppProviders } = useCECData();
   const isProUser = unlimitedTokens || userTier === 'pro';
@@ -241,34 +237,6 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Pro Features */}
-      {isProUser && (
-        <Glass className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">AI Tools</h3>
-              <Badge variant="default" className="bg-gradient-primary">Pro</Badge>
-            </div>
-            <Button
-              variant={showTraining ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowTraining(!showTraining)}
-              className="bg-white/5 border-white/20"
-            >
-              <Eye className="w-4 h-4 mr-1" />
-              {showTraining ? 'Hide' : 'Show'} Training Dashboard
-            </Button>
-          </div>
-          
-          {showTraining && (
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <ComprehensiveTrainingDashboard />
-            </div>
-          )}
-        </Glass>
-      )}
-
       {/* Progress Header */}
       <Glass className="p-6">
         <div className="flex items-center justify-between mb-4">
@@ -330,12 +298,6 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="font-medium text-lg">Upload Solar Quote</h4>
                         <Badge variant="default" className="bg-gradient-primary">Recommended</Badge>
-                        {isProUser && (
-                          <Badge variant="secondary">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            Enhanced OCR
-                          </Badge>
-                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">
                         Upload your solar quote or proposal for automatic system detection and accurate rebate calculations.
@@ -366,12 +328,6 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                       <Search className="w-6 h-6 text-blue-500" />
                       <div>
                         <h4 className="font-medium">Product Picker</h4>
-                        {isProUser && (
-                          <Badge variant="secondary" className="mt-1">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            Pro Features
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
