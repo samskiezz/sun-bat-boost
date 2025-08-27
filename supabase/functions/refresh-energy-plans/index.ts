@@ -56,29 +56,28 @@ const generateComprehensiveEnergyPlans = () => {
               
               const planName = `${retailer} ${planType}${variant > 1 ? ` ${variant}` : ''}`;
               
-              plans.push({
-                plan_name: planName,
-                retailer: retailer,
-                state: state,
-                network: network,
-                meter_type: meterType,
-                supply_c_per_day: Math.round(baseSupply * 100) / 100,
-                usage_c_per_kwh_peak: Math.round(basePeak * 100) / 100,
-                usage_c_per_kwh_offpeak: meterType === 'TOU' ? Math.round(baseOffpeak * 100) / 100 : null,
-                usage_c_per_kwh_shoulder: meterType === 'TOU' ? Math.round(baseShoulder * 100) / 100 : null,
-                fit_c_per_kwh: Math.round(fitRate * 100) / 100,
-                demand_c_per_kw: meterType === 'Demand' ? Math.round((10 + Math.random() * 10) * 100) / 100 : null,
-                controlled_c_per_kwh: Math.round((baseOffpeak * 0.8) * 100) / 100,
-                tou_windows: meterType === 'TOU' ? {
-                  peak: ["16:00-20:00"],
-                  offpeak: ["22:00-06:00"],
-                  shoulder: ["06:00-16:00", "20:00-22:00"]
-                } : null,
-                source: "AER_COMPREHENSIVE",
-                effective_from: new Date('2025-01-01'),
-                last_refreshed: new Date(),
-                plan_type: planType
-              });
+                plans.push({
+                  plan_name: planName,
+                  retailer: retailer,
+                  state: state,
+                  network: network,
+                  meter_type: meterType,
+                  supply_c_per_day: Math.round(baseSupply * 100) / 100,
+                  usage_c_per_kwh_peak: Math.round(basePeak * 100) / 100,
+                  usage_c_per_kwh_offpeak: meterType === 'TOU' ? Math.round(baseOffpeak * 100) / 100 : null,
+                  usage_c_per_kwh_shoulder: meterType === 'TOU' ? Math.round(baseShoulder * 100) / 100 : null,
+                  fit_c_per_kwh: Math.round(fitRate * 100) / 100,
+                  demand_c_per_kw: meterType === 'Demand' ? Math.round((10 + Math.random() * 10) / 100) / 100 : null,
+                  controlled_c_per_kwh: Math.round((baseOffpeak * 0.8) * 100) / 100,
+                  tou_windows: meterType === 'TOU' ? {
+                    peak: ["16:00-20:00"],
+                    offpeak: ["22:00-06:00"],
+                    shoulder: ["06:00-16:00", "20:00-22:00"]
+                  } : {},
+                  source: "AER_COMPREHENSIVE",
+                  effective_from: new Date('2025-01-01').toISOString(),
+                  last_refreshed: new Date().toISOString()
+                });
             }
           });
         });
