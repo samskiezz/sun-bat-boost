@@ -250,7 +250,7 @@ export default function ComprehensiveShadeAnalyzer({
               </CardHeader>
               <CardContent className="space-y-4">
                 {dataSources.map((source, index) => {
-                  const IconComponent = source.icon;
+                  const IconComponent = source.icon as React.ComponentType<{ className?: string }>;
                   return (
                     <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
                       <div className="flex items-center gap-3">
