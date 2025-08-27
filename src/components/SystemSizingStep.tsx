@@ -438,10 +438,6 @@ export default function SystemSizingStep({
             <Calculator className="h-4 w-4 mr-2" />
             Basic Calculation
           </Button>
-          
-          <Button onClick={onNext} className="ml-auto" disabled={isCalculating}>
-            Find Best Energy Plans
-          </Button>
         </div>
       </CardContent>
     </Card>
