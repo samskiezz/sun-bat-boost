@@ -38,8 +38,9 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
         const { supabase } = await import("@/integrations/supabase/client");
         
         console.log('🔄 Refreshing energy plans database...');
-        // First refresh the energy plans database to get thousands of real plans
-        await supabase.functions.invoke('refresh-energy-plans');
+        // Force refresh to populate thousands of plans
+        const refreshResponse = await supabase.functions.invoke('refresh-energy-plans');
+        console.log('📊 Refresh result:', refreshResponse);
         
         console.log('📊 Fetching top energy plans for analysis...');
         // Get plans for the user's location - handle both TOU and Smart meter types
@@ -47,9 +48,9 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
           .from('energy_plans')
           .select('*')
           .eq('state', locationData.state)
-          .in('meter_type', ['TOU', 'Smart', locationData.meterType]) 
+          .in('meter_type', ['TOU', 'Smart', 'Single']) // Include all meter types
           .order('usage_c_per_kwh_peak', { ascending: true })
-          .limit(50); // Get more plans to choose from
+          .limit(50);
           
         if (plans) {
           const annualUsage = billData.quarterlyUsage * 4;

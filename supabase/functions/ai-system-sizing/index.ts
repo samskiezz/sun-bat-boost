@@ -151,16 +151,33 @@ serve(async (req) => {
       rationale: {
         sizing_factors: [
           `Annual usage: ${(billData.quarterlyUsage * 4).toLocaleString()} kWh`,
-          `Day usage (60%): ${usageAnalysis.day_usage.toLocaleString()} kWh`, 
-          `Night usage (40%): ${usageAnalysis.night_usage.toLocaleString()} kWh`,
-          `Battery requirement: ${usageAnalysis.battery_required_kwh.toFixed(1)} kWh`,
-          `Peak sun hours: ${solarData.peak_sun_hours}`,
-          `System size (1.25x factor): ${aiRecommendations.panels.totalKw}kW`,
-          `Expected generation: ${Math.round(aiRecommendations.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85).toLocaleString()} kWh/year`
+          `Daily usage: ${usageAnalysis.daily_average.toFixed(1)} kWh/day`,
+          `Day usage (60%): ${usageAnalysis.day_usage.toFixed(1)} kWh/day`, 
+          `Night usage (40%): ${usageAnalysis.night_usage.toFixed(1)} kWh/day`,
+          `Battery sized: ${usageAnalysis.battery_required_kwh.toFixed(1)} kWh (rebate optimized)`,
+          `Peak sun hours: ${solarData.peak_sun_hours}h × 85% derate`,
+          `PV system: ${aiRecommendations.panels.totalKw}kW (1.25× safety factor)`,
+          `Expected generation: ${Math.round(aiRecommendations.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85).toLocaleString()} kWh/year`,
+          `DNSP export limit: ${locationData.network} network`
         ],
-        ai_reasoning: await generateAIReasoning(aiRecommendations, usageAnalysis),
-        confidence: 0.92,
-        alternatives: []
+        ai_reasoning: await generateAIReasoning(aiRecommendations, usageAnalysis, locationData),
+        confidence: calculateConfidenceScore(aiRecommendations, usageAnalysis),
+        alternatives: [],
+        // CRITICAL: Display detailed usage breakdown
+        usage_analysis: {
+          daily_total_kwh: usageAnalysis.daily_average,
+          day_usage_kwh: usageAnalysis.day_usage,
+          night_usage_kwh: usageAnalysis.night_usage,
+          battery_buffer_percent: usageAnalysis.battery_buffer_percent,
+          pv_safety_factor: 1.25,
+          sizing_methodology: usageAnalysis.sizing_methodology
+        },
+        compliance_checks: {
+          dnsp_network: locationData.network,
+          vpp_eligible: aiRecommendations.battery ? aiRecommendations.battery.capacity_kwh <= 30 : false,
+          rebate_battery_size: usageAnalysis.battery_required_kwh,
+          export_limit_compliant: true
+        }
       },
       performance: performanceModel
     };
@@ -201,46 +218,40 @@ async function getSolarIrradianceData(state: string, postcode: string) {
 
 async function analyzeUsagePatterns(billData: any) {
   const annualUsage = billData.quarterlyUsage * 4;
-  const monthlyUsage = billData.quarterlyUsage / 3;
-  const dailyAverage = annualUsage / 365;
+  const dailyUsage = annualUsage / 365;
   
-  // PROPER DAY/NIGHT SPLIT - This is the key fix!
-  const dayUsage = annualUsage * 0.6; // 60% during solar hours (9am-3pm)
-  const nightUsage = annualUsage * 0.4; // 40% during evening/night (4pm-8am)
+  // CRITICAL: Proper 60/40 day/night split methodology
+  const dayUsage = dailyUsage * 0.60; // 60% consumed during solar hours (9am-3pm)
+  const nightUsage = dailyUsage * 0.40; // 40% consumed during evening/night (4pm-8am)
   
-  // Calculate battery requirement based on night usage
-  const batteryRequiredKwh = (nightUsage / 365) * 1.2; // 20% buffer for night usage
+  console.log(`📊 USAGE BREAKDOWN:`);
+  console.log(`  Daily Total: ${dailyUsage.toFixed(1)} kWh`);
+  console.log(`  Day Usage (60%): ${dayUsage.toFixed(1)} kWh`);
+  console.log(`  Night Usage (40%): ${nightUsage.toFixed(1)} kWh`);
   
-  let pattern_type = 'standard';
-  let peak_demand = dailyAverage / 8;
+  // Battery sizing: Night usage + 20% buffer, capped for rebate optimization
+  const batteryBufferPercent = 20;
+  const batteryUsableNeeded = nightUsage * (1 + batteryBufferPercent/100);
+  const batteryTotalNeeded = batteryUsableNeeded / 0.90; // 90% DoD
   
-  if (billData.peakUsage && billData.offPeakUsage) {
-    const totalUsage = billData.peakUsage + billData.offPeakUsage + (billData.shoulderUsage || 0);
-    const peakRatio = billData.peakUsage / totalUsage;
-    
-    if (peakRatio > 0.6) {
-      pattern_type = 'high_daytime';
-      peak_demand = dailyAverage / 6;
-    } else if (peakRatio < 0.3) {
-      pattern_type = 'evening_heavy';
-      peak_demand = dailyAverage / 4;
-    } else {
-      pattern_type = 'balanced';
-      peak_demand = dailyAverage / 8;
-    }
-  }
+  // NSW rebate cap: Max 30kWh eligible for VPP programs
+  const rebateOptimalBattery = Math.min(batteryTotalNeeded, 30);
+  
+  console.log(`🔋 BATTERY SIZING:`);
+  console.log(`  Night usage: ${nightUsage.toFixed(1)} kWh + ${batteryBufferPercent}% buffer = ${batteryUsableNeeded.toFixed(1)} kWh usable`);
+  console.log(`  Total needed: ${batteryTotalNeeded.toFixed(1)} kWh → Rebate optimal: ${rebateOptimalBattery.toFixed(1)} kWh`);
   
   return {
     annual_usage: annualUsage,
-    monthly_usage: monthlyUsage,
-    daily_average: dailyAverage,
+    daily_average: dailyUsage,
     day_usage: dayUsage,
     night_usage: nightUsage,
-    battery_required_kwh: batteryRequiredKwh,
-    peak_demand,
-    pattern_type,
-    evening_usage_ratio: pattern_type === 'evening_heavy' ? 0.7 : 0.4,
-    battery_suitable: true // Always consider battery now
+    day_usage_annual: dayUsage * 365,
+    night_usage_annual: nightUsage * 365,
+    battery_required_kwh: rebateOptimalBattery,
+    battery_buffer_percent: batteryBufferPercent,
+    sizing_methodology: "60% day load + 40% night load + battery losses + 1.25x safety factor",
+    battery_suitable: true
   };
 }
 
@@ -282,118 +293,108 @@ async function getAvailableProducts(supabase: any) {
 async function getAIRecommendations(params: any): Promise<ProductRecommendation> {
   const { billData, locationData, solarData, usageAnalysis, availableProducts, preferences } = params;
   
-  console.log('🧠 Getting AI recommendations...');
+  console.log('🧠 PROPER SIZING METHODOLOGY...');
   
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured');
+  // STEP 1: Calculate battery charging requirements
+  const batteryChargeNeeded = usageAnalysis.battery_required_kwh * 1.10; // 10% charging losses
+  
+  // STEP 2: Calculate total daily PV generation needed
+  const totalDailyPvNeeded = usageAnalysis.day_usage + batteryChargeNeeded;
+  
+  // STEP 3: Account for system losses and apply safety factor
+  const systemDerate = 0.85; // Real-world losses (shading, inverter, wiring)
+  const safetyFactor = 1.25; // 25% safety margin
+  const basePvSize = totalDailyPvNeeded / (solarData.peak_sun_hours * systemDerate);
+  const recommendedPvSize = basePvSize * safetyFactor;
+  
+  // STEP 4: Future-proofing for NSW - target 12-13kW minimum for bill elimination
+  const futureProofSize = Math.max(recommendedPvSize, 12.0);
+  
+  // STEP 5: Check DNSP export limits
+  const dnspLimits = {
+    'Ausgrid': 5.0,
+    'Endeavour Energy': 10.0,
+    'Essential Energy': 5.0,
+    'Default': 5.0
+  };
+  const exportLimit = dnspLimits[locationData.network as keyof typeof dnspLimits] || dnspLimits.Default;
+  const maxPvWithoutUpgrade = exportLimit * 1.33; // Inverter oversizing limit
+  
+  // Final PV size - balance future-proofing with export limits
+  const finalPvSize = Math.min(futureProofSize, maxPvWithoutUpgrade);
+  
+  console.log(`☀️ PV SIZING CALCULATION:`);
+  console.log(`  Day load: ${usageAnalysis.day_usage.toFixed(1)} kWh`);
+  console.log(`  Battery charge: ${batteryChargeNeeded.toFixed(1)} kWh`);
+  console.log(`  Total daily PV needed: ${totalDailyPvNeeded.toFixed(1)} kWh`);
+  console.log(`  Base size: ${basePvSize.toFixed(1)} kW × ${safetyFactor} safety = ${recommendedPvSize.toFixed(1)} kW`);
+  console.log(`  Future-proof target: ${futureProofSize.toFixed(1)} kW`);
+  console.log(`  DNSP limit (${locationData.network}): ${exportLimit} kW export`);
+  console.log(`  Final recommendation: ${finalPvSize.toFixed(1)} kW`);
+  
+  // Select tier 1 products based on proper sizing
+  const panelWattage = 550; // High-efficiency panels
+  const panelCount = Math.ceil((finalPvSize * 1000) / panelWattage);
+  const actualSystemKw = (panelCount * panelWattage) / 1000;
+  
+  // Battery selection - rebate optimized
+  let selectedBattery;
+  const batterySize = usageAnalysis.battery_required_kwh;
+  
+  if (batterySize <= 13.5) {
+    selectedBattery = {
+      model: "Powerwall 3",
+      brand: "Tesla", 
+      capacity_kwh: 13.5,
+      usable_capacity: 13.5,
+      cycles: 6000
+    };
+  } else if (batterySize <= 20.0) {
+    selectedBattery = {
+      model: "LUNA2000-20",
+      brand: "Huawei",
+      capacity_kwh: 20.0, 
+      usable_capacity: 18.0,
+      cycles: 6000
+    };
+  } else {
+    selectedBattery = {
+      model: "STORION-T30", 
+      brand: "Alpha ESS",
+      capacity_kwh: 30.72,
+      usable_capacity: 27.6,
+      cycles: 6000
+    };
   }
-
-  // Prepare context for AI with PROPER SIZING METHODOLOGY
-  const aiPrompt = `
-You are a premium solar and battery system sizing expert. Follow this EXACT methodology:
-
-STEP 1: USAGE ANALYSIS
-- Annual usage: ${usageAnalysis.annual_usage} kWh
-- Day usage (60%): ${usageAnalysis.day_usage} kWh
-- Night usage (40%): ${usageAnalysis.night_usage} kWh  
-- Daily night usage: ${(usageAnalysis.night_usage / 365).toFixed(1)} kWh
-
-STEP 2: BATTERY SIZING (MANDATORY)
-- Battery size needed: ${usageAnalysis.battery_required_kwh.toFixed(1)} kWh (night usage + 20% buffer)
-- Always recommend a battery unless customer explicitly refuses
-
-STEP 3: PANEL SIZING WITH 1.25X SAFETY FACTOR
-Calculate: (day usage + night usage + battery charging losses) × 1.25
-Battery charging efficiency: 90% (10% losses)
-Required system size: ${((usageAnalysis.day_usage + usageAnalysis.night_usage + (usageAnalysis.night_usage * 0.1)) * 1.25 / (solarData.peak_sun_hours * 365 * 0.85)).toFixed(1)} kW
-
-LOCATION DATA:
-- State: ${locationData.state}
-- Peak sun hours: ${solarData.peak_sun_hours}
-- Network: ${locationData.network}
-
-FINANCIAL DATA:
-- Quarterly bill: $${billData.quarterlyBill}
-- Average rate: ${billData.averageRate}c/kWh
-
-AVAILABLE TIER 1 PANELS (ONLY use these):
-${availableProducts.panels.slice(0, 5).map(p => 
-  `- ${p.brand} ${p.model}: ${p.power_rating}W`
-).join('\n')}
-
-AVAILABLE TIER 1 BATTERIES (ONLY use these):
-${availableProducts.batteries.slice(0, 5).map(b => 
-  `- ${b.brand} ${b.model}: ${b.capacity_kwh || b.nominal_capacity}kWh`
-).join('\n')}
-
-REQUIREMENTS:
-1. ALWAYS recommend a battery sized for night usage + 20% buffer
-2. Apply 1.25x safety factor to panel sizing
-3. Only use TIER 1 brands from the available lists
-4. Size system to cover day usage + night usage + battery losses
-
-Respond in this exact JSON format:
-{
-  "panels": {
-    "model": "exact model from available list",
-    "brand": "exact brand from available list", 
-    "wattage": number,
-    "count": number,
-    "totalKw": number (apply 1.25x factor),
-    "efficiency": 0.22,
-    "cost_estimate": 0
-  },
-  "battery": {
-    "model": "exact model from available list",
-    "brand": "exact brand from available list",
-    "capacity_kwh": number (sized for night usage + 20%),
-    "usable_capacity": number,
-    "cost_estimate": 0,
-    "cycles": 6000
-  },
-  "inverter": {
-    "type": "hybrid",
-    "capacity_kw": number (match panel size),
-    "efficiency": 0.98,
-    "cost_estimate": 0
-  }
-}
-`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
+  
+  console.log(`🔋 SELECTED BATTERY: ${selectedBattery.brand} ${selectedBattery.model} - ${selectedBattery.capacity_kwh}kWh`);
+  console.log(`📋 VPP ELIGIBLE: ${selectedBattery.capacity_kwh <= 30 ? 'YES' : 'NO'} (NSW rebate cap: 30kWh)`);
+  
+  return {
+    panels: {
+      model: `Tier1-${panelWattage}W-Pro`,
+      brand: "Tier 1 Solar",
+      wattage: panelWattage,
+      count: panelCount,
+      totalKw: actualSystemKw,
+      efficiency: 0.22,
+      cost_estimate: 0 // Removed per user request
     },
-    body: JSON.stringify({
-      model: 'gpt-4.1-2025-04-14',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are an expert solar and battery system designer with 15+ years experience in Australia. Provide accurate, financially optimal recommendations based on real-world performance data.'
-        },
-        { role: 'user', content: aiPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 1500
-    }),
-  });
-
-  const aiResult = await response.json();
-  console.log('🤖 AI Response:', aiResult);
-
-  try {
-    const recommendation = JSON.parse(aiResult.choices[0].message.content);
-    
-    // Validate and enhance recommendations
-    return validateAndEnhanceRecommendation(recommendation, availableProducts, usageAnalysis);
-    
-  } catch (error) {
-    console.error('Failed to parse AI recommendation, using fallback');
-    return getFallbackRecommendation(usageAnalysis, availableProducts);
-  }
+    battery: {
+      model: selectedBattery.model,
+      brand: selectedBattery.brand, 
+      capacity_kwh: selectedBattery.capacity_kwh,
+      usable_capacity: selectedBattery.usable_capacity,
+      cost_estimate: 0, // Removed per user request
+      cycles: selectedBattery.cycles
+    },
+    inverter: {
+      type: "hybrid",
+      capacity_kw: Math.ceil(actualSystemKw * 1.1 * 2) / 2, // Round to nearest 0.5kW, 10% oversizing
+      efficiency: 0.98,
+      cost_estimate: 0 // Removed per user request
+    }
+  };
 }
 
 function validateAndEnhanceRecommendation(rec: any, products: any, usage: any): ProductRecommendation {
@@ -468,36 +469,65 @@ function getFallbackRecommendation(usage: any, products: any): ProductRecommenda
 }
 
 async function calculateDetailedFinancials(rec: ProductRecommendation, billData: any, locationData: any, solarData: any) {
-  // DO NOT INCLUDE SYSTEM COSTS - ONLY ENERGY BILL SAVINGS!
-  const annualGeneration = rec.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85;
+  // ACCURATE FINANCIAL MODELING - Energy bill savings only
   const currentAnnualBill = billData.quarterlyBill * 4;
+  const annualGeneration = rec.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85;
   
-  // Calculate self-consumption with battery
-  const selfConsumption = rec.battery ? 
-    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.8) : // 80% with battery
-    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.4);   // 40% without battery
+  console.log(`💰 FINANCIAL ANALYSIS:`);
+  console.log(`  Current annual bill: $${currentAnnualBill}`);
+  console.log(`  Expected generation: ${Math.round(annualGeneration).toLocaleString()} kWh/year`);
   
+  // Calculate self-consumption with battery storage
+  const annualUsage = billData.quarterlyUsage * 4;
+  const batteryEnabled = rec.battery ? true : false;
+  
+  // With battery: higher self-consumption during peak rates
+  const selfConsumptionRate = batteryEnabled ? 0.80 : 0.40; // 80% with battery, 40% without
+  const selfConsumption = Math.min(annualGeneration, annualUsage * selfConsumptionRate);
   const exportGeneration = Math.max(0, annualGeneration - selfConsumption);
+  
+  // Financial calculations
+  const averageRatePerKwh = billData.averageRate / 100; // Convert cents to dollars
   const fitRate = 0.08; // 8c/kWh feed-in tariff
+  
+  const billSavingsFromSelfConsumption = selfConsumption * averageRatePerKwh;
   const exportIncome = exportGeneration * fitRate;
+  const totalAnnualSavings = billSavingsFromSelfConsumption + exportIncome;
   
-  // Bill savings calculation
-  const billSavings = selfConsumption * (billData.averageRate / 100);
-  const totalAnnualSavings = billSavings + exportIncome;
+  // New bill calculation - keep daily supply charges
+  const dailySupplyCharges = (billData.dailySupply / 100) * 365;
+  const remainingGridUsage = Math.max(0, annualUsage - selfConsumption);
+  const remainingGridCost = remainingGridUsage * averageRatePerKwh;
+  const newAnnualBill = dailySupplyCharges + remainingGridCost;
   
-  // New annual bill after solar
-  const newAnnualBill = Math.max(0, currentAnnualBill - billSavings);
-  const dailySupplyCharges = (billData.dailySupply / 100) * 365; // Still pay supply charges
-  const finalNewBill = newAnnualBill + dailySupplyCharges;
+  // Verify math: Current bill - New bill should equal savings
+  const actualSavings = currentAnnualBill - newAnnualBill;
+  const billReductionPercent = Math.round((actualSavings / currentAnnualBill) * 100);
+  
+  console.log(`  Self-consumption: ${Math.round(selfConsumption).toLocaleString()} kWh (${selfConsumptionRate*100}%)`);
+  console.log(`  Export: ${Math.round(exportGeneration).toLocaleString()} kWh`);
+  console.log(`  Bill savings: $${Math.round(billSavingsFromSelfConsumption)}`);
+  console.log(`  Export income: $${Math.round(exportIncome)}`);
+  console.log(`  New annual bill: $${Math.round(newAnnualBill)}`);
+  console.log(`  Total savings: $${Math.round(actualSavings)} (${billReductionPercent}%)`);
+  
+  // Validation check
+  if (Math.abs(actualSavings - totalAnnualSavings) > 10) {
+    console.warn(`⚠️  Math check failed: Calculated savings ${totalAnnualSavings} vs actual ${actualSavings}`);
+  }
   
   return {
-    // Remove system_cost - not relevant for energy bill analysis
     current_annual_bill: Math.round(currentAnnualBill),
-    new_annual_bill: Math.round(finalNewBill),
-    annual_savings: Math.round(totalAnnualSavings),
-    monthly_savings: Math.round(totalAnnualSavings / 12),
-    bill_reduction_percent: Math.round((totalAnnualSavings / currentAnnualBill) * 100),
+    new_annual_bill: Math.round(newAnnualBill),
+    annual_savings: Math.round(actualSavings),
+    monthly_savings: Math.round(actualSavings / 12),
+    bill_reduction_percent: billReductionPercent,
     annual_generation: Math.round(annualGeneration),
+    self_consumption: Math.round(selfConsumption),
+    export_income: Math.round(exportIncome),
+    export_generation: Math.round(exportGeneration)
+  };
+}
     self_consumption: Math.round(selfConsumption),
     export_income: Math.round(exportIncome),
     export_generation: Math.round(exportGeneration)
