@@ -33,6 +33,7 @@ import { Glass } from '@/components/Glass';
 import { useDropzone } from 'react-dropzone';
 import { SavingsWizard } from '@/components/SavingsWizard';
 import { subscribe } from "@/ai/orchestrator/bus";
+import SiteShadingAnalyzer from '@/components/SiteShadingAnalyzer';
 
 interface ExtractedField {
   label: string;
@@ -73,7 +74,12 @@ export default function BatteryRoi() {
     postcode: '2000',
     roofTilt: 25,
     roofAzimuth: 0,
-    shading: 0
+    shading: 0,
+    
+    // Additional site data from OCR
+    address: '',
+    latitude: undefined,
+    longitude: undefined
   });
   
   // Fetch battery count for display

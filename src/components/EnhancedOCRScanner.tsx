@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Upload, FileText, Eye, CheckCircle, AlertCircle, Edit, Loader2, Clock, Sun, Moon, Zap } from "lucide-react";
+import { Upload, FileText, Eye, CheckCircle, AlertCircle, Edit, Loader2, Clock, Sun, Moon, Zap, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,14 @@ interface EnhancedBillData {
   batterySize?: number;
   inverterSize?: number;
   estimatedGeneration?: number;
+  // Site Data (from proposals)
+  address?: string;
+  postcode?: string;
+  roofTilt?: number;
+  roofAzimuth?: number;
+  shadingFactor?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface EnhancedOCRScannerProps {
@@ -45,7 +53,7 @@ interface ExtractedField {
   confidence: number;
   editable: boolean;
   key: keyof EnhancedBillData;
-  category: 'basic' | 'tou' | 'system';
+  category: 'basic' | 'tou' | 'system' | 'site';
 }
 
 const RETAILER_PATTERNS = [
@@ -300,8 +308,102 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
     // System data (for quotes/proposals)
     if (mode === 'quote') {
+      // Address extraction patterns
+      const addressMatches = text.match(/(?:site\s+address|installation\s+address|property\s+address|address)[:\s]*([A-Za-z0-9\s,.-]+)(?:\d{4})/i) ||
+                            text.match(/(\d+\s+[A-Za-z\s,.-]+)(?:\s+\d{4})/i);
+      if (addressMatches) {
+        const address = addressMatches[1].trim();
+        if (address.length > 10 && address.split(' ').length >= 3) { // Basic validation
+          fields.push({
+            label: "Installation Address",
+            value: address,
+            confidence: 0.85,
+            editable: true,
+            key: "address",
+            category: "site"
+          });
+        }
+      }
+
+      // Postcode extraction
+      const postcodeMatches = text.match(/\b(\d{4})\b/g);
+      if (postcodeMatches) {
+        // Filter for valid Australian postcodes (1000-9999)
+        const validPostcodes = postcodeMatches.filter(pc => {
+          const num = parseInt(pc);
+          return num >= 1000 && num <= 9999;
+        });
+        if (validPostcodes.length > 0) {
+          fields.push({
+            label: "Postcode",
+            value: validPostcodes[0],
+            confidence: 0.90,
+            editable: true,
+            key: "postcode",
+            category: "site"
+          });
+        }
+      }
+
+      // Roof tilt extraction
+      const tiltMatches = text.match(/(?:roof\s+)?tilt[:\s]*(\d{1,2}(?:\.\d)?)\s*°?/i) ||
+                         text.match(/(\d{1,2}(?:\.\d)?)\s*°?\s*tilt/i);
+      if (tiltMatches) {
+        const tilt = parseFloat(tiltMatches[1]);
+        if (tilt >= 0 && tilt <= 60) { // Realistic tilt range
+          fields.push({
+            label: "Roof Tilt (°)",
+            value: tilt,
+            confidence: 0.80,
+            editable: true,
+            key: "roofTilt",
+            category: "site"
+          });
+        }
+      }
+
+      // Roof azimuth extraction
+      const azimuthMatches = text.match(/(?:roof\s+)?azimuth[:\s]*(\d{1,3}(?:\.\d)?)\s*°?/i) ||
+                            text.match(/(\d{1,3}(?:\.\d)?)\s*°?\s*azimuth/i) ||
+                            text.match(/facing[:\s]*(north|south|east|west|n|s|e|w)/i);
+      if (azimuthMatches) {
+        let azimuth = 0;
+        if (azimuthMatches[1].match(/north|n/i)) azimuth = 0;
+        else if (azimuthMatches[1].match(/east|e/i)) azimuth = 90;
+        else if (azimuthMatches[1].match(/south|s/i)) azimuth = 180;
+        else if (azimuthMatches[1].match(/west|w/i)) azimuth = 270;
+        else azimuth = parseFloat(azimuthMatches[1]);
+        
+        if (azimuth >= 0 && azimuth <= 360) {
+          fields.push({
+            label: "Roof Azimuth (°)",
+            value: azimuth,
+            confidence: 0.80,
+            editable: true,
+            key: "roofAzimuth",
+            category: "site"
+          });
+        }
+      }
+
+      // Shading factor extraction
+      const shadingMatches = text.match(/shading[:\s]*(\d{1,2}(?:\.\d)?)\s*%?/i);
+      if (shadingMatches) {
+        const shading = parseFloat(shadingMatches[1]);
+        if (shading >= 0 && shading <= 100) {
+          fields.push({
+            label: "Shading (%)",
+            value: shading,
+            confidence: 0.75,
+            editable: true,
+            key: "shadingFactor",
+            category: "site"
+          });
+        }
+      }
+
       const systemSizeMatches = text.match(/(\d+(?:\.\d{1,2})?)\s*kw/i) ||
-                               text.match(/system.*?(\d+(?:\.\d{1,2})?)/i);
+                                text.match(/system.*?(\d+(?:\.\d{1,2})?)/i);
       if (systemSizeMatches) {
         fields.push({
           label: "System Size (kW)",
@@ -365,10 +467,10 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
         const billData: EnhancedBillData = {};
         fields.forEach(field => {
-          if (field.key === 'retailer' || field.key === 'plan') {
-            billData[field.key] = field.value as string;
+          if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode') {
+            (billData as any)[field.key] = field.value as string;
           } else {
-            billData[field.key] = field.value as number;
+            (billData as any)[field.key] = field.value as number;
           }
         });
 
@@ -411,10 +513,10 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       
       const billData: EnhancedBillData = {};
       updated.forEach(field => {
-        if (field.key === 'retailer' || field.key === 'plan') {
-          billData[field.key] = field.value as string;
+        if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode') {
+          (billData as any)[field.key] = field.value as string;
         } else {
-          billData[field.key] = field.value as number;
+          (billData as any)[field.key] = field.value as number;
         }
       });
       onExtraction(billData);
@@ -426,7 +528,8 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   const fieldsByCategory = {
     basic: extractedFields.filter(f => f.category === 'basic'),
     tou: extractedFields.filter(f => f.category === 'tou'),
-    system: extractedFields.filter(f => f.category === 'system')
+    system: extractedFields.filter(f => f.category === 'system'),
+    site: extractedFields.filter(f => f.category === 'site')
   };
 
   return (
@@ -512,7 +615,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 bg-white/10 border border-white/20">
+              <TabsList className="grid w-full grid-cols-4 bg-white/10 border border-white/20">
                 <TabsTrigger value="basic" className="data-[state=active]:bg-white/20 flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   Basic Info
@@ -524,6 +627,10 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
                 <TabsTrigger value="system" className="data-[state=active]:bg-white/20 flex items-center gap-2">
                   <Zap className="w-4 h-4" />
                   System Specs
+                </TabsTrigger>
+                <TabsTrigger value="site" className="data-[state=active]:bg-white/20 flex items-center gap-2">
+                  <Home className="w-4 h-4" />
+                  Site Data
                 </TabsTrigger>
               </TabsList>
               
@@ -561,6 +668,25 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
                     <FieldDisplay key={index} field={field} onEdit={(value) => handleFieldEdit(extractedFields.indexOf(field), value)} />
                   ))}
                 </div>
+              </TabsContent>
+              
+              <TabsContent value="site" className="space-y-4 mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {fieldsByCategory.site.map((field, index) => (
+                    <FieldDisplay key={index} field={field} onEdit={(value) => handleFieldEdit(extractedFields.indexOf(field), value)} />
+                  ))}
+                </div>
+                {fieldsByCategory.site.length > 0 && (
+                  <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Home className="w-5 h-5 text-green-500" />
+                      <h4 className="font-semibold">Site Information Detected</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Site details will be used for accurate shading analysis and energy modeling.
+                    </p>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
