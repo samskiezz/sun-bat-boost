@@ -162,18 +162,40 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   };
 
   const calculateRebates = () => {
-    const calculationData = {
-      mode: inputMethod,
-      postcode: formData.postcode,
-      solarKw: formData.solarKw,
-      batteryKwh: formData.batteryKwh,
-      installDate: formData.installDate,
-      stcPrice: formData.stcPrice,
-      vppProvider: formData.vppProvider,
-      extractedData: extractedData.length > 0 ? extractedData : undefined
-    };
+    // Import the rebate calculation function
+    import('@/utils/rebateCalculations').then(({ calculateBatteryRebates, getStateFromPostcode }) => {
+      const state = getStateFromPostcode(parseInt(formData.postcode));
+      
+      const rebateInputs = {
+        install_date: formData.installDate,
+        state_or_territory: state,
+        has_rooftop_solar: formData.systemType !== 'battery-only',
+        battery: {
+          usable_kWh: formData.batteryKwh,
+          vpp_capable: formData.vppProvider !== 'None',
+          battery_on_approved_list: true
+        },
+        stc_spot_price: formData.stcPrice,
+        joins_vpp: formData.vppProvider !== 'None'
+      };
+
+      const rebateResults = calculateBatteryRebates(rebateInputs);
+      
+      const calculationData = {
+        mode: inputMethod,
+        postcode: formData.postcode,
+        solarKw: formData.solarKw,
+        batteryKwh: formData.batteryKwh,
+        installDate: formData.installDate,
+        stcPrice: formData.stcPrice,
+        vppProvider: formData.vppProvider,
+        extractedData: extractedData.length > 0 ? extractedData : undefined,
+        rebateResults: rebateResults
+      };
+      
+      onCalculate(calculationData);
+    });
     
-    onCalculate(calculationData);
     setCurrentStep('results');
   };
 
@@ -458,12 +480,13 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                             <Slider
                               value={[formData.solarKw]}
                               onValueChange={(value) => setFormData(prev => ({ ...prev, solarKw: value[0] }))}
-                              max={20}
+                              max={99}
                               min={1}
                               step={0.1}
                               className="mt-2"
                             />
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">Range: 1-99kW</div>
                         </div>
                       )}
 
@@ -474,12 +497,13 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                             <Slider
                               value={[formData.batteryKwh]}
                               onValueChange={(value) => setFormData(prev => ({ ...prev, batteryKwh: value[0] }))}
-                              max={30}
-                              min={0}
+                              max={100}
+                              min={5}
                               step={0.5}
                               className="mt-2"
                             />
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">Range: 5-100kWh</div>
                         </div>
                       )}
                     </div>
