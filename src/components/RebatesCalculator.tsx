@@ -37,9 +37,9 @@ import { QuickSizesForm } from './forms/QuickSizesForm';
 import { ResultCards } from './ResultCards';
 import { LimitLine } from './LimitLine';
 import { Glass } from './Glass';
+import { masterOCRPipeline } from '@/utils/masterOCRPipeline';
 import { useCECData } from '@/hooks/useCECData';
-import { SavingsWizard } from './SavingsWizard';
-import { SavingsCTACard } from './SavingsCTACard';
+import { useToast } from '@/hooks/use-toast';
 
 interface ExtractedField {
   label: string;
@@ -76,6 +76,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   const [processing, setProcessing] = useState(false);
   
   const { vppProviders } = useCECData();
+  const { toast } = useToast();
   const isProUser = unlimitedTokens || userTier === 'pro';
   
   // Form data
@@ -102,33 +103,148 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
-  const onDropQuote = useCallback((acceptedFiles: File[]) => {
-    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
+  const onDropQuote = async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+
+    const file = acceptedFiles[0];
     setProcessing(true);
-    
-    // Mock OCR processing
-    setTimeout(() => {
-      setProcessing(false);
-      setExtractedData([
-        { label: 'Solar System Size (kW)', value: 6.6, confidence: 0.95, editable: true },
-        { label: 'Battery Size (kWh)', value: 13.5, confidence: 0.92, editable: true },
-        { label: 'Postcode', value: '2000', confidence: 0.98, editable: true },
-        { label: 'Install Date', value: '2025-03-15', confidence: 0.89, editable: true },
-        { label: 'Total System Cost', value: 25000, confidence: 0.87, editable: true },
-      ]);
+
+    try {
+      console.log('🚀 Processing quote with MASTER OCR Pipeline...');
       
-      // Auto-populate form data
+      // Use the trained OCR pipeline that connects to your database
+      const ocrResult = await masterOCRPipeline.process(file);
+      
+      console.log('🎯 OCR Results from trained database:', {
+        panels: ocrResult.panels.length,
+        batteries: ocrResult.batteries.length,
+        inverters: ocrResult.inverters.length
+      });
+
+      const fields: ExtractedField[] = [];
+
+      // Process detected panels
+      if (ocrResult.panels.length > 0) {
+        const bestPanel = ocrResult.panels[0];
+        fields.push({
+          label: "Solar Panel Brand",
+          value: bestPanel.brand,
+          confidence: bestPanel.confidence,
+          editable: false
+        });
+        
+        fields.push({
+          label: "Solar Panel Model", 
+          value: bestPanel.model,
+          confidence: bestPanel.confidence,
+          editable: false
+        });
+        
+        if (bestPanel.specs.watts) {
+          fields.push({
+            label: "Panel Wattage",
+            value: `${bestPanel.specs.watts}W`,
+            confidence: bestPanel.confidence,
+            editable: true
+          });
+          
+          // Auto-calculate system kW if we have panel count
+          const estimatedPanels = Math.round((ocrResult.systemSize?.value || 6.6) * 1000 / bestPanel.specs.watts);
+          fields.push({
+            label: "Estimated Panel Count",
+            value: estimatedPanels.toString(),
+            confidence: ocrResult.systemSize ? ocrResult.systemSize.confidence : 0.7,
+            editable: true
+          });
+        }
+      }
+
+      // Process detected batteries
+      if (ocrResult.batteries.length > 0) {
+        const bestBattery = ocrResult.batteries[0];
+        fields.push({
+          label: "Battery Brand",
+          value: bestBattery.brand,
+          confidence: bestBattery.confidence,
+          editable: false
+        });
+        
+        fields.push({
+          label: "Battery Model",
+          value: bestBattery.model,
+          confidence: bestBattery.confidence,
+          editable: false
+        });
+        
+        if (bestBattery.specs.kWh) {
+          fields.push({
+            label: "Battery Capacity", 
+            value: `${bestBattery.specs.kWh}kWh`,
+            confidence: bestBattery.confidence,
+            editable: true
+          });
+        }
+      }
+
+      // Process system information
+      if (ocrResult.systemSize) {
+        fields.push({
+          label: "System Size",
+          value: `${ocrResult.systemSize.value}${ocrResult.systemSize.unit}`,
+          confidence: ocrResult.systemSize.confidence,
+          editable: true
+        });
+      }
+
+      if (ocrResult.postcode) {
+        fields.push({
+          label: "Postcode",
+          value: ocrResult.postcode.value,
+          confidence: ocrResult.postcode.confidence,
+          editable: true
+        });
+      }
+
+      if (ocrResult.totalCost) {
+        fields.push({
+          label: "Total System Cost",
+          value: `$${ocrResult.totalCost.value.toLocaleString()}`,
+          confidence: ocrResult.totalCost.confidence,
+          editable: true
+        });
+      }
+
+      setExtractedData(fields);
+
+      // Update form data with detected values
+      const solarKw = ocrResult.systemSize?.value || 0;
+      const batteryKwh = ocrResult.batteries[0]?.specs?.kWh || 0;
+      
       setFormData(prev => ({
         ...prev,
-        solarKw: 6.6,
-        batteryKwh: 13.5,
-        postcode: '2000',
-        installDate: '2025-03-15'
+        solarKw: solarKw,
+        batteryKwh: batteryKwh,
+        postcode: ocrResult.postcode?.value || prev.postcode,
+        systemType: batteryKwh > 0 ? 'solar-battery' : 'solar-only'
       }));
-      
-      setCurrentStep('location');
-    }, 2000);
-  }, []);
+
+      console.log('✅ OCR extraction completed with database products:', {
+        solarKw,
+        batteryKwh,
+        totalProducts: ocrResult.panels.length + ocrResult.batteries.length
+      });
+
+    } catch (error) {
+      console.error('❌ OCR processing failed:', error);
+      toast({
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : 'Failed to process document',
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDropQuote,
@@ -382,75 +498,85 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
               
               {inputMethod === 'upload' ? (
                 <div className="space-y-6">
-                  <div 
-                    {...getRootProps()} 
-                    className={`
-                      border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer
-                      transition-all duration-200 hover:border-white/40 hover:bg-white/5
-                      ${isDragActive ? 'border-primary/50 bg-primary/5' : ''}
-                    `}
-                  >
-                    <input {...getInputProps()} />
-                    <motion.div
-                      animate={isDragActive ? { scale: 1.05 } : { scale: 1 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-60" />
-                      <h4 className="text-lg font-medium mb-2">
-                        {isDragActive ? 'Drop your solar quote here' : 'Upload Solar Quote or Proposal'}
-                      </h4>
-                      <p className="text-muted-foreground mb-4">
-                        PDF, JPG, PNG • Automatically extracts system details and pricing
-                      </p>
-                      <Button variant="outline" className="bg-white/5 border-white/20">
-                        Choose File
-                      </Button>
-                    </motion.div>
-                  </div>
-
-                  {processing && (
-                    <div className="text-center py-8">
-                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin opacity-60" />
-                      <p className="text-muted-foreground">Processing your solar quote...</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {isProUser ? 'Using enhanced AI models for maximum accuracy' : 'Extracting system details'}
-                      </p>
-                    </div>
-                  )}
-
-                  {extractedData.length > 0 && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-emerald-500" />
-                        <h4 className="font-medium">Extracted System Details</h4>
-                        <Badge variant="default">Review & Confirm</Badge>
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {extractedData.map((field, index) => (
-                          <div key={index} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-sm font-medium">{field.label}</Label>
-                              <div className="flex items-center gap-2">
-                                {field.confidence >= 0.9 ? (
-                                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                ) : (
-                                  <AlertCircle className="w-4 h-4 text-amber-500" />
-                                )}
-                                <Badge variant={field.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
-                                  {Math.round(field.confidence * 100)}%
-                                </Badge>
-                              </div>
-                            </div>
-                            <Input
-                              value={field.value}
-                              onChange={(e) => handleFieldEdit(index, e.target.value)}
-                              className="bg-white/5 border-white/20"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <UniversalOCRScanner 
+                    onExtractComplete={(data) => {
+                      console.log("OCR detected products:", data);
+                      
+                      // Set extracted data for display
+                      const fields = [];
+                      
+                      // Add detected products as extracted fields
+                      if (data.panels && data.panels.length > 0) {
+                        const bestPanel = data.panels[0];
+                        fields.push({
+                          label: "Solar Panel",
+                          value: `${bestPanel.brand} ${bestPanel.model}`,
+                          confidence: bestPanel.confidence,
+                          editable: false
+                        });
+                        
+                        if (bestPanel.specs.watts) {
+                          fields.push({
+                            label: "Panel Wattage",
+                            value: `${bestPanel.specs.watts}W`,
+                            confidence: bestPanel.confidence,
+                            editable: true
+                          });
+                        }
+                      }
+                      
+                      if (data.batteries && data.batteries.length > 0) {
+                        const bestBattery = data.batteries[0];
+                        fields.push({
+                          label: "Battery",
+                          value: `${bestBattery.brand} ${bestBattery.model}`,
+                          confidence: bestBattery.confidence,
+                          editable: false
+                        });
+                        
+                        if (bestBattery.specs.kWh) {
+                          fields.push({
+                            label: "Battery Capacity",
+                            value: `${bestBattery.specs.kWh}kWh`,
+                            confidence: bestBattery.confidence,
+                            editable: true
+                          });
+                        }
+                      }
+                      
+                      if (data.systemSize) {
+                        fields.push({
+                          label: "System Size",
+                          value: `${data.systemSize.value}${data.systemSize.unit}`,
+                          confidence: data.systemSize.confidence,
+                          editable: true
+                        });
+                      }
+                      
+                      if (data.postcode) {
+                        fields.push({
+                          label: "Postcode", 
+                          value: data.postcode,
+                          confidence: 0.9,
+                          editable: true
+                        });
+                      }
+                      
+                      setExtractedData(fields);
+                      
+                      // Update form data based on detected products
+                      const solarKw = data.systemSize?.value || 0;
+                      const batteryKwh = data.batteries?.[0]?.specs?.kWh || 0;
+                      
+                      setFormData(prev => ({
+                        ...prev,
+                        solarKw: solarKw,
+                        batteryKwh: batteryKwh,
+                        postcode: data.postcode || prev.postcode,
+                        systemType: batteryKwh > 0 ? 'solar-battery' : 'solar-only'
+                      }));
+                    }} 
+                  />
                 </div>
               ) : inputMethod === 'picker' ? (
                 <div className="space-y-6">

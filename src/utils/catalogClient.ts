@@ -48,48 +48,69 @@ class CatalogueClient {
     
     console.log('📊 Initializing universal catalogue client...');
     
-    // Load panels from DB
-    const { data: panels } = await supabase
-      .from('pv_modules')
-      .select('*')
-      .limit(3000);
-    
-    // Load batteries from DB  
-    const { data: batteries } = await supabase
-      .from('batteries')
-      .select('*')
-      .limit(2000);
-    
-    // Process panels - generate regex + aliases for ALL brands equally
-    this.panelCache = (panels || []).map(panel => ({
-      id: String(panel.id),
-      brand: this.normalizeBrand(panel.brand),
-      model: this.normalizeModel(panel.model),
-      type: 'panel' as const,
-      specs: {
-        watts: panel.power_rating,
-        cellGroup: this.extractCellGroup(panel.model),
-      },
-      regex: this.generateRegexPattern(panel.brand, panel.model, panel.power_rating),
-      aliases: this.generateAliases(panel.brand, panel.model, panel.power_rating)
-    }));
-    
-    // Process batteries - generate regex + aliases for ALL brands equally
-    this.batteryCache = (batteries || []).map(battery => ({
-      id: String(battery.id),
-      brand: this.normalizeBrand(battery.brand),
-      model: this.normalizeModel(battery.model),
-      type: 'battery' as const,
-      specs: {
-        kWh: battery.capacity_kwh || battery.usable_capacity,
-        usable_capacity: battery.usable_capacity,
-      },
-      regex: this.generateRegexPattern(battery.brand, battery.model, battery.capacity_kwh),
-      aliases: this.generateAliases(battery.brand, battery.model, battery.capacity_kwh)
-    }));
-    
-    console.log(`✅ Loaded ${this.panelCache.length} panels, ${this.batteryCache.length} batteries with universal patterns`);
-    this.initialized = true;
+    try {
+      // Load panels from DB with better error handling
+      const { data: panels, error: panelError } = await supabase
+        .from('pv_modules')
+        .select('*')
+        .limit(3000);
+      
+      if (panelError) {
+        console.error('❌ Failed to load panels:', panelError);
+        throw panelError;
+      }
+      
+      // Load batteries from DB with better error handling
+      const { data: batteries, error: batteryError } = await supabase
+        .from('batteries')
+        .select('*')
+        .limit(2000);
+      
+      if (batteryError) {
+        console.error('❌ Failed to load batteries:', batteryError);
+        throw batteryError;
+      }
+      
+      console.log(`📦 Raw data loaded: ${panels?.length || 0} panels, ${batteries?.length || 0} batteries`);
+      
+      // Process panels - generate regex + aliases for ALL brands equally
+      this.panelCache = (panels || []).map(panel => ({
+        id: String(panel.id),
+        brand: this.normalizeBrand(panel.brand),
+        model: this.normalizeModel(panel.model),
+        type: 'panel' as const,
+        specs: {
+          watts: panel.power_rating,
+          cellGroup: this.extractCellGroup(panel.model),
+        },
+        regex: this.generateRegexPattern(panel.brand, panel.model, panel.power_rating),
+        aliases: this.generateAliases(panel.brand, panel.model, panel.power_rating)
+      }));
+      
+      // Process batteries - generate regex + aliases for ALL brands equally
+      this.batteryCache = (batteries || []).map(battery => ({
+        id: String(battery.id),
+        brand: this.normalizeBrand(battery.brand),
+        model: this.normalizeModel(battery.model),
+        type: 'battery' as const,
+        specs: {
+          kWh: battery.capacity_kwh || battery.usable_capacity,
+          usable_capacity: battery.usable_capacity,
+        },
+        regex: this.generateRegexPattern(battery.brand, battery.model, battery.capacity_kwh),
+        aliases: this.generateAliases(battery.brand, battery.model, battery.capacity_kwh)
+      }));
+      
+      console.log(`✅ Catalog initialized: ${this.panelCache.length} panels, ${this.batteryCache.length} batteries with trained patterns`);
+      console.log(`🎯 Sample panel brands:`, this.panelCache.slice(0, 5).map(p => p.brand));
+      console.log(`🔋 Sample battery brands:`, this.batteryCache.slice(0, 5).map(b => b.brand));
+      
+      this.initialized = true;
+    } catch (error) {
+      console.error('❌ Failed to initialize catalog client:', error);
+      this.initialized = false;
+      throw error;
+    }
   }
 
   getPanels(): CatalogueProduct[] {

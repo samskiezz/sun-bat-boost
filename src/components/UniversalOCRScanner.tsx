@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { extractFromOcr, ExtractResult } from '@/ocr/extract';
 import { extractTextFromFile } from '@/utils/pdfTextExtractor';
+import { masterOCRPipeline, OCRResult } from '@/utils/masterOCRPipeline';
 import { Upload, FileText, Zap, Battery, Gauge, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,7 +20,7 @@ interface UniversalOCRScannerProps {
 export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRScannerProps) {
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<ExtractResult | null>(null);
+  const [result, setResult] = useState<OCRResult | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -56,28 +56,34 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
 
       console.log('🚀 Processing file:', fileName, 'Type:', fileType);
 
-      // Extract text using universal extractor
-      const extractionResult = await extractTextFromFile(file);
-      console.log('📄 Extraction result:', {
-        method: extractionResult.method,
-        confidence: extractionResult.confidence,
-        textLength: extractionResult.text.length
-      });
-      
-      const pages = [{ page: 1, text: extractionResult.text }];
-      const extractedResult = extractFromOcr(pages);
+      // Use the MASTER OCR Pipeline that connects to your trained database
+      const ocrResult = await masterOCRPipeline.process(file);
       
       clearInterval(progressInterval);
       setProgress(100);
       
-      setResult(extractedResult);
+      setResult(ocrResult);
       
-      const totalFound = extractedResult.panels.candidates.length + extractedResult.battery.candidates.length + (extractedResult.inverter.value ? 1 : 0);
+      const totalFound = ocrResult.panels.length + ocrResult.batteries.length + ocrResult.inverters.length;
       
       toast({
         title: "Extraction Complete", 
-        description: `Found ${totalFound} products using ${extractionResult.method} extraction (${Math.round(extractionResult.confidence * 100)}% confidence)`,
+        description: `Found ${totalFound} products from trained database (${ocrResult.panels.length} panels, ${ocrResult.batteries.length} batteries, ${ocrResult.inverters.length} inverters)`,
       });
+
+      // Pass results to callback if provided
+      if (onExtractComplete && totalFound > 0) {
+        const extractedData = {
+          mode: 'upload',
+          panels: ocrResult.panels,
+          batteries: ocrResult.batteries,
+          inverters: ocrResult.inverters,
+          systemSize: ocrResult.systemSize,
+          postcode: ocrResult.postcode?.value,
+          totalCost: ocrResult.totalCost
+        };
+        onExtractComplete(extractedData);
+      }
 
     } catch (error) {
       console.error('OCR processing failed:', error);
@@ -144,7 +150,135 @@ export default function UniversalOCRScanner({ onExtractComplete }: UniversalOCRS
       )}
 
       {/* Results */}
-      {result && <OCRResultDisplay result={result} onExtractComplete={onExtractComplete} />}
+      {result && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              Detected Products from Database
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Panels */}
+            {result.panels.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Solar Panels ({result.panels.length} found)
+                </h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {result.panels.map((panel, idx) => (
+                    <div key={idx} className="p-3 border rounded-lg bg-muted/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{panel.brand} {panel.model}</p>
+                          {panel.specs.watts && <p className="text-sm text-muted-foreground">{panel.specs.watts}W</p>}
+                        </div>
+                        <Badge className={getConfidenceColor(panel.confidence)}>
+                          {Math.round(panel.confidence * 100)}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ID: {panel.productId} • {panel.evidence.length} matches
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Batteries */}
+            {result.batteries.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Battery className="w-4 h-4" />
+                  Batteries ({result.batteries.length} found)
+                </h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {result.batteries.map((battery, idx) => (
+                    <div key={idx} className="p-3 border rounded-lg bg-muted/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{battery.brand} {battery.model}</p>
+                          {battery.specs.kWh && <p className="text-sm text-muted-foreground">{battery.specs.kWh}kWh</p>}
+                        </div>
+                        <Badge className={getConfidenceColor(battery.confidence)}>
+                          {Math.round(battery.confidence * 100)}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ID: {battery.productId} • {battery.evidence.length} matches
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Inverters */}
+            {result.inverters.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Gauge className="w-4 h-4" />
+                  Inverters ({result.inverters.length} found)
+                </h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {result.inverters.map((inverter, idx) => (
+                    <div key={idx} className="p-3 border rounded-lg bg-muted/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{inverter.brand} {inverter.model}</p>
+                          {inverter.specs.kW && <p className="text-sm text-muted-foreground">{inverter.specs.kW}kW</p>}
+                        </div>
+                        <Badge className={getConfidenceColor(inverter.confidence)}>
+                          {Math.round(inverter.confidence * 100)}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {inverter.evidence.length} matches found
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* System Info */}
+            {(result.systemSize || result.postcode || result.totalCost) && (
+              <div>
+                <h4 className="font-semibold mb-3">System Information</h4>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {result.systemSize && (
+                    <div className="p-2 rounded bg-muted/20">
+                      <p className="text-sm font-medium">System Size</p>
+                      <p className="text-lg">{result.systemSize.value}{result.systemSize.unit}</p>
+                    </div>
+                  )}
+                  {result.postcode && (
+                    <div className="p-2 rounded bg-muted/20">
+                      <p className="text-sm font-medium">Postcode</p>
+                      <p className="text-lg">{result.postcode.value}</p>
+                    </div>
+                  )}
+                  {result.totalCost && (
+                    <div className="p-2 rounded bg-muted/20">
+                      <p className="text-sm font-medium">Total Cost</p>
+                      <p className="text-lg">${result.totalCost.value.toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {result.panels.length === 0 && result.batteries.length === 0 && result.inverters.length === 0 && (
+              <div className="text-center py-8">
+                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-amber-500" />
+                <p className="text-muted-foreground">No products detected from database. Try uploading a clearer document.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
