@@ -11,6 +11,7 @@ import OneCatalogManager from '@/components/OneCatalogManager';
 import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
 import TrainingAutomation from '@/components/TrainingAutomation';
 import EnergyPlanStats from '@/components/EnergyPlanStats';
+import DnspPanel from "@/components/SystemManager/DnspPanel";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -137,6 +138,7 @@ export default function SystemManager() {
         <TabsContent value="monitoring">
           <div className="space-y-6">
             <EnergyPlanStats />
+            <DnspPanel />
             <Card>
               <CardHeader>
                 <CardTitle>System Monitoring</CardTitle>

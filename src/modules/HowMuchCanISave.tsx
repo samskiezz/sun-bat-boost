@@ -10,13 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import TopThreePlansCard from "@/components/TopThreePlansCard";
-import AccuracyToggle from "@/components/AccuracyToggle";
-import { publish } from "@/ai/orchestrator/bus";
-import type { RankContext } from "@/energy/rankPlans";
-import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
-import SystemSizingStep from "@/components/SystemSizingStep";
+import EnergyPlanStats from "@/components/EnergyPlanStats";
+import BatteryROICalculator from "@/components/BatteryROICalculator";
+import AIAssistant from "@/components/AIAssistant";
+import { SavingsWizard } from "@/components/SavingsWizard";
 import BestRatesStep from "@/components/BestRatesStep";
 import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
+import SystemSizingStep from "@/components/SystemSizingStep";
+import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
+import { LocationAutoFill } from "@/components/LocationAutoFill";
+import { publish } from "@/ai/orchestrator/bus";
+import type { RankContext } from "@/energy/rankPlans";
 
 type Step = 'method' | 'current-bill' | 'location' | 'system-sizing' | 'best-rates' | 'savings-analysis';
 
@@ -675,88 +679,17 @@ export default function HowMuchCanISave() {
             )}
 
             {currentStep === 'location' && (
-              <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Your Location & Meter Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="postcode">Postcode</Label>
-                        <Input
-                          id="postcode"
-                          value={locationData.postcode}
-                          onChange={(e) => setLocationData(prev => ({ ...prev, postcode: e.target.value }))}
-                          placeholder="e.g., 2000"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="state">State</Label>
-                        <Select 
-                          value={locationData.state} 
-                          onValueChange={(value) => setLocationData(prev => ({ 
-                            ...prev, 
-                            state: value,
-                            network: NETWORKS[value as keyof typeof NETWORKS]?.[0] || ''
-                          }))}
-                        >
-                          <SelectTrigger className="bg-white/10 border-white/20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50">
-                            {STATES.map(state => (
-                              <SelectItem key={state.value} value={state.value}>
-                                {state.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="network">Distribution Network</Label>
-                        <Select 
-                          value={locationData.network} 
-                          onValueChange={(value) => setLocationData(prev => ({ ...prev, network: value }))}
-                        >
-                          <SelectTrigger className="bg-white/10 border-white/20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50">
-                            {NETWORKS[locationData.state as keyof typeof NETWORKS]?.map(network => (
-                              <SelectItem key={network} value={network}>
-                                {network}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="meter">Meter Type</Label>
-                        <Select 
-                          value={locationData.meterType} 
-                          onValueChange={(value: 'Single' | 'TOU' | 'Demand') => setLocationData(prev => ({ ...prev, meterType: value }))}
-                        >
-                          <SelectTrigger className="bg-white/10 border-white/20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50">
-                            <SelectItem value="Single">Single Rate</SelectItem>
-                            <SelectItem value="TOU">Time of Use (TOU)</SelectItem>
-                            <SelectItem value="Demand">Demand Tariff</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <LocationAutoFill
+                onLocationUpdate={(locationData) => {
+                  setLocationData({
+                    postcode: locationData.postcode,
+                    state: locationData.state,
+                    network: locationData.network,
+                    meterType: locationData.meterType
+                  });
+                }}
+                initialPostcode={locationData.postcode}
+              />
             )}
 
             {currentStep === 'system-sizing' && (
