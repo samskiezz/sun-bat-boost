@@ -71,13 +71,15 @@ interface ProductRecommendation {
 interface SizingResult {
   recommendations: ProductRecommendation;
   financial: {
-    system_cost: number;
+    current_annual_bill: number;
+    new_annual_bill: number;
     annual_savings: number;
-    payback_period: number;
-    roi_25_year: number;
+    monthly_savings: number;
+    bill_reduction_percent: number;
     annual_generation: number;
     self_consumption: number;
     export_income: number;
+    export_generation: number;
   };
   rationale: {
     sizing_factors: string[];
@@ -149,10 +151,12 @@ serve(async (req) => {
       rationale: {
         sizing_factors: [
           `Annual usage: ${(billData.quarterlyUsage * 4).toLocaleString()} kWh`,
-          `Location irradiance: ${solarData.annual_irradiance} kWh/m²/year`,
-          `Peak demand: ${usageAnalysis.peak_demand} kW`,
-          `Usage pattern: ${usageAnalysis.pattern_type}`,
-          `Recommended offset: ${aiRecommendations.panels.totalKw > 0 ? Math.round((aiRecommendations.panels.totalKw * solarData.annual_irradiance * 4.5) / (billData.quarterlyUsage * 4) * 100) : 0}%`
+          `Day usage (60%): ${usageAnalysis.day_usage.toLocaleString()} kWh`, 
+          `Night usage (40%): ${usageAnalysis.night_usage.toLocaleString()} kWh`,
+          `Battery requirement: ${usageAnalysis.battery_required_kwh.toFixed(1)} kWh`,
+          `Peak sun hours: ${solarData.peak_sun_hours}`,
+          `System size (1.25x factor): ${aiRecommendations.panels.totalKw}kW`,
+          `Expected generation: ${Math.round(aiRecommendations.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85).toLocaleString()} kWh/year`
         ],
         ai_reasoning: await generateAIReasoning(aiRecommendations, usageAnalysis),
         confidence: 0.92,
@@ -197,11 +201,18 @@ async function getSolarIrradianceData(state: string, postcode: string) {
 
 async function analyzeUsagePatterns(billData: any) {
   const annualUsage = billData.quarterlyUsage * 4;
+  const monthlyUsage = billData.quarterlyUsage / 3;
   const dailyAverage = annualUsage / 365;
   
-  // Analyze TOU patterns if available
+  // PROPER DAY/NIGHT SPLIT - This is the key fix!
+  const dayUsage = annualUsage * 0.6; // 60% during solar hours (9am-3pm)
+  const nightUsage = annualUsage * 0.4; // 40% during evening/night (4pm-8am)
+  
+  // Calculate battery requirement based on night usage
+  const batteryRequiredKwh = (nightUsage / 365) * 1.2; // 20% buffer for night usage
+  
   let pattern_type = 'standard';
-  let peak_demand = dailyAverage / 8; // Estimate peak demand
+  let peak_demand = dailyAverage / 8;
   
   if (billData.peakUsage && billData.offPeakUsage) {
     const totalUsage = billData.peakUsage + billData.offPeakUsage + (billData.shoulderUsage || 0);
@@ -221,31 +232,49 @@ async function analyzeUsagePatterns(billData: any) {
   
   return {
     annual_usage: annualUsage,
+    monthly_usage: monthlyUsage,
     daily_average: dailyAverage,
+    day_usage: dayUsage,
+    night_usage: nightUsage,
+    battery_required_kwh: batteryRequiredKwh,
     peak_demand,
     pattern_type,
     evening_usage_ratio: pattern_type === 'evening_heavy' ? 0.7 : 0.4,
-    battery_suitable: pattern_type === 'evening_heavy' || pattern_type === 'balanced'
+    battery_suitable: true // Always consider battery now
   };
 }
 
 async function getAvailableProducts(supabase: any) {
   console.log('📦 Fetching available products from database...');
   
+  // Only get TIER 1 premium products
   const [panelsResult, batteriesResult] = await Promise.all([
-    supabase.from('pv_modules').select('*').order('power_rating', { ascending: false }).limit(20),
-    supabase.from('batteries').select('*').order('capacity_kwh', { ascending: false }).limit(15)
+    // Filter for only tier 1 panel brands
+    supabase.from('pv_modules')
+      .select('*')
+      .in('brand', ['SunPower', 'Maxeon Solar', 'Panasonic', 'LG Solar', 'REC', 'Canadian Solar', 'Jinko Solar', 'LONGi Solar'])
+      .gte('power_rating', 400) // Only high wattage panels
+      .order('power_rating', { ascending: false })
+      .limit(15),
+    // Filter for only tier 1 battery brands  
+    supabase.from('batteries')
+      .select('*')
+      .in('brand', ['Tesla', 'Enphase', 'BYD', 'Pylontech', 'Alpha ESS', 'Fronius', 'Sungrow'])
+      .gte('capacity_kwh', 10) // Only larger capacity batteries
+      .order('capacity_kwh', { ascending: false })
+      .limit(10)
   ]);
   
   return {
     panels: panelsResult.data || [],
     batteries: batteriesResult.data || [],
-    // Common inverter options
+    // Only tier 1 inverter brands
     inverters: [
-      { brand: 'Fronius', model: 'Primo', efficiency: 0.97, cost_per_kw: 800 },
-      { brand: 'SolarEdge', model: 'HD-Wave', efficiency: 0.99, cost_per_kw: 900 },
-      { brand: 'Huawei', model: 'SUN2000', efficiency: 0.98, cost_per_kw: 750 },
-      { brand: 'Sungrow', model: 'SG-RS', efficiency: 0.98, cost_per_kw: 700 }
+      { brand: 'Fronius', model: 'Primo', efficiency: 0.98, cost_per_kw: 900 },
+      { brand: 'SolarEdge', model: 'HD-Wave', efficiency: 0.99, cost_per_kw: 1000 },
+      { brand: 'Enphase', model: 'IQ8', efficiency: 0.97, cost_per_kw: 950 },
+      { brand: 'Huawei', model: 'SUN2000', efficiency: 0.98, cost_per_kw: 850 },
+      { brand: 'SMA', model: 'Sunny Boy', efficiency: 0.98, cost_per_kw: 900 }
     ]
   };
 }
@@ -260,75 +289,74 @@ async function getAIRecommendations(params: any): Promise<ProductRecommendation>
     throw new Error('OpenAI API key not configured');
   }
 
-  // Prepare context for AI
+  // Prepare context for AI with PROPER SIZING METHODOLOGY
   const aiPrompt = `
-You are a solar and battery system sizing expert. Analyze the following data and recommend the optimal system:
+You are a premium solar and battery system sizing expert. Follow this EXACT methodology:
 
-USAGE DATA:
+STEP 1: USAGE ANALYSIS
 - Annual usage: ${usageAnalysis.annual_usage} kWh
-- Daily average: ${usageAnalysis.daily_average.toFixed(1)} kWh
-- Peak demand: ${usageAnalysis.peak_demand.toFixed(1)} kW
-- Usage pattern: ${usageAnalysis.pattern_type}
-- Evening usage ratio: ${usageAnalysis.evening_usage_ratio}
+- Day usage (60%): ${usageAnalysis.day_usage} kWh
+- Night usage (40%): ${usageAnalysis.night_usage} kWh  
+- Daily night usage: ${(usageAnalysis.night_usage / 365).toFixed(1)} kWh
+
+STEP 2: BATTERY SIZING (MANDATORY)
+- Battery size needed: ${usageAnalysis.battery_required_kwh.toFixed(1)} kWh (night usage + 20% buffer)
+- Always recommend a battery unless customer explicitly refuses
+
+STEP 3: PANEL SIZING WITH 1.25X SAFETY FACTOR
+Calculate: (day usage + night usage + battery charging losses) × 1.25
+Battery charging efficiency: 90% (10% losses)
+Required system size: ${((usageAnalysis.day_usage + usageAnalysis.night_usage + (usageAnalysis.night_usage * 0.1)) * 1.25 / (solarData.peak_sun_hours * 365 * 0.85)).toFixed(1)} kW
 
 LOCATION DATA:
 - State: ${locationData.state}
-- Annual irradiance: ${solarData.annual_irradiance} kWh/m²/year
 - Peak sun hours: ${solarData.peak_sun_hours}
 - Network: ${locationData.network}
 
 FINANCIAL DATA:
 - Quarterly bill: $${billData.quarterlyBill}
 - Average rate: ${billData.averageRate}c/kWh
-- Daily supply: ${billData.dailySupply}c/day
 
-AVAILABLE PANELS (top 5):
+AVAILABLE TIER 1 PANELS (ONLY use these):
 ${availableProducts.panels.slice(0, 5).map(p => 
-  `- ${p.brand} ${p.model}: ${p.power_rating}W, ${p.technology || 'Monocrystalline'}`
+  `- ${p.brand} ${p.model}: ${p.power_rating}W`
 ).join('\n')}
 
-AVAILABLE BATTERIES (top 5):
+AVAILABLE TIER 1 BATTERIES (ONLY use these):
 ${availableProducts.batteries.slice(0, 5).map(b => 
-  `- ${b.brand} ${b.model}: ${b.capacity_kwh || b.nominal_capacity}kWh usable`
+  `- ${b.brand} ${b.model}: ${b.capacity_kwh || b.nominal_capacity}kWh`
 ).join('\n')}
 
-PREFERENCES:
-- Budget: ${preferences?.budget ? `$${preferences.budget}` : 'Not specified'}
-- Offset goal: ${preferences?.offsetGoal || 80}%
-- Battery required: ${preferences?.batteryRequired ? 'Yes' : 'No preference'}
-- Roof space: ${preferences?.roofSpace || 'Average'}
-
-Calculate optimal system size considering:
-1. Solar irradiance and seasonal variations
-2. Usage patterns and peak demand
-3. Battery sizing for evening usage
-4. Financial payback optimization
-5. Grid export limitations
+REQUIREMENTS:
+1. ALWAYS recommend a battery sized for night usage + 20% buffer
+2. Apply 1.25x safety factor to panel sizing
+3. Only use TIER 1 brands from the available lists
+4. Size system to cover day usage + night usage + battery losses
 
 Respond in this exact JSON format:
 {
   "panels": {
-    "model": "specific model from available list",
-    "brand": "brand name",
+    "model": "exact model from available list",
+    "brand": "exact brand from available list", 
     "wattage": number,
     "count": number,
-    "totalKw": number,
+    "totalKw": number (apply 1.25x factor),
     "efficiency": 0.22,
-    "cost_estimate": number
+    "cost_estimate": 0
   },
   "battery": {
-    "model": "specific model from available list or null if not recommended",
-    "brand": "brand name or null",
-    "capacity_kwh": number or null,
-    "usable_capacity": number or null,
-    "cost_estimate": number or null,
+    "model": "exact model from available list",
+    "brand": "exact brand from available list",
+    "capacity_kwh": number (sized for night usage + 20%),
+    "usable_capacity": number,
+    "cost_estimate": 0,
     "cycles": 6000
   },
   "inverter": {
-    "type": "string or hybrid",
-    "capacity_kw": number,
+    "type": "hybrid",
+    "capacity_kw": number (match panel size),
     "efficiency": 0.98,
-    "cost_estimate": number
+    "cost_estimate": 0
   }
 }
 `;
@@ -440,33 +468,39 @@ function getFallbackRecommendation(usage: any, products: any): ProductRecommenda
 }
 
 async function calculateDetailedFinancials(rec: ProductRecommendation, billData: any, locationData: any, solarData: any) {
-  const systemCost = rec.panels.cost_estimate + (rec.battery?.cost_estimate || 0) + rec.inverter.cost_estimate;
-  const annualGeneration = rec.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85; // Derating factor
-  const annualBill = billData.quarterlyBill * 4;
+  // DO NOT INCLUDE SYSTEM COSTS - ONLY ENERGY BILL SAVINGS!
+  const annualGeneration = rec.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85;
+  const currentAnnualBill = billData.quarterlyBill * 4;
   
-  // Self-consumption calculation
+  // Calculate self-consumption with battery
   const selfConsumption = rec.battery ? 
-    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.7) : 
-    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.4);
+    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.8) : // 80% with battery
+    Math.min(annualGeneration, billData.quarterlyUsage * 4 * 0.4);   // 40% without battery
   
-  const exportGeneration = annualGeneration - selfConsumption;
+  const exportGeneration = Math.max(0, annualGeneration - selfConsumption);
   const fitRate = 0.08; // 8c/kWh feed-in tariff
   const exportIncome = exportGeneration * fitRate;
   
+  // Bill savings calculation
   const billSavings = selfConsumption * (billData.averageRate / 100);
-  const annualSavings = billSavings + exportIncome;
+  const totalAnnualSavings = billSavings + exportIncome;
   
-  const paybackPeriod = systemCost / annualSavings;
-  const roi25Year = ((annualSavings * 25) - systemCost) / systemCost * 100;
+  // New annual bill after solar
+  const newAnnualBill = Math.max(0, currentAnnualBill - billSavings);
+  const dailySupplyCharges = (billData.dailySupply / 100) * 365; // Still pay supply charges
+  const finalNewBill = newAnnualBill + dailySupplyCharges;
   
   return {
-    system_cost: Math.round(systemCost),
-    annual_savings: Math.round(annualSavings),
-    payback_period: Math.round(paybackPeriod * 10) / 10,
-    roi_25_year: Math.round(roi25Year),
+    // Remove system_cost - not relevant for energy bill analysis
+    current_annual_bill: Math.round(currentAnnualBill),
+    new_annual_bill: Math.round(finalNewBill),
+    annual_savings: Math.round(totalAnnualSavings),
+    monthly_savings: Math.round(totalAnnualSavings / 12),
+    bill_reduction_percent: Math.round((totalAnnualSavings / currentAnnualBill) * 100),
     annual_generation: Math.round(annualGeneration),
     self_consumption: Math.round(selfConsumption),
-    export_income: Math.round(exportIncome)
+    export_income: Math.round(exportIncome),
+    export_generation: Math.round(exportGeneration)
   };
 }
 
@@ -483,7 +517,11 @@ async function modelSystemPerformance(rec: ProductRecommendation, solarData: any
 }
 
 async function generateAIReasoning(rec: ProductRecommendation, usage: any): Promise<string> {
-  return `Recommended ${rec.panels.totalKw}kW solar system with ${rec.panels.count} x ${rec.panels.wattage}W panels to offset ${Math.round((rec.panels.totalKw * 1400) / usage.annual_usage * 100)}% of annual usage. ${rec.battery ? `Added ${rec.battery.capacity_kwh}kWh battery storage optimized for ${usage.pattern_type} usage pattern to maximize self-consumption during evening hours.` : 'No battery recommended due to current usage pattern being well-aligned with solar generation.'} System sized for optimal 6-8 year payback period while maximizing 25-year ROI.`;
+  const batteryText = rec.battery ? 
+    `Includes ${rec.battery.capacity_kwh}kWh ${rec.battery.brand} battery system sized for ${(usage.night_usage / 365).toFixed(1)}kWh daily night usage + 20% buffer. This enables 80% self-consumption and maximizes bill savings.` :
+    'No battery system included.';
+    
+  return `Recommended ${rec.panels.totalKw}kW solar system with ${rec.panels.count} x ${rec.panels.wattage}W ${rec.panels.brand} panels sized using proper day/night methodology: 60% day usage (${(usage.day_usage/1000).toFixed(1)}MWh) + 40% night usage (${(usage.night_usage/1000).toFixed(1)}MWh) + battery losses, multiplied by 1.25x safety factor. ${batteryText} System designed to maximize energy bill reduction through high self-consumption during peak rate periods.`;
 }
 
 async function getFallbackSizing() {

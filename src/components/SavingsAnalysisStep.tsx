@@ -15,23 +15,28 @@ interface SavingsAnalysisStepProps {
 
 export default function SavingsAnalysisStep({ billData, locationData, systemSize, selectedPlan }: SavingsAnalysisStepProps) {
   
-  // Calculate comprehensive savings data
-  const currentAnnualBill = billData.quarterlyBill * 4;
+  // Use the new financial data structure from AI sizing
+  const financialData = systemSize?.financial || {};
+  
+  // Current vs New bill comparison (ENERGY SAVINGS ONLY)
+  const currentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
+  const newAnnualBill = financialData.new_annual_bill || currentAnnualBill;
+  const annualSavings = financialData.annual_savings || 0;
+  const monthlySavings = financialData.monthly_savings || Math.round(annualSavings / 12);
+  const billReductionPercent = financialData.bill_reduction_percent || Math.round((annualSavings / currentAnnualBill) * 100);
+  
+  // Solar system performance data
+  const solarGeneration = financialData.annual_generation || 6000;
+  const solarSelfConsumption = financialData.self_consumption || 0;
+  const solarExport = financialData.export_generation || 0;
+  const exportIncome = financialData.export_income || 0;
+  
+  // System specifications  
+  const systemKw = systemSize?.recommendations?.panels?.totalKw || 6;
+  const batteryKwh = systemSize?.recommendations?.battery?.capacity_kwh || 0;
   const annualUsage = billData.quarterlyUsage * 4;
   
-  const newPlanSavings = selectedPlan ? Math.max(0, currentAnnualBill - selectedPlan.annualCost) : 0;
-  const solarGeneration = systemSize.estimatedGeneration || 6000;
-  const solarSelfConsumption = Math.min(solarGeneration * 0.7, annualUsage); // 70% self-consumption
-  const solarExport = solarGeneration - solarSelfConsumption;
-  
-  const energyRateReduction = solarSelfConsumption * (billData.averageRate / 100);
-  const feedInCredit = solarExport * ((selectedPlan?.fit_c_per_kwh || 8) / 100);
-  const totalSolarSavings = energyRateReduction + feedInCredit;
-  
-  const totalAnnualSavings = newPlanSavings + totalSolarSavings;
-  const batteryBenefit = systemSize.battery * 50; // $50 per kWh battery benefit
-  
-  // Monthly breakdown data
+  // Monthly breakdown data - ENERGY BILL FOCUS
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = new Date(0, i).toLocaleString('default', { month: 'short' });
     const seasonalFactor = [0.8, 0.9, 1.1, 1.2, 1.3, 1.0, 0.9, 0.9, 1.0, 1.1, 1.0, 0.8][i];
@@ -39,25 +44,24 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
     return {
       month,
       currentBill: Math.round((currentAnnualBill / 12) * seasonalFactor),
-      newPlanBill: Math.round(((currentAnnualBill - newPlanSavings) / 12) * seasonalFactor),
-      withSolar: Math.round(((currentAnnualBill - totalAnnualSavings) / 12) * seasonalFactor),
-      solarGeneration: Math.round((solarGeneration / 12) * seasonalFactor),
-      savings: Math.round((totalAnnualSavings / 12) * seasonalFactor)
+      newBill: Math.round((newAnnualBill / 12) * seasonalFactor),
+      savings: Math.round((annualSavings / 12) * seasonalFactor),
+      solarGeneration: Math.round((solarGeneration / 12) * seasonalFactor)
     };
   });
 
   // Energy breakdown for pie chart
   const energyBreakdown = [
-    { name: 'Grid Purchase', value: Math.max(0, annualUsage - solarSelfConsumption), color: '#ef4444' },
+    { name: 'Grid Purchase', value: Math.max(0, (billData.quarterlyUsage * 4) - solarSelfConsumption), color: '#ef4444' },
     { name: 'Solar Self-Use', value: solarSelfConsumption, color: '#22c55e' },
     { name: 'Solar Export', value: solarExport, color: '#3b82f6' },
-    { name: 'Battery Storage', value: systemSize.battery * 365, color: '#8b5cf6' }
+    { name: 'Battery Stored', value: batteryKwh * 300, color: '#8b5cf6' } // Estimated annual battery throughput
   ];
 
-  // Cumulative savings over time
+  // 25-year energy savings projection (NO SYSTEM COSTS)
   const cumulativeSavings = Array.from({ length: 25 }, (_, year) => {
     const degradation = Math.pow(0.995, year); // 0.5% annual degradation
-    const annualSaving = totalAnnualSavings * degradation;
+    const annualSaving = annualSavings * degradation;
     const cumulative = year === 0 ? annualSaving : cumulativeSavings[year - 1]?.cumulative + annualSaving;
     
     return {
@@ -83,11 +87,11 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
             <CardContent className="p-6 text-center">
               <DollarSign className="h-8 w-8 text-green-500 mx-auto mb-2" />
               <div className="text-2xl font-bold text-green-500">
-                ${totalAnnualSavings.toLocaleString()}
+                ${annualSavings.toLocaleString()}
               </div>
-              <div className="text-sm text-muted-foreground">Total Annual Savings</div>
+              <div className="text-sm text-muted-foreground">Annual Bill Savings</div>
               <Badge variant="default" className="mt-2">
-                {Math.round((totalAnnualSavings / currentAnnualBill) * 100)}% Reduction
+                {billReductionPercent}% Bill Reduction
               </Badge>
             </CardContent>
           </Card>
@@ -125,7 +129,7 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
               </div>
               <div className="text-sm text-muted-foreground">25-Year Savings</div>
               <Badge variant="outline" className="mt-2">
-                ROI: {Math.round((cumulativeSavings[24]?.cumulative || 0) / (systemSize.recommendedKw * 1200 + systemSize.battery * 1000) * 100)}%
+                25-Year Energy Savings
               </Badge>
             </CardContent>
           </Card>
@@ -186,9 +190,8 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                           borderRadius: '8px'
                         }} 
                       />
-                      <Bar dataKey="currentBill" fill="#ef4444" name="Current Bill" />
-                      <Bar dataKey="newPlanBill" fill="#f97316" name="New Plan" />
-                      <Bar dataKey="withSolar" fill="#22c55e" name="With Solar" />
+                       <Bar dataKey="currentBill" fill="#ef4444" name="Current Bill" />
+                       <Bar dataKey="newBill" fill="#22c55e" name="With Solar + Battery" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -233,30 +236,32 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                     <CardTitle className="text-lg">Savings Breakdown</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                        <span className="text-sm">Plan Switch Savings</span>
-                        <span className="font-semibold text-green-500">+${newPlanSavings.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                        <span className="text-sm">Solar Self-Consumption</span>
-                        <span className="font-semibold text-green-500">+${Math.round(energyRateReduction).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                        <span className="text-sm">Feed-in Credits</span>
-                        <span className="font-semibold text-green-500">+${Math.round(feedInCredit).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                        <span className="text-sm">Battery Benefits</span>
-                        <span className="font-semibold text-green-500">+${batteryBenefit.toLocaleString()}</span>
-                      </div>
-                      <div className="border-t border-white/20 pt-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold">Total Annual Savings</span>
-                          <span className="text-xl font-bold text-green-500">${totalAnnualSavings.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
+                     <div className="space-y-3">
+                       <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                         <span className="text-sm">Solar Self-Consumption</span>
+                         <span className="font-semibold text-green-500">+${Math.round(solarSelfConsumption * (billData.averageRate / 100)).toLocaleString()}</span>
+                       </div>
+                       <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                         <span className="text-sm">Solar Export Credits</span>
+                         <span className="font-semibold text-green-500">+${exportIncome.toLocaleString()}</span>
+                       </div>
+                       {batteryKwh > 0 && (
+                         <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                           <span className="text-sm">Battery Time-Shift Savings</span>
+                           <span className="font-semibold text-green-500">+${Math.round(batteryKwh * 50).toLocaleString()}</span>
+                         </div>
+                       )}
+                       <div className="border-t border-white/20 pt-3">
+                         <div className="flex justify-between items-center">
+                           <span className="font-semibold">Total Annual Bill Savings</span>
+                           <span className="text-xl font-bold text-green-500">${annualSavings.toLocaleString()}</span>
+                         </div>
+                         <div className="flex justify-between items-center mt-2">
+                           <span className="text-sm text-muted-foreground">Monthly Savings</span>
+                           <span className="text-sm font-medium text-green-500">${monthlySavings.toLocaleString()}</span>
+                         </div>
+                       </div>
+                     </div>
                   </CardContent>
                 </Card>
               </div>
@@ -312,24 +317,24 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                   </CardContent>
                 </Card>
                 
-                <Card className="border-white/20 bg-white/5">
-                  <CardHeader>
-                    <CardTitle className="text-lg text-center">New Plan Only</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-center space-y-4">
-                    <div className="text-3xl font-bold text-orange-500">
-                      ${(currentAnnualBill - newPlanSavings).toLocaleString()}
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>Retailer: {selectedPlan?.retailer || 'Best Plan'}</div>
-                      <div>Plan: {selectedPlan?.plan_name || 'Recommended'}</div>
-                      <div>Rate: {selectedPlan?.usage_c_per_kwh_peak || 25}c/kWh</div>
-                    </div>
-                    <Badge variant="secondary">
-                      Save ${newPlanSavings.toLocaleString()}/year
-                    </Badge>
-                  </CardContent>
-                </Card>
+                 <Card className="border-white/20 bg-white/5">
+                   <CardHeader>
+                     <CardTitle className="text-lg text-center">Best Available Plan</CardTitle>
+                   </CardHeader>
+                   <CardContent className="text-center space-y-4">
+                     <div className="text-3xl font-bold text-orange-500">
+                       ${currentAnnualBill.toLocaleString()}
+                     </div>
+                     <div className="space-y-2 text-sm">
+                       <div>Retailer: {selectedPlan?.retailer || 'Best Plan'}</div>
+                       <div>Plan: {selectedPlan?.plan_name || 'Recommended'}</div>
+                       <div>Rate: {selectedPlan?.usage_c_per_kwh_peak || billData.averageRate}c/kWh</div>
+                     </div>
+                     <Badge variant="secondary">
+                       No Solar System
+                     </Badge>
+                   </CardContent>
+                 </Card>
                 
                 <Card className="border-white/20 bg-white/5 ring-2 ring-green-500/50">
                   <CardHeader>
@@ -337,15 +342,15 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                   </CardHeader>
                   <CardContent className="text-center space-y-4">
                     <div className="text-3xl font-bold text-green-500">
-                      ${(currentAnnualBill - totalAnnualSavings).toLocaleString()}
+                      ${newAnnualBill.toLocaleString()}
                     </div>
                     <div className="space-y-2 text-sm">
-                      <div>Solar: {systemSize.recommendedKw}kW System</div>
-                      <div>Battery: {systemSize.battery}kWh Storage</div>
-                      <div>Best Energy Plan</div>
+                      <div>Solar: {systemKw}kW System</div>
+                      <div>Battery: {batteryKwh}kWh Storage</div>
+                      <div>Optimized Energy Plan</div>
                     </div>
                     <Badge variant="default" className="bg-green-500">
-                      Save ${totalAnnualSavings.toLocaleString()}/year
+                      Save ${annualSavings.toLocaleString()}/year
                     </Badge>
                   </CardContent>
                 </Card>

@@ -165,6 +165,12 @@ export default function SystemSizingStep({
 
   const annualBill = billData.quarterlyBill * 4;
   const offsetPercentage = Math.min((systemSize.estimatedGeneration / (billData.quarterlyUsage * 4)) * 100, 120);
+  
+  // Financial data from AI results
+  const currentAnnualBill = billData.quarterlyBill * 4;
+  const newAnnualBill = aiResults?.financial?.new_annual_bill || currentAnnualBill;
+  const annualSavings = aiResults?.financial?.annual_savings || 0;
+  const billReductionPercent = aiResults?.financial?.bill_reduction_percent || 0;
 
   return (
     <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
@@ -267,33 +273,33 @@ export default function SystemSizingStep({
           >
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="h-5 w-5 text-green-500" />
-              <h4 className="font-semibold">Financial Projection</h4>
+              <h4 className="font-semibold">Energy Bill Savings</h4>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <div className="text-lg font-bold text-green-500">
-                  ${aiResults.financial.system_cost.toLocaleString()}
+                <div className="text-lg font-bold text-red-500">
+                  ${(aiResults.financial.current_annual_bill || currentAnnualBill).toLocaleString()}
                 </div>
-                <div className="text-xs text-muted-foreground">System Cost</div>
+                <div className="text-xs text-muted-foreground">Current Bill</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-green-500">
-                  ${aiResults.financial.annual_savings.toLocaleString()}
+                  ${(aiResults.financial.new_annual_bill || newAnnualBill).toLocaleString()}
+                </div>
+                <div className="text-xs text-muted-foreground">New Bill</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-green-500">
+                  ${annualSavings.toLocaleString()}
                 </div>
                 <div className="text-xs text-muted-foreground">Annual Savings</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-green-500">
-                  {aiResults.financial.payback_period} years
+                  {billReductionPercent}%
                 </div>
-                <div className="text-xs text-muted-foreground">Payback Period</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-green-500">
-                  {aiResults.financial.roi_25_year}%
-                </div>
-                <div className="text-xs text-muted-foreground">25-Year ROI</div>
+                <div className="text-xs text-muted-foreground">Bill Reduction</div>
               </div>
             </div>
           </motion.div>
