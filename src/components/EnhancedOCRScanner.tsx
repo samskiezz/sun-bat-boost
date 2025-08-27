@@ -132,6 +132,56 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
+    // Total Usage (most important for navigation)
+    const totalUsageMatches = text.match(/total.*?(\d+(?:,\d{3})*)\s*kwh/i) ||
+                              text.match(/consumption[:\s]*(\d+(?:,\d{3})*)\s*kwh/i) ||
+                              text.match(/(\d+(?:,\d{3})*)\s*kwh.*total/i) ||
+                              text.match(/usage[:\s]*(\d+(?:,\d{3})*)\s*kwh/i) ||
+                              text.match(/electricity.*?(\d+(?:,\d{3})*)\s*kwh/i);
+    if (totalUsageMatches) {
+      fields.push({
+        label: "Total Usage (kWh)",
+        value: parseInt(totalUsageMatches[1].replace(/,/g, '')),
+        confidence: 0.90,
+        editable: true,
+        key: "usage",
+        category: "basic"
+      });
+    }
+
+    // Total Bill Amount (most important for navigation)
+    const billAmountMatches = text.match(/total[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
+                              text.match(/amount[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
+                              text.match(/\$(\d+(?:,\d{3})*(?:\.\d{2})?).{0,20}total/i) ||
+                              text.match(/bill[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i) ||
+                              text.match(/charges[:\s]*\$(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
+    if (billAmountMatches) {
+      fields.push({
+        label: "Bill Amount ($)",
+        value: parseFloat(billAmountMatches[1].replace(/,/g, '')),
+        confidence: 0.90,
+        editable: true,
+        key: "billAmount",
+        category: "basic"
+      });
+    }
+
+    // Daily Supply Charge
+    const dailySupplyMatches = text.match(/daily.*?(\d+(?:\.\d{2})?)\s*c/i) ||
+                               text.match(/supply.*?(\d+(?:\.\d{2})?)\s*c/i) ||
+                               text.match(/(\d+(?:\.\d{2})?)\s*c.*daily/i) ||
+                               text.match(/(\d+(?:\.\d{2})?)\s*c.*supply/i);
+    if (dailySupplyMatches) {
+      fields.push({
+        label: "Daily Supply (c/day)",
+        value: parseFloat(dailySupplyMatches[1]),
+        confidence: 0.85,
+        editable: true,
+        key: "dailySupply",
+        category: "basic"
+      });
+    }
+
     // Usage patterns
     const peakUsageMatches = text.match(/peak.*?(\d+(?:,\d{3})*)\s*kwh/i);
     if (peakUsageMatches) {
