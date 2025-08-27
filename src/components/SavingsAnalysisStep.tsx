@@ -59,17 +59,20 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
   ];
 
   // 25-year energy savings projection (NO SYSTEM COSTS)
-  const cumulativeSavings = Array.from({ length: 25 }, (_, year) => {
+  const cumulativeSavings = [];
+  let cumulativeTotal = 0;
+  
+  for (let year = 0; year < 25; year++) {
     const degradation = Math.pow(0.995, year); // 0.5% annual degradation
     const annualSaving = annualSavings * degradation;
-    const cumulative = year === 0 ? annualSaving : cumulativeSavings[year - 1]?.cumulative + annualSaving;
+    cumulativeTotal += annualSaving;
     
-    return {
+    cumulativeSavings.push({
       year: year + 1,
       annual: Math.round(annualSaving),
-      cumulative: Math.round(cumulative || 0)
-    };
-  });
+      cumulative: Math.round(cumulativeTotal)
+    });
+  }
 
   const COLORS = ['#ef4444', '#22c55e', '#3b82f6', '#8b5cf6'];
 
