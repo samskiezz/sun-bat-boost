@@ -18,10 +18,14 @@ import {
   BarChart3,
   Settings,
   MessageSquare,
-  Lock
+  Lock,
+  FileText,
+  Upload
 } from 'lucide-react';
 import { AICore, type AIAssistantResponse, type AppMode } from '@/lib/ai/AICore';
 import { cn } from '@/lib/utils';
+import UniversalOCRScanner from './UniversalOCRScanner';
+import ComprehensiveTrainingDashboard from './ComprehensiveTrainingDashboard';
 
 interface EnhancedAISystemProps {
   mode: AppMode;
@@ -245,23 +249,39 @@ export const EnhancedAISystem: React.FC<EnhancedAISystemProps> = ({
       <CardContent className="flex-1 flex flex-col space-y-4">
         {tier === 'pro' ? (
           <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5 text-xs">
               <TabsTrigger value="chat" className="flex items-center gap-1">
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-3 h-3" />
                 Chat
               </TabsTrigger>
+              <TabsTrigger value="ocr" className="flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                OCR
+              </TabsTrigger>
+              <TabsTrigger value="training" className="flex items-center gap-1">
+                <Brain className="w-3 h-3" />
+                Training
+              </TabsTrigger>
               <TabsTrigger value="optimization" className="flex items-center gap-1">
-                <BarChart3 className="w-4 h-4" />
-                Optimization
+                <BarChart3 className="w-3 h-3" />
+                Optimize
               </TabsTrigger>
               <TabsTrigger value="analysis" className="flex items-center gap-1">
-                <Settings className="w-4 h-4" />
+                <Settings className="w-3 h-3" />
                 Analysis
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="chat" className="flex-1 flex flex-col mt-4">
               {renderChatInterface()}
+            </TabsContent>
+            
+            <TabsContent value="ocr" className="flex-1 flex flex-col mt-4">
+              {renderOCRInterface()}
+            </TabsContent>
+            
+            <TabsContent value="training" className="flex-1 flex flex-col mt-4">
+              {renderTrainingInterface()}
             </TabsContent>
             
             <TabsContent value="optimization" className="flex-1 flex flex-col mt-4">
@@ -496,6 +516,32 @@ export const EnhancedAISystem: React.FC<EnhancedAISystemProps> = ({
               <span className="text-sm text-gray-600">6.2 year payback</span>
             </div>
           </Card>
+        </div>
+      </div>
+    );
+  }
+
+  function renderOCRInterface() {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Universal OCR Scanner</h3>
+          <p className="text-sm text-gray-600">Upload PDFs, images, or Excel files to extract solar product specifications</p>
+        </div>
+        <UniversalOCRScanner />
+      </div>
+    );
+  }
+
+  function renderTrainingInterface() {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Training Dashboard</h3>
+          <p className="text-sm text-gray-600">Monitor and control the AI training system</p>
+        </div>
+        <div className="h-[400px] overflow-y-auto">
+          <ComprehensiveTrainingDashboard />
         </div>
       </div>
     );

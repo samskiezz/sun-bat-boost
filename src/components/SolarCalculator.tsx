@@ -35,14 +35,15 @@ const SolarCalculator = () => {
   const aiCoreRef = useRef<AICore | null>(null);
 
   useEffect(() => {
-    // Initialize AI Core and show AI based on user tier
-    if (userTier !== 'free') {
+    // Initialize AI Core and show AI based on user tier OR dev mode
+    const effectiveTier = unlimitedTokens ? 'pro' : userTier;
+    if (effectiveTier !== 'free') {
       aiCoreRef.current = new AICore({ mode: appMode });
       setShowAI(true);
     } else {
       setShowAI(false);
     }
-  }, [appMode, userTier]);
+  }, [appMode, userTier, unlimitedTokens]);
 
   useEffect(() => {
     // Load user tier from localStorage
@@ -73,7 +74,8 @@ const SolarCalculator = () => {
     incrementUsage();
 
     // Notify AI Core of user action if AI is available
-    if (userTier !== 'free' && aiCoreRef.current) {
+    const effectiveTier = unlimitedTokens ? 'pro' : userTier;
+    if (effectiveTier !== 'free' && aiCoreRef.current) {
       await aiCoreRef.current.onUserAction('USER_STARTED_CALCULATION', formData);
     }
     try {
@@ -155,7 +157,8 @@ const SolarCalculator = () => {
       });
 
       // Notify AI Core of successful calculation
-      if (userTier !== 'free' && aiCoreRef.current) {
+      const effectiveTier = unlimitedTokens ? 'pro' : userTier;
+      if (effectiveTier !== 'free' && aiCoreRef.current) {
         await aiCoreRef.current.onUserAction('USER_COMPLETED_CALCULATION', calculationResults);
       }
     } catch (error) {
@@ -244,15 +247,15 @@ const SolarCalculator = () => {
             <div className="flex items-center gap-4">
               <h1 className="text-lg font-semibold">Solar Rebate Calculator</h1>
               <Badge variant={
-                userTier === 'pro' ? 'default' : 
+                (unlimitedTokens || userTier === 'pro') ? 'default' : 
                 userTier === 'lite' ? 'secondary' : 
                 'outline'
               } className="gap-1">
-                {userTier === 'pro' && <Crown className="w-3 h-3" />}
-                {userTier === 'lite' && <Zap className="w-3 h-3" />}
-                {userTier === 'free' && <Users className="w-3 h-3" />}
-                {userTier === 'pro' ? 'Pro' : userTier === 'lite' ? 'Lite' : 'Free'} 
-                {userTier === 'free' && ' (3 daily)'}
+                {(unlimitedTokens || userTier === 'pro') && <Crown className="w-3 h-3" />}
+                {(userTier === 'lite' && !unlimitedTokens) && <Zap className="w-3 h-3" />}
+                {(userTier === 'free' && !unlimitedTokens) && <Users className="w-3 h-3" />}
+                {unlimitedTokens ? 'Pro (Dev)' : userTier === 'pro' ? 'Pro' : userTier === 'lite' ? 'Lite' : 'Free'} 
+                {(userTier === 'free' && !unlimitedTokens) && ' (3 daily)'}
               </Badge>
             </div>
             
@@ -270,21 +273,21 @@ const SolarCalculator = () => {
                 />
               </div>
               
-              {userTier === 'free' && (
+              {(userTier === 'free' && !unlimitedTokens) && (
                 <Button size="sm" onClick={() => setShowPricing(true)} className="bg-blue-600 hover:bg-blue-700">
                   Sign Up Free
                 </Button>
               )}
-              {userTier === 'lite' && (
+              {(userTier === 'lite' && !unlimitedTokens) && (
                 <Button size="sm" onClick={handleUpgrade} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
                   <Crown className="w-4 h-4 mr-1" />
                   Upgrade to Pro
                 </Button>
               )}
-              {userTier === 'pro' && (
+              {(unlimitedTokens || userTier === 'pro') && (
                 <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-indigo-600">
                   <Crown className="w-3 h-3 mr-1" />
-                  Pro Active
+                  {unlimitedTokens ? 'Pro (Dev Mode)' : 'Pro Active'}
                 </Badge>
               )}
             </div>
@@ -332,7 +335,7 @@ const SolarCalculator = () => {
                 <div className="sticky top-8">
                   <EnhancedAISystem 
                     mode={appMode} 
-                    tier={userTier}
+                    tier={unlimitedTokens ? 'pro' : userTier}
                     onSuggestionAccept={handleSuggestionAccept}
                     onUpgradeRequest={handleUpgrade}
                     className="h-[600px]"
