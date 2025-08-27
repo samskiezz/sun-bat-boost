@@ -29,9 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { Glass } from './Glass';
 import { useDropzone } from 'react-dropzone';
-import { SavingsWizard } from './SavingsWizard';
 
 interface ExtractedField {
   label: string;
@@ -320,10 +318,11 @@ export const BatteryROICalculator: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
+          className="glass-card p-6"
         >
           {/* Step 1: Input Method */}
           {currentStep === 'method' && (
-            <div className="glass-card p-6">
+            <>
               <h3 className="text-lg font-semibold mb-6 text-foreground">How would you like to input your data?</h3>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -372,7 +371,7 @@ export const BatteryROICalculator: React.FC = () => {
                   <div className="flex items-center gap-3 mb-3">
                     <Edit className="w-6 h-6 text-muted-foreground" />
                     <div>
-                      <h4 className="font-medium">Manual Entry</h4>
+                      <h4 className="font-medium text-foreground">Manual Entry</h4>
                       <Badge variant="outline" className="mt-1">Quick Option</Badge>
                     </div>
                   </div>
@@ -385,20 +384,21 @@ export const BatteryROICalculator: React.FC = () => {
                   </div>
                 </motion.button>
               </div>
-            </div>
+            </>
           )}
 
-        {currentStep === 'bills' && (
-          <Glass className="p-6">
-              <h3 className="text-lg font-semibold mb-6">Energy Usage & Rates</h3>
+          {/* Step 2: Bills */}
+          {currentStep === 'bills' && (
+            <>
+              <h3 className="text-lg font-semibold mb-6 text-foreground">Energy Usage & Rates</h3>
               
               {inputMethod === 'bills' ? (
                 <div className="space-y-6">
                   <div 
                     {...getBillProps()} 
                     className={`
-                      border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer
-                      transition-all duration-200 hover:border-white/40 hover:bg-white/5
+                      border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer
+                      transition-all duration-200 hover:border-primary/50 hover:bg-primary/5
                       ${isBillDragActive ? 'border-primary/50 bg-primary/5' : ''}
                     `}
                   >
@@ -407,14 +407,14 @@ export const BatteryROICalculator: React.FC = () => {
                       animate={isBillDragActive ? { scale: 1.05 } : { scale: 1 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-60" />
-                      <h4 className="text-lg font-medium mb-2">
+                      <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h4 className="text-lg font-medium mb-2 text-foreground">
                         {isBillDragActive ? 'Drop your energy bill here' : 'Upload Energy Bill'}
                       </h4>
                       <p className="text-muted-foreground mb-4">
                         PDF, JPG, PNG • Automatically extracts usage and rates
                       </p>
-                      <Button variant="outline" className="bg-white/5 border-white/20">
+                      <Button variant="outline">
                         Choose File
                       </Button>
                     </motion.div>
@@ -422,7 +422,7 @@ export const BatteryROICalculator: React.FC = () => {
 
                   {extractedData.length > 0 && (
                     <div className="space-y-4">
-                      <h4 className="font-medium">Extracted Data (Review & Edit)</h4>
+                      <h4 className="font-medium text-foreground">Extracted Data (Review & Edit)</h4>
                       <div className="grid gap-4 md:grid-cols-2">
                         {extractedData.map((field, index) => (
                           <div key={index} className="space-y-2">
@@ -442,7 +442,6 @@ export const BatteryROICalculator: React.FC = () => {
                             <Input
                               value={field.value}
                               onChange={(e) => handleFieldEdit(index, e.target.value)}
-                              className="bg-white/5 border-white/20"
                             />
                           </div>
                         ))}
@@ -452,7 +451,7 @@ export const BatteryROICalculator: React.FC = () => {
 
                   {processing && (
                     <div className="text-center py-8">
-                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin opacity-60" />
+                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
                       <p className="text-muted-foreground">Processing your energy bill...</p>
                     </div>
                   )}
@@ -466,7 +465,6 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.dailyUsage}
                         onChange={(e) => setFormData(prev => ({ ...prev, dailyUsage: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
                     <div>
@@ -475,7 +473,6 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.peakRate}
                         onChange={(e) => setFormData(prev => ({ ...prev, peakRate: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
                     <div>
@@ -484,7 +481,6 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.offPeakRate}
                         onChange={(e) => setFormData(prev => ({ ...prev, offPeakRate: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
                   </div>
@@ -495,7 +491,6 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.feedInTariff}
                         onChange={(e) => setFormData(prev => ({ ...prev, feedInTariff: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
                     <div>
@@ -504,37 +499,34 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.dailySupply}
                         onChange={(e) => setFormData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
                     <div>
                       <Label>Day/Night Usage Split: {formData.dayNightSplit}% day</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.dayNightSplit]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, dayNightSplit: value[0] }))}
-                          max={80}
-                          min={20}
-                          step={5}
-                          className="mt-2"
-                        />
-                      </div>
+                      <Slider
+                        value={[formData.dayNightSplit]}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, dayNightSplit: value[0] }))}
+                        max={80}
+                        min={20}
+                        step={5}
+                        className="mt-2"
+                      />
                     </div>
                   </div>
                 </div>
               )}
-            </Glass>
+            </>
           )}
 
+          {/* Step 3: System */}
           {currentStep === 'system' && (
-            <Glass className="p-6">
+            <>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">System Configuration</h3>
+                <h3 className="text-lg font-semibold text-foreground">System Configuration</h3>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowManualSystem(!showManualSystem)}
-                  className="bg-white/5 border-white/20"
                 >
                   {showManualSystem ? 'Upload Quote' : 'Manual Entry'}
                 </Button>
@@ -544,8 +536,8 @@ export const BatteryROICalculator: React.FC = () => {
                 <div 
                   {...getQuoteProps()} 
                   className={`
-                    border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer
-                    transition-all duration-200 hover:border-white/40 hover:bg-white/5
+                    border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer
+                    transition-all duration-200 hover:border-primary/50 hover:bg-primary/5
                     ${isQuoteDragActive ? 'border-primary/50 bg-primary/5' : ''}
                   `}
                 >
@@ -554,14 +546,14 @@ export const BatteryROICalculator: React.FC = () => {
                     animate={isQuoteDragActive ? { scale: 1.05 } : { scale: 1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Upload className="w-12 h-12 mx-auto mb-4 opacity-60" />
-                    <h4 className="text-lg font-medium mb-2">
+                    <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <h4 className="text-lg font-medium mb-2 text-foreground">
                       {isQuoteDragActive ? 'Drop your solar quote here' : 'Upload Solar Quote'}
                     </h4>
                     <p className="text-muted-foreground mb-4">
                       PDF, JPG, PNG • Extracts system size and pricing automatically
                     </p>
-                    <Button variant="outline" className="bg-white/5 border-white/20">
+                    <Button variant="outline">
                       Choose File
                     </Button>
                   </motion.div>
@@ -571,29 +563,25 @@ export const BatteryROICalculator: React.FC = () => {
                   <div className="space-y-4">
                     <div>
                       <Label>Solar System Size: {formData.solarSize} kW</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.solarSize]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, solarSize: value[0] }))}
-                          max={20}
-                          min={3}
-                          step={0.5}
-                          className="mt-2"
-                        />
-                      </div>
+                      <Slider
+                        value={[formData.solarSize]}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, solarSize: value[0] }))}
+                        max={20}
+                        min={3}
+                        step={0.5}
+                        className="mt-2"
+                      />
                     </div>
                     <div>
                       <Label>Battery Size: {formData.batterySize} kWh</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.batterySize]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, batterySize: value[0] }))}
-                          max={30}
-                          min={5}
-                          step={0.5}
-                          className="mt-2"
-                        />
-                      </div>
+                      <Slider
+                        value={[formData.batterySize]}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, batterySize: value[0] }))}
+                        max={30}
+                        min={5}
+                        step={0.5}
+                        className="mt-2"
+                      />
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -603,11 +591,10 @@ export const BatteryROICalculator: React.FC = () => {
                         type="number"
                         value={formData.systemPrice}
                         onChange={(e) => setFormData(prev => ({ ...prev, systemPrice: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
                       />
                     </div>
-                    <div className="p-4 rounded-lg bg-white/5">
-                      <h4 className="font-medium mb-2">Quick Size Guide</h4>
+                    <div className="p-4 rounded-lg bg-muted/50">
+                      <h4 className="font-medium mb-2 text-foreground">Quick Size Guide</h4>
                       <div className="text-sm text-muted-foreground space-y-1">
                         <p>• Small home (15-25 kWh/day): 6kW + 10kWh</p>
                         <p>• Medium home (25-35 kWh/day): 8kW + 13kWh</p>
@@ -617,12 +604,13 @@ export const BatteryROICalculator: React.FC = () => {
                   </div>
                 </div>
               )}
-            </Glass>
+            </>
           )}
 
+          {/* Step 4: Site */}
           {currentStep === 'site' && (
-            <Glass className="p-6">
-              <h3 className="text-lg font-semibold mb-6">Site & Location Details</h3>
+            <>
+              <h3 className="text-lg font-semibold mb-6 text-foreground">Site & Location Details</h3>
               
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4">
@@ -631,7 +619,6 @@ export const BatteryROICalculator: React.FC = () => {
                     <Input
                       value={formData.postcode}
                       onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
-                      className="bg-white/5 border-white/20"
                     />
                   </div>
                   <div>
@@ -640,7 +627,6 @@ export const BatteryROICalculator: React.FC = () => {
                       type="number"
                       value={formData.roofTilt}
                       onChange={(e) => setFormData(prev => ({ ...prev, roofTilt: parseFloat(e.target.value) }))}
-                      className="bg-white/5 border-white/20"
                     />
                   </div>
                 </div>
@@ -651,13 +637,12 @@ export const BatteryROICalculator: React.FC = () => {
                       type="number"
                       value={formData.roofAzimuth}
                       onChange={(e) => setFormData(prev => ({ ...prev, roofAzimuth: parseFloat(e.target.value) }))}
-                      className="bg-white/5 border-white/20"
                     />
                   </div>
                   <div>
                     <Label>Shading Level</Label>
                     <Select value={formData.shading.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, shading: parseFloat(value) }))}>
-                      <SelectTrigger className="bg-white/5 border-white/20">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -670,64 +655,62 @@ export const BatteryROICalculator: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </Glass>
+            </>
           )}
 
+          {/* Step 5: Results */}
           {currentStep === 'results' && (
             <div className="space-y-6">
-              <Glass className="p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="w-6 h-6 text-primary" />
-                  <h3 className="text-xl font-semibold">ROI Analysis Results</h3>
+              <div className="flex items-center gap-2 mb-6">
+                <TrendingUp className="w-6 h-6 text-primary" />
+                <h3 className="text-xl font-semibold text-foreground">ROI Analysis Results</h3>
+              </div>
+              
+              <div className="grid gap-6 md:grid-cols-4">
+                <div className="text-center p-4 rounded-lg bg-muted/50">
+                  <DollarSign className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                  <div className="text-2xl font-bold text-foreground">8.2</div>
+                  <div className="text-sm text-muted-foreground">Years Payback</div>
                 </div>
-                
-                <div className="grid gap-6 md:grid-cols-4">
-                  <div className="text-center p-4 rounded-lg bg-white/5">
-                    <DollarSign className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
-                    <div className="text-2xl font-bold">8.2</div>
-                    <div className="text-sm text-muted-foreground">Years Payback</div>
-                  </div>
-                  <div className="text-center p-4 rounded-lg bg-white/5">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                    <div className="text-2xl font-bold">$2,840</div>
-                    <div className="text-sm text-muted-foreground">Annual Savings</div>
-                  </div>
-                  <div className="text-center p-4 rounded-lg bg-white/5">
-                    <BarChart3 className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                    <div className="text-2xl font-bold">$47,200</div>
-                    <div className="text-sm text-muted-foreground">25-Year NPV</div>
-                  </div>
-                  <div className="text-center p-4 rounded-lg bg-white/5">
-                    <PieChart className="w-8 h-8 mx-auto mb-2 text-orange-500" />
-                    <div className="text-2xl font-bold">78%</div>
-                    <div className="text-sm text-muted-foreground">Self Consumption</div>
-                  </div>
+                <div className="text-center p-4 rounded-lg bg-muted/50">
+                  <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                  <div className="text-2xl font-bold text-foreground">$2,840</div>
+                  <div className="text-sm text-muted-foreground">Annual Savings</div>
                 </div>
-              </Glass>
+                <div className="text-center p-4 rounded-lg bg-muted/50">
+                  <BarChart3 className="w-8 h-8 mx-auto mb-2 text-purple-500" />
+                  <div className="text-2xl font-bold text-foreground">$47,200</div>
+                  <div className="text-sm text-muted-foreground">25-Year NPV</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-muted/50">
+                  <PieChart className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                  <div className="text-2xl font-bold text-foreground">78%</div>
+                  <div className="text-sm text-muted-foreground">Self Consumption</div>
+                </div>
+              </div>
 
-              <Glass className="p-6">
-                <h4 className="font-semibold mb-4">Detailed Analysis</h4>
-                <div className="h-64 flex items-center justify-center border border-white/10 rounded-lg bg-white/5">
+              <div className="mt-6">
+                <h4 className="font-semibold mb-4 text-foreground">Detailed Analysis</h4>
+                <div className="h-64 flex items-center justify-center border border-border rounded-lg bg-muted/20">
                   <div className="text-center text-muted-foreground">
                     <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-40" />
                     <p>Interactive charts and detailed breakdown</p>
                     <p className="text-sm">(Coming soon)</p>
                   </div>
                 </div>
-              </Glass>
+              </div>
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
       {/* Navigation */}
-      <Glass className="p-4">
+      <div className="glass-card p-4">
         <div className="flex justify-between items-center">
           <Button
             variant="outline"
             onClick={prevStep}
             disabled={currentStepIndex === 0}
-            className="bg-white/5 border-white/20"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
@@ -740,16 +723,13 @@ export const BatteryROICalculator: React.FC = () => {
           {currentStep === 'site' ? (
             <Button
               onClick={calculateROI}
-              className="bg-gradient-primary text-white"
+              className="bg-gradient-to-r from-primary to-secondary text-white"
             >
               <Calculator className="w-4 h-4 mr-1" />
               Calculate ROI
             </Button>
           ) : currentStep === 'results' ? (
-            <Button
-              variant="outline"
-              className="bg-white/5 border-white/20"
-            >
+            <Button variant="outline">
               <Download className="w-4 h-4 mr-1" />
               Export Report
             </Button>
@@ -757,14 +737,14 @@ export const BatteryROICalculator: React.FC = () => {
             <Button
               onClick={nextStep}
               disabled={currentStepIndex === steps.length - 1}
-              className="bg-gradient-primary text-white"
+              className="bg-gradient-to-r from-primary to-secondary text-white"
             >
               Next
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           )}
         </div>
-      </Glass>
+      </div>
     </div>
   );
 };
