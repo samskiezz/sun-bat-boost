@@ -311,7 +311,12 @@ const SolarCalculator = () => {
         }) : "Loading..."} />
         
         <div className="mx-auto max-w-4xl space-y-8">
-          <InputModeTabs onCalculate={handleCalculate} appMode={appMode} />
+          <InputModeTabs 
+            onCalculate={handleCalculate} 
+            appMode={appMode}
+            tier={unlimitedTokens ? 'pro' : userTier}
+            unlimitedTokens={unlimitedTokens}
+          />
           
           {/* AI Assistant - Compact version right after input */}
           {showAI && (
