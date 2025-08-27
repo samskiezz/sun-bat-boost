@@ -54,6 +54,28 @@ export default function BatteryRoi() {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [batteryCount, setBatteryCount] = useState(342);
   
+  // Form data - moved here to avoid hooks violation
+  const [formData, setFormData] = useState({
+    // Bill data
+    dailyUsage: 25,
+    peakRate: 28.6,
+    offPeakRate: 22.1,
+    feedInTariff: 8.2,
+    dailySupply: 98.45,
+    dayNightSplit: 60,
+    
+    // System data
+    solarSize: 6.5,
+    batterySize: 13.5,
+    systemPrice: 25000,
+    
+    // Site data
+    postcode: '2000',
+    roofTilt: 25,
+    roofAzimuth: 0,
+    shading: 0
+  });
+  
   // Fetch battery count for display
   useEffect(() => {
     const fetchBatteryCount = async () => {
@@ -239,28 +261,6 @@ export default function BatteryRoi() {
     );
   }
   
-  // Form data
-  const [formData, setFormData] = useState({
-    // Bill data
-    dailyUsage: 25,
-    peakRate: 28.6,
-    offPeakRate: 22.1,
-    feedInTariff: 8.2,
-    dailySupply: 98.45,
-    dayNightSplit: 60,
-    
-    // System data
-    solarSize: 6.5,
-    batterySize: 13.5,
-    systemPrice: 25000,
-    
-    // Site data
-    postcode: '2000',
-    roofTilt: 25,
-    roofAzimuth: 0,
-    shading: 0
-  });
-
   // Listen for plan selection from HowMuchCanISave
   useEffect(() => {
     subscribe("plan.selected", (event: any) => {
