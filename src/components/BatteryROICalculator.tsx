@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Upload, 
@@ -20,7 +20,9 @@ import {
   ArrowRight,
   Plus,
   Minus,
-  RefreshCw
+  RefreshCw,
+  MapPin,
+  Sun
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,13 +31,59 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { useDropzone } from 'react-dropzone';
+import EnhancedOCRScanner from '@/components/EnhancedOCRScanner';
+import SiteAnalyzer from '@/components/SiteAnalyzer';
 
-interface ExtractedField {
-  label: string;
-  value: string | number;
-  confidence: number;
-  editable: boolean;
+interface ExtractedData {
+  // Address & Location
+  address?: string;
+  postcode?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  
+  // Bill Data
+  retailer?: string;
+  planName?: string;
+  usage?: number;
+  billAmount?: number;
+  dailySupply?: number;
+  rate?: number;
+  
+  // Time of Use Data
+  peakUsage?: number;
+  offPeakUsage?: number;
+  shoulderUsage?: number;
+  peakRate?: number;
+  offPeakRate?: number;
+  shoulderRate?: number;
+  
+  // System Data (from proposals)
+  systemSize?: number;
+  panelCount?: number;
+  panelBrand?: string;
+  panelModel?: string;
+  panelWattage?: number;
+  
+  inverterBrand?: string;
+  inverterModel?: string;
+  inverterSize?: number;
+  inverterCount?: number;
+  
+  batteryBrand?: string;
+  batteryModel?: string;
+  batterySize?: number;
+  batteryCount?: number;
+  
+  // Site Data
+  roofTilt?: number;
+  roofAzimuth?: number;
+  shadingFactor?: number;
+  
+  // Financial
+  systemPrice?: number;
+  estimatedGeneration?: number;
+  paybackPeriod?: number;
 }
 
 type Step = 'method' | 'bills' | 'system' | 'site' | 'results';
@@ -44,12 +92,12 @@ export const BatteryROICalculator: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('method');
   const [started, setStarted] = useState(false);
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [processing, setProcessing] = useState(false);
   const [showManualSystem, setShowManualSystem] = useState(false);
+  const [siteAnalysis, setSiteAnalysis] = useState<any>(null);
   
-  // Form data
+  // Form data - will be auto-populated from extracted data
   const [formData, setFormData] = useState({
     // Bill data
     dailyUsage: 25,
@@ -71,6 +119,42 @@ export const BatteryROICalculator: React.FC = () => {
     shading: 0
   });
 
+  // Auto-populate form data when extracted data changes
+  useEffect(() => {
+    if (extractedData) {
+      setFormData(prev => ({
+        ...prev,
+        ...(extractedData.usage && { dailyUsage: extractedData.usage }),
+        ...(extractedData.peakRate && { peakRate: extractedData.peakRate }),
+        ...(extractedData.offPeakRate && { offPeakRate: extractedData.offPeakRate }),
+        ...(extractedData.dailySupply && { dailySupply: extractedData.dailySupply / 100 }), // convert cents to dollars
+        ...(extractedData.systemSize && { solarSize: extractedData.systemSize }),
+        ...(extractedData.batterySize && { batterySize: extractedData.batterySize }),
+        ...(extractedData.systemPrice && { systemPrice: extractedData.systemPrice }),
+        ...(extractedData.postcode && { postcode: extractedData.postcode }),
+        ...(extractedData.roofTilt && { roofTilt: extractedData.roofTilt }),
+        ...(extractedData.roofAzimuth && { roofAzimuth: extractedData.roofAzimuth }),
+        ...(extractedData.shadingFactor && { shading: extractedData.shadingFactor * 100 }) // convert to percentage
+      }));
+    }
+  }, [extractedData]);
+
+  // Auto-advance steps when data is available
+  useEffect(() => {
+    if (extractedData && currentStep === 'bills' && inputMethod === 'bills') {
+      // If we have bill data, move to system step
+      if (extractedData.usage || extractedData.peakRate) {
+        setTimeout(() => setCurrentStep('system'), 1000);
+      }
+    }
+    if (extractedData && currentStep === 'system' && inputMethod === 'bills') {
+      // If we have system data, move to site step
+      if (extractedData.systemSize || extractedData.batterySize) {
+        setTimeout(() => setCurrentStep('site'), 1000);
+      }
+    }
+  }, [extractedData, currentStep, inputMethod]);
+
   const steps = [
     { id: 'method', title: 'Input Method', icon: Upload },
     { id: 'bills', title: 'Energy Data', icon: FileText },
@@ -82,46 +166,56 @@ export const BatteryROICalculator: React.FC = () => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
-  const onDropBill = useCallback((acceptedFiles: File[]) => {
-    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
-    setProcessing(true);
+  // Handle OCR data extraction with proper type conversion
+  const handleExtraction = useCallback((data: any) => {
+    console.log('🔍 Extracted data:', data);
     
-    // Mock OCR processing
-    setTimeout(() => {
-      setProcessing(false);
-      setExtractedData([
-        { label: 'Daily Usage (kWh)', value: 25, confidence: 0.95, editable: true },
-        { label: 'Peak Rate (c/kWh)', value: 28.6, confidence: 0.92, editable: true },
-        { label: 'Off-Peak Rate (c/kWh)', value: 22.1, confidence: 0.91, editable: true },
-        { label: 'Feed-in Tariff (c/kWh)', value: 8.2, confidence: 0.76, editable: true },
-        { label: 'Daily Supply Charge (c)', value: 98.45, confidence: 0.94, editable: true },
-      ]);
-      setCurrentStep('system');
-    }, 2000);
+    // Convert EnhancedBillData to ExtractedData format
+    const convertedData: ExtractedData = {
+      address: data.address,
+      postcode: data.postcode,
+      state: data.state,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      retailer: data.retailer,
+      planName: data.plan,
+      usage: data.usage,
+      billAmount: data.billAmount,
+      dailySupply: data.dailySupply,
+      rate: data.rate,
+      peakUsage: data.peakUsage,
+      offPeakUsage: data.offPeakUsage,
+      shoulderUsage: data.shoulderUsage,
+      peakRate: data.peakRate,
+      offPeakRate: data.offPeakRate,
+      shoulderRate: data.shoulderRate,
+      systemSize: data.systemSize,
+      panelCount: data.panelCount,
+      panelBrand: data.panelBrand,
+      panelModel: data.panelModel,
+      panelWattage: data.panelWattage,
+      inverterBrand: data.inverterBrand,
+      inverterModel: data.inverterModel,
+      inverterSize: data.inverterSize,
+      inverterCount: data.inverterCount,
+      batteryBrand: data.batteryBrand,
+      batteryModel: data.batteryModel,
+      batterySize: data.batterySize,
+      batteryCount: data.batteryCount,
+      roofTilt: data.roofTilt,
+      roofAzimuth: data.roofAzimuth,
+      shadingFactor: data.shadingFactor,
+      systemPrice: data.systemPrice,
+      estimatedGeneration: data.estimatedGeneration,
+      paybackPeriod: data.paybackPeriod
+    };
+    
+    setExtractedData(convertedData);
   }, []);
 
-  const onDropQuote = useCallback((acceptedFiles: File[]) => {
-    // Handle quote upload and extract system data
-    console.log('Quote uploaded', acceptedFiles);
+  const handleProcessing = useCallback((processing: boolean) => {
+    setProcessing(processing);
   }, []);
-
-  const { getRootProps: getBillProps, getInputProps: getBillInputProps, isDragActive: isBillDragActive } = useDropzone({
-    onDrop: onDropBill,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
-    }
-  });
-
-  const { getRootProps: getQuoteProps, getInputProps: getQuoteInputProps, isDragActive: isQuoteDragActive } = useDropzone({
-    onDrop: onDropQuote,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
-    }
-  });
 
   const nextStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
@@ -137,10 +231,10 @@ export const BatteryROICalculator: React.FC = () => {
     }
   };
 
-  const handleFieldEdit = (index: number, newValue: string) => {
-    const updatedData = [...extractedData];
-    updatedData[index].value = newValue;
-    setExtractedData(updatedData);
+  const handleFieldEdit = (field: keyof ExtractedData, newValue: string | number) => {
+    if (extractedData) {
+      setExtractedData(prev => prev ? { ...prev, [field]: newValue } : null);
+    }
   };
 
   const calculateROI = () => {
@@ -393,69 +487,11 @@ export const BatteryROICalculator: React.FC = () => {
               <h3 className="text-lg font-semibold mb-6 text-foreground">Energy Usage & Rates</h3>
               
               {inputMethod === 'bills' ? (
-                <div className="space-y-6">
-                  <div 
-                    {...getBillProps()} 
-                    className={`
-                      border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer
-                      transition-all duration-200 hover:border-primary/50 hover:bg-primary/5
-                      ${isBillDragActive ? 'border-primary/50 bg-primary/5' : ''}
-                    `}
-                  >
-                    <input {...getBillInputProps()} />
-                    <motion.div
-                      animate={isBillDragActive ? { scale: 1.05 } : { scale: 1 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      <h4 className="text-lg font-medium mb-2 text-foreground">
-                        {isBillDragActive ? 'Drop your energy bill here' : 'Upload Energy Bill'}
-                      </h4>
-                      <p className="text-muted-foreground mb-4">
-                        PDF, JPG, PNG • Automatically extracts usage and rates
-                      </p>
-                      <Button variant="outline">
-                        Choose File
-                      </Button>
-                    </motion.div>
-                  </div>
-
-                  {extractedData.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-foreground">Extracted Data (Review & Edit)</h4>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {extractedData.map((field, index) => (
-                          <div key={index} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-sm font-medium">{field.label}</Label>
-                              <div className="flex items-center gap-2">
-                                {field.confidence >= 0.9 ? (
-                                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                ) : (
-                                  <AlertCircle className="w-4 h-4 text-amber-500" />
-                                )}
-                                <Badge variant={field.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
-                                  {Math.round(field.confidence * 100)}%
-                                </Badge>
-                              </div>
-                            </div>
-                            <Input
-                              value={field.value}
-                              onChange={(e) => handleFieldEdit(index, e.target.value)}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {processing && (
-                    <div className="text-center py-8">
-                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
-                      <p className="text-muted-foreground">Processing your energy bill...</p>
-                    </div>
-                  )}
-                </div>
+                <EnhancedOCRScanner
+                  onExtraction={handleExtraction}
+                  onProcessing={handleProcessing}
+                  mode="bill"
+                />
               ) : (
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-4">
@@ -533,31 +569,11 @@ export const BatteryROICalculator: React.FC = () => {
               </div>
 
               {!showManualSystem ? (
-                <div 
-                  {...getQuoteProps()} 
-                  className={`
-                    border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer
-                    transition-all duration-200 hover:border-primary/50 hover:bg-primary/5
-                    ${isQuoteDragActive ? 'border-primary/50 bg-primary/5' : ''}
-                  `}
-                >
-                  <input {...getQuoteInputProps()} />
-                  <motion.div
-                    animate={isQuoteDragActive ? { scale: 1.05 } : { scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <h4 className="text-lg font-medium mb-2 text-foreground">
-                      {isQuoteDragActive ? 'Drop your solar quote here' : 'Upload Solar Quote'}
-                    </h4>
-                    <p className="text-muted-foreground mb-4">
-                      PDF, JPG, PNG • Extracts system size and pricing automatically
-                    </p>
-                    <Button variant="outline">
-                      Choose File
-                    </Button>
-                  </motion.div>
-                </div>
+                <EnhancedOCRScanner
+                  onExtraction={handleExtraction}
+                  onProcessing={handleProcessing}
+                  mode="quote"
+                />
               ) : (
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-4">
@@ -610,51 +626,65 @@ export const BatteryROICalculator: React.FC = () => {
           {/* Step 4: Site */}
           {currentStep === 'site' && (
             <>
-              <h3 className="text-lg font-semibold mb-6 text-foreground">Site & Location Details</h3>
+              <h3 className="text-lg font-semibold mb-6 text-foreground">Site & Location Analysis</h3>
               
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <Label>Postcode</Label>
-                    <Input
-                      value={formData.postcode}
-                      onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Roof Tilt (degrees)</Label>
-                    <Input
-                      type="number"
-                      value={formData.roofTilt}
-                      onChange={(e) => setFormData(prev => ({ ...prev, roofTilt: parseFloat(e.target.value) }))}
-                    />
+              <SiteAnalyzer
+                address={extractedData?.address}
+                postcode={extractedData?.postcode || formData.postcode}
+                onAnalysisComplete={(analysis) => {
+                  setSiteAnalysis(analysis);
+                  setFormData(prev => ({
+                    ...prev,
+                    postcode: analysis.postcode,
+                    roofTilt: analysis.roofTilt,
+                    roofAzimuth: analysis.roofAzimuth,
+                    shading: Math.round(analysis.shadingFactor * 100)
+                  }));
+                }}
+              />
+              
+              {siteAnalysis && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <h4 className="text-sm font-medium mb-2 text-blue-700 dark:text-blue-300">Manual Adjustments (if needed)</h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Postcode</Label>
+                        <Input
+                          value={formData.postcode}
+                          onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Roof Tilt (°)</Label>
+                        <Input
+                          type="number"
+                          value={formData.roofTilt}
+                          onChange={(e) => setFormData(prev => ({ ...prev, roofTilt: parseFloat(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Roof Direction (° from North)</Label>
+                        <Input
+                          type="number"
+                          value={formData.roofAzimuth}
+                          onChange={(e) => setFormData(prev => ({ ...prev, roofAzimuth: parseFloat(e.target.value) }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Shading Level (%)</Label>
+                        <Input
+                          type="number"
+                          value={formData.shading}
+                          onChange={(e) => setFormData(prev => ({ ...prev, shading: parseFloat(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Roof Direction (0° = North)</Label>
-                    <Input
-                      type="number"
-                      value={formData.roofAzimuth}
-                      onChange={(e) => setFormData(prev => ({ ...prev, roofAzimuth: parseFloat(e.target.value) }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Shading Level</Label>
-                    <Select value={formData.shading.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, shading: parseFloat(value) }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">No shading (0%)</SelectItem>
-                        <SelectItem value="10">Light shading (10%)</SelectItem>
-                        <SelectItem value="20">Moderate shading (20%)</SelectItem>
-                        <SelectItem value="30">Heavy shading (30%)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
+              )}
             </>
           )}
 
