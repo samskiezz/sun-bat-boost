@@ -2,6 +2,7 @@ import { catalogueClient, type CatalogueProduct } from '@/utils/catalogClient';
 import { trainRebateOptimizer, predictOptimalConfiguration } from './RebateOptimizer';
 import { diagnoseConfiguration } from './DiagnosticEngine';
 import { fuzzyMatchProduct, type ProductMatch } from './NLPResolver';
+import { optimizeRebatesWithML } from '@/train/rebate_learn';
 import { type MatchCandidate } from '@/utils/fuzzyMatch';
 
 export interface Catalog {
@@ -39,7 +40,7 @@ export interface Diagnostic {
 }
 
 export interface Suggestion {
-  type: 'add' | 'remove' | 'replace';
+  type: 'add' | 'remove' | 'replace' | 'optimize';
   productType: ProductType;
   reason: string;
   newProductId?: string;
@@ -49,6 +50,7 @@ export interface Suggestion {
     paybackPeriod: number;
     confidence: number;
   };
+  mlEnhanced?: boolean;
 }
 
 export interface AIAssistantResponse {
@@ -129,6 +131,10 @@ export class AICore {
           this.catalog, 
           this.userIntent
         );
+        
+        // Add ML-enhanced rebate optimization suggestions
+        const mlSuggestions = await this.generateMLRebateSuggestions();
+        suggestions.push(...mlSuggestions);
       }
 
       // 4. Calculate overall confidence
@@ -325,6 +331,62 @@ export class AICore {
     }
     
     return reasoning;
+  }
+
+  private async generateMLRebateSuggestions(): Promise<Suggestion[]> {
+    // Generate neural network enhanced rebate suggestions
+    const suggestions: Suggestion[] = [];
+    
+    if (!this.state.postcode || this.state.batteries.length === 0) {
+      return suggestions;
+    }
+    
+    try {
+      // Create rebate inputs from current state
+      const rebateInputs = {
+        install_date: this.state.installDate || new Date().toISOString().split('T')[0],
+        state_or_territory: this.state.postcode ? this.getStateFromPostcode(parseInt(this.state.postcode)) : 'NSW',
+        has_rooftop_solar: this.state.panels.length > 0,
+        battery: {
+          usable_kWh: this.state.batteries[0]?.capacity_kwh || 13.5,
+          vpp_capable: true,
+          battery_on_approved_list: true
+        },
+        joins_vpp: false // Default to not joining VPP to see optimization potential
+      };
+      
+      const optimization = await optimizeRebatesWithML(rebateInputs);
+      
+      if (optimization.projectedIncrease > 100 && optimization.confidenceScore > 0.7) {
+        suggestions.push({
+          type: 'optimize',
+          productType: 'battery',
+          reason: `🧠 Neural analysis: ${optimization.recommendations.join(', ')}`,
+          expectedImpact: {
+            rebates: optimization.projectedIncrease,
+            paybackPeriod: -0.5, // Improvement in years
+            confidence: optimization.confidenceScore
+          },
+          mlEnhanced: true
+        });
+      }
+    } catch (error) {
+      console.warn('ML rebate suggestions failed:', error);
+    }
+    
+    return suggestions;
+  }
+  
+  private getStateFromPostcode(postcode: number): string {
+    if (postcode >= 1000 && postcode <= 2999) return 'NSW';
+    if (postcode >= 3000 && postcode <= 3999) return 'VIC';
+    if (postcode >= 4000 && postcode <= 4999) return 'QLD';
+    if (postcode >= 5000 && postcode <= 5999) return 'SA';
+    if (postcode >= 6000 && postcode <= 6999) return 'WA';
+    if (postcode >= 7000 && postcode <= 7999) return 'TAS';
+    if (postcode >= 800 && postcode <= 999) return 'NT';
+    if (postcode >= 200 && postcode <= 299) return 'ACT';
+    return 'NSW';
   }
 
   // Public getters

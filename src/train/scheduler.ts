@@ -1,5 +1,6 @@
 import { ocrPracticeBatch } from './ocr_learn';
 import { designPracticeBatch } from './design_selfplay';
+import { rebatePracticeBatch } from './rebate_learn';
 import { synthesizeRulesFromReplay } from './rules_synth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,10 +17,11 @@ export async function runBatch(): Promise<void> {
     // Record training start
     await recordTrainingMetric('BATCH_START', 1, { timestamp: new Date().toISOString() });
     
-    // Run OCR and design training in parallel
+    // Run OCR, design, and rebate training in parallel
     await Promise.all([
       ocrPracticeBatch(),
-      designPracticeBatch()
+      designPracticeBatch(),
+      rebatePracticeBatch()
     ]);
     
     // Record successful completion
