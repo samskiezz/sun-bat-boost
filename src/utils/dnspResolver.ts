@@ -13,7 +13,7 @@ const dnspCache = new Map<string, DnspDetails[]>();
 
 /**
  * Resolve DNSP (Distribution Network Service Provider) details by postcode
- * Returns array as some postcodes may span multiple DNSPs
+ * Returns the single DNSP for the postcode (each postcode has exactly one DNSP)
  */
 export async function getDnspByPostcode(postcode: string | number): Promise<DnspDetails[]> {
   const postcodeNum = typeof postcode === 'string' ? parseInt(postcode) : postcode;
@@ -36,7 +36,8 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
       .select('state, network, postcode_start, postcode_end, export_cap_kw')
       .lte('postcode_start', postcodeNum)
       .gte('postcode_end', postcodeNum)
-      .order('state');
+      .order('state')
+      .limit(1); // Only get the first match since each postcode should have exactly one DNSP
     
     console.log(`DNSP query result:`, { data, error, postcodeNum });
 
@@ -46,6 +47,11 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
     }
 
     const results = data || [];
+    
+    if (results.length === 0) {
+      console.warn(`No DNSP found for postcode ${postcodeNum}`);
+      throw new Error(`No distribution network found for postcode ${postcodeNum}`);
+    }
     
     // Cache the results
     dnspCache.set(cacheKey, results);
