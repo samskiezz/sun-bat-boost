@@ -164,10 +164,25 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   };
 
   const calculateRebates = () => {
-    // Import the rebate calculation function
-    import('@/utils/rebateCalculations').then(({ calculateBatteryRebates, getStateFromPostcode }) => {
-      const state = getStateFromPostcode(parseInt(formData.postcode));
+    // Import both calculation functions
+    Promise.all([
+      import('@/utils/solarCalculations'),
+      import('@/utils/rebateCalculations')
+    ]).then(([solarCalc, rebateCalc]) => {
+      // Solar STC calculations
+      const solarInputs = {
+        install_date: formData.installDate,
+        postcode: formData.postcode,
+        pv_dc_size_kw: formData.solarKw,
+        stc_price_aud: formData.stcPrice,
+        battery_capacity_kwh: formData.batteryKwh,
+        vpp_provider: formData.vppProvider !== 'None' ? formData.vppProvider : null
+      };
       
+      const solarResults = solarCalc.calculateSolarRebates(solarInputs);
+      
+      // Battery rebate calculations
+      const state = rebateCalc.getStateFromPostcode(parseInt(formData.postcode));
       const rebateInputs = {
         install_date: formData.installDate,
         state_or_territory: state,
@@ -181,7 +196,14 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         joins_vpp: formData.vppProvider !== 'None'
       };
 
-      const rebateResults = calculateBatteryRebates(rebateInputs);
+      const batteryResults = rebateCalc.calculateBatteryRebates(rebateInputs);
+      
+      // Combine results
+      const combinedResults = {
+        solar: solarResults,
+        battery: batteryResults,
+        total_rebates: solarResults.total_rebate_aud + batteryResults.total_cash_incentive
+      };
       
       const calculationData = {
         mode: inputMethod,
@@ -192,7 +214,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         stcPrice: formData.stcPrice,
         vppProvider: formData.vppProvider,
         extractedData: extractedData.length > 0 ? extractedData : undefined,
-        rebateResults: rebateResults
+        rebateResults: combinedResults
       };
       
       onCalculate(calculationData);
@@ -207,7 +229,8 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         installDate: formData.installDate,
         stcPrice: formData.stcPrice,
         vppProvider: formData.vppProvider,
-        extractedData: extractedData.length > 0 ? extractedData : undefined
+        extractedData: extractedData.length > 0 ? extractedData : undefined,
+        error: 'Calculation failed'
       };
       
       onCalculate(calculationData);
@@ -528,20 +551,57 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                     <div className="p-4 rounded-lg bg-white/5">
                       <h4 className="font-medium mb-3 flex items-center gap-2">
                         <Sun className="w-4 h-4" />
-                        System Size Guide
+                        System Size Guide & Rebate Thresholds
                       </h4>
-                      <div className="text-sm text-muted-foreground space-y-2">
-                        <div className="flex justify-between">
-                          <span>Small home:</span>
-                          <span>3-6kW + 10kWh</span>
+                      <div className="text-sm text-muted-foreground space-y-3">
+                        <div>
+                          <h5 className="font-medium text-foreground mb-1">Residential</h5>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span>Small home (1-2 beds):</span>
+                              <span>3-6kW + 5-10kWh</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Medium home (3-4 beds):</span>
+                              <span>6-10kW + 10-15kWh</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Large home (4+ beds):</span>
+                              <span>10-20kW + 15-30kWh</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Medium home:</span>
-                          <span>6-10kW + 13kWh</span>
+                        
+                        <div>
+                          <h5 className="font-medium text-foreground mb-1">Commercial</h5>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span>Small business:</span>
+                              <span>20-50kW + 30-60kWh</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Medium business:</span>
+                              <span>50-99kW + 60-100kWh</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Large home:</span>
-                          <span>10kW+ + 20kWh+</span>
+                        
+                        <div className="pt-2 border-t border-white/10">
+                          <h5 className="font-medium text-primary mb-1">Rebate Limits</h5>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span>Solar panels:</span>
+                              <span>Max 99kW (STC eligible)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Battery storage:</span>
+                              <span>5-100kWh (state rebates)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min battery (VPP):</span>
+                              <span>5kWh+ for most programs</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
