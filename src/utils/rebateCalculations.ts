@@ -46,11 +46,19 @@ const FACTOR_BY_YEAR: Record<number, number> = {
 
 const DEFAULT_STC_SPOT_PRICE = 40.0; // AUD per STC
 
-// NSW VPP tier structure (configurable)
+// Battery size limits for rebates
+const BATTERY_LIMITS = {
+  VPP_MAX_KWH: 28, // Max battery size for VPP programs
+  STATE_REBATE_MAX_KWH: 48, // Max battery size for full state rebates
+  FEDERAL_REBATE_MAX_KWH: 100, // Above this = no federal rebates
+  MIN_BATTERY_KWH: 5 // Minimum battery size for rebates
+};
+
+// NSW VPP tier structure (configurable) - capped at 28kWh
 const NSW_VPP_TIERS = [
-  { min: 0, max: 10, amount: 550 },
+  { min: 5, max: 10, amount: 550 },
   { min: 10, max: 20, amount: 1100 },
-  { min: 20, max: Infinity, amount: 1500 }
+  { min: 20, max: 28, amount: 1500 } // Max 28kWh for VPP
 ];
 
 // WA rates (configurable)
@@ -89,14 +97,23 @@ export function calculateBatteryRebates(inputs: RebateInputs): RebateResult {
   // 1. Federal Battery Discount (STC Program)
   if (install_date_obj >= federal_start_date && 
       has_rooftop_solar && 
-      battery.battery_on_approved_list) {
+      battery.battery_on_approved_list &&
+      battery.usable_kWh <= BATTERY_LIMITS.FEDERAL_REBATE_MAX_KWH) {
     
     const factor = FACTOR_BY_YEAR[install_year];
     if (factor) {
-      const battery_STCs_raw = battery.usable_kWh * factor;
+      // Cap battery size at 48kWh for rebate calculation, but allow larger batteries
+      const eligible_battery_kwh = Math.min(battery.usable_kWh, BATTERY_LIMITS.STATE_REBATE_MAX_KWH);
+      const battery_STCs_raw = eligible_battery_kwh * factor;
       const battery_STCs = Math.floor(battery_STCs_raw);
       federal_discount = battery_STCs * stc_spot_price;
-      eligibility_notes.push(`Federal STC discount: ${battery_STCs} STCs × $${stc_spot_price} = $${federal_discount.toFixed(2)}`);
+      
+      if (battery.usable_kWh > BATTERY_LIMITS.STATE_REBATE_MAX_KWH) {
+        eligibility_notes.push(`Federal STC discount capped at 48kWh: ${battery_STCs} STCs × $${stc_spot_price} = $${federal_discount.toFixed(2)}`);
+        eligibility_notes.push(`Battery size ${battery.usable_kWh}kWh exceeds rebate cap of 48kWh`);
+      } else {
+        eligibility_notes.push(`Federal STC discount: ${battery_STCs} STCs × $${stc_spot_price} = $${federal_discount.toFixed(2)}`);
+      }
     } else {
       eligibility_notes.push('Federal STC program not available for install year');
     }
@@ -110,6 +127,12 @@ export function calculateBatteryRebates(inputs: RebateInputs): RebateResult {
     if (!battery.battery_on_approved_list) {
       eligibility_notes.push('Battery must be on approved list for federal discount');
     }
+    if (battery.usable_kWh > BATTERY_LIMITS.FEDERAL_REBATE_MAX_KWH) {
+      eligibility_notes.push(`Battery size ${battery.usable_kWh}kWh exceeds federal rebate limit of ${BATTERY_LIMITS.FEDERAL_REBATE_MAX_KWH}kWh - no federal rebates available`);
+    }
+    if (battery.usable_kWh < BATTERY_LIMITS.MIN_BATTERY_KWH) {
+      eligibility_notes.push(`Battery size ${battery.usable_kWh}kWh below minimum ${BATTERY_LIMITS.MIN_BATTERY_KWH}kWh for rebates`);
+    }
   }
 
   // 2. State-specific rebates and incentives
@@ -121,14 +144,18 @@ export function calculateBatteryRebates(inputs: RebateInputs): RebateResult {
       }
 
       // NSW VPP signup incentive (available from 2025-07-01)
-      if (install_date_obj >= federal_start_date && battery.vpp_capable && joins_vpp) {
-        const tier = NSW_VPP_TIERS.find(t => battery.usable_kWh >= t.min && battery.usable_kWh < t.max);
+      if (install_date_obj >= federal_start_date && battery.vpp_capable && joins_vpp && 
+          battery.usable_kWh >= BATTERY_LIMITS.MIN_BATTERY_KWH && 
+          battery.usable_kWh <= BATTERY_LIMITS.VPP_MAX_KWH) {
+        const tier = NSW_VPP_TIERS.find(t => battery.usable_kWh >= t.min && battery.usable_kWh <= t.max);
         if (tier) {
           vpp_bonus = tier.amount;
           eligibility_notes.push(`NSW VPP bonus: $${vpp_bonus} for ${battery.usable_kWh}kWh battery`);
         }
-      } else if (!joins_vpp && battery.vpp_capable) {
-        eligibility_notes.push('NSW VPP bonus available if you join a Virtual Power Plant');
+      } else if (battery.usable_kWh > BATTERY_LIMITS.VPP_MAX_KWH && battery.vpp_capable) {
+        eligibility_notes.push(`Battery size ${battery.usable_kWh}kWh exceeds VPP limit of ${BATTERY_LIMITS.VPP_MAX_KWH}kWh - no VPP bonus available`);
+      } else if (!joins_vpp && battery.vpp_capable && battery.usable_kWh <= BATTERY_LIMITS.VPP_MAX_KWH) {
+        eligibility_notes.push('NSW VPP bonus available if you join a Virtual Power Plant (max 28kWh battery)');
       }
       break;
 

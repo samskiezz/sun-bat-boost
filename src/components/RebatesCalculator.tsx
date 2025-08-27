@@ -543,7 +543,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                         </div>
                         
                         <div className="pt-2 border-t border-white/10">
-                          <h5 className="font-medium text-primary mb-1">Rebate Limits</h5>
+                          <h5 className="font-medium text-primary mb-1">Rebate Limits & Rules</h5>
                           <div className="space-y-1 text-xs">
                             <div className="flex justify-between">
                               <span>Solar panels:</span>
@@ -551,11 +551,19 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                             </div>
                             <div className="flex justify-between">
                               <span>Battery storage:</span>
-                              <span>5-100kWh (state rebates)</span>
+                              <span>5-100kWh range</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Min battery (VPP):</span>
-                              <span>5kWh+ for most programs</span>
+                              <span>Federal rebates:</span>
+                              <span>Capped at 48kWh battery</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>VPP programs:</span>
+                              <span>Max 28kWh battery</span>
+                            </div>
+                            <div className="flex justify-between text-amber-400">
+                              <span>⚠️ Over 100kWh:</span>
+                              <span>No federal rebates</span>
                             </div>
                           </div>
                         </div>
