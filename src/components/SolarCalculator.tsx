@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Glass } from "./Glass";
 
-type Tab = "Rebates Calculator" | "Battery ROI Calculator" | "Bills & Quotes (OCR)";
+type Tab = "Rebates Calculator" | "Battery ROI Calculator";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -348,10 +348,6 @@ const SolarCalculator = () => {
           
           {activeTab === "Battery ROI Calculator" && (
             <BatteryROICalculator />
-          )}
-          
-          {activeTab === "Bills & Quotes (OCR)" && (
-            <BillsQuotesOCR />
           )}
           
           {/* AI Assistant - Only shown in dev mode */}
