@@ -10,6 +10,7 @@ import SystemManager from "./pages/SystemManager";
 import TopBar from "@/components/TopBar";
 import HowMuchCanISave from "@/modules/HowMuchCanISave";
 import BatteryRoi from "@/modules/BatteryRoi";
+import RebatesCalculator from "@/modules/RebatesCalculator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Battery, Sparkles } from "lucide-react";
 import "@/ai/bootstrap";
@@ -39,12 +40,7 @@ const EnergyApp = () => (
           </TabsList>
           
           <TabsContent value="rebates" className="mt-0">
-            <div className="p-6 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl">
-              <h2 className="text-2xl font-bold mb-4">Rebates Calculator</h2>
-              <div className="text-sm opacity-80">
-                Calculate available rebates for your solar and battery installation.
-              </div>
-            </div>
+            <RebatesCalculator />
           </TabsContent>
           
           <TabsContent value="savings" className="mt-0">
