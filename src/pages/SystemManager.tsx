@@ -11,6 +11,7 @@ import OneCatalogManager from '@/components/OneCatalogManager';
 import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
 import TrainingAutomation from '@/components/TrainingAutomation';
 import EnergyPlanStats from '@/components/EnergyPlanStats';
+import RefreshEnergyPlansButton from '@/components/RefreshEnergyPlansButton';
 import DnspPanel from "@/components/SystemManager/DnspPanel";
 import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
@@ -140,6 +141,22 @@ export default function SystemManager() {
         <TabsContent value="monitoring">
           <div className="space-y-6">
             <EnergyPlanStats />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="w-5 h-5" />
+                  Energy Plans Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-muted-foreground">
+                    Manage and refresh the energy plans database with live data from energy retailers.
+                  </p>
+                  <RefreshEnergyPlansButton />
+                </div>
+              </CardContent>
+            </Card>
             <DnspPanel />
             <DnspBuilderPanel />
             <DnspChecker />

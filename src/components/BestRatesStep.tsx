@@ -37,10 +37,7 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         
-        console.log('🔄 Refreshing energy plans database...');
-        // Force refresh to populate thousands of plans
-        const refreshResponse = await supabase.functions.invoke('refresh-energy-plans');
-        console.log('📊 Refresh result:', refreshResponse);
+        console.log('📊 Loading energy plans from database...');
         
         console.log('📊 Fetching top energy plans for analysis...');
         // Get plans for the user's location - handle both TOU and Smart meter types

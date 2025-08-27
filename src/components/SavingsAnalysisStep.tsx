@@ -15,26 +15,39 @@ interface SavingsAnalysisStepProps {
 
 export default function SavingsAnalysisStep({ billData, locationData, systemSize, selectedPlan }: SavingsAnalysisStepProps) {
   
-  // Use the new financial data structure from AI sizing
-  const financialData = systemSize?.financial || {};
+  // Calculate realistic savings based on actual bill data and system sizing
+  const currentAnnualBill = billData.quarterlyBill * 4;
+  const annualUsage = billData.quarterlyUsage * 4;
+  const currentRate = billData.averageRate / 100; // Convert cents to dollars
   
-  // Current vs New bill comparison (ENERGY SAVINGS ONLY)
-  const currentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
-  const newAnnualBill = financialData.new_annual_bill || currentAnnualBill;
-  const annualSavings = financialData.annual_savings || 0;
-  const monthlySavings = financialData.monthly_savings || Math.round(annualSavings / 12);
-  const billReductionPercent = financialData.bill_reduction_percent || Math.round((annualSavings / currentAnnualBill) * 100);
-  
-  // Solar system performance data
-  const solarGeneration = financialData.annual_generation || 6000;
-  const solarSelfConsumption = financialData.self_consumption || 0;
-  const solarExport = financialData.export_generation || 0;
-  const exportIncome = financialData.export_income || 0;
-  
-  // System specifications  
+  // System specifications from AI sizing
   const systemKw = systemSize?.recommendations?.panels?.totalKw || 6;
   const batteryKwh = systemSize?.recommendations?.battery?.capacity_kwh || 0;
-  const annualUsage = billData.quarterlyUsage * 4;
+  
+  // Calculate solar generation based on system size and location
+  const solarIrradiance = locationData.state === 'NSW' ? 4.5 : 
+                         locationData.state === 'QLD' ? 5.2 : 
+                         locationData.state === 'VIC' ? 4.2 : 
+                         locationData.state === 'SA' ? 4.8 : 
+                         locationData.state === 'WA' ? 5.0 : 4.3;
+  
+  const solarGeneration = Math.round(systemKw * solarIrradiance * 365 * 0.85); // 85% system efficiency
+  
+  // Calculate self-consumption and export
+  const selfConsumptionRate = batteryKwh > 0 ? 0.75 : 0.35; // Battery increases self-consumption
+  const solarSelfConsumption = Math.min(solarGeneration * selfConsumptionRate, annualUsage);
+  const solarExport = Math.max(0, solarGeneration - solarSelfConsumption);
+  
+  // Calculate savings components
+  const gridOffsetSavings = solarSelfConsumption * currentRate;
+  const exportIncome = solarExport * 0.08; // 8c/kWh feed-in tariff
+  const batteryTimeshiftSavings = batteryKwh > 0 ? batteryKwh * 100 : 0; // $100/kWh annual benefit
+  
+  // Total annual savings
+  const annualSavings = Math.round(gridOffsetSavings + exportIncome + batteryTimeshiftSavings);
+  const newAnnualBill = Math.max(0, currentAnnualBill - annualSavings);
+  const monthlySavings = Math.round(annualSavings / 12);
+  const billReductionPercent = Math.round((annualSavings / currentAnnualBill) * 100);
   
   // Monthly breakdown data - ENERGY BILL FOCUS
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
@@ -240,20 +253,20 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                   </CardHeader>
                   <CardContent className="space-y-4">
                      <div className="space-y-3">
-                       <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                         <span className="text-sm">Solar Self-Consumption</span>
-                         <span className="font-semibold text-green-500">+${Math.round(solarSelfConsumption * (billData.averageRate / 100)).toLocaleString()}</span>
-                       </div>
-                       <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                         <span className="text-sm">Solar Export Credits</span>
-                         <span className="font-semibold text-green-500">+${exportIncome.toLocaleString()}</span>
-                       </div>
-                       {batteryKwh > 0 && (
-                         <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                           <span className="text-sm">Battery Time-Shift Savings</span>
-                           <span className="font-semibold text-green-500">+${Math.round(batteryKwh * 50).toLocaleString()}</span>
-                         </div>
-                       )}
+                        <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                          <span className="text-sm">Solar Self-Consumption</span>
+                          <span className="font-semibold text-green-500">+${Math.round(gridOffsetSavings).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                          <span className="text-sm">Solar Export Credits</span>
+                          <span className="font-semibold text-green-500">+${Math.round(exportIncome).toLocaleString()}</span>
+                        </div>
+                        {batteryKwh > 0 && (
+                          <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                            <span className="text-sm">Battery Time-Shift Savings</span>
+                            <span className="font-semibold text-green-500">+${Math.round(batteryTimeshiftSavings).toLocaleString()}</span>
+                          </div>
+                        )}
                        <div className="border-t border-white/20 pt-3">
                          <div className="flex justify-between items-center">
                            <span className="font-semibold">Total Annual Bill Savings</span>
