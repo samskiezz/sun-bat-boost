@@ -160,7 +160,7 @@ serve(async (req) => {
           `Expected generation: ${Math.round(aiRecommendations.panels.totalKw * solarData.peak_sun_hours * 365 * 0.85).toLocaleString()} kWh/year`,
           `DNSP export limit: ${locationData.network} network`
         ],
-        ai_reasoning: await generateAIReasoning(aiRecommendations, usageAnalysis, locationData),
+        ai_reasoning: await generateAIReasoning(aiRecommendations, usageAnalysis),
         confidence: calculateConfidenceScore(aiRecommendations, usageAnalysis),
         alternatives: [],
         // CRITICAL: Display detailed usage breakdown
@@ -541,12 +541,32 @@ async function modelSystemPerformance(rec: ProductRecommendation, solarData: any
   };
 }
 
+function calculateConfidenceScore(rec: ProductRecommendation, usage: any): number {
+  let confidence = 0.85; // Base confidence
+  
+  // Increase confidence for proper battery sizing
+  if (rec.battery && usage.battery_required_kwh) {
+    const batterySizingRatio = rec.battery.capacity_kwh / usage.battery_required_kwh;
+    if (batterySizingRatio >= 0.8 && batterySizingRatio <= 1.2) {
+      confidence += 0.10; // Well-sized battery
+    }
+  }
+  
+  // Increase confidence for appropriate PV sizing
+  const pvSizingRatio = rec.panels.totalKw / (usage.daily_average * 1.2);
+  if (pvSizingRatio >= 0.8 && pvSizingRatio <= 2.0) {
+    confidence += 0.05; // Appropriate PV sizing
+  }
+  
+  return Math.min(confidence, 0.99);
+}
+
 async function generateAIReasoning(rec: ProductRecommendation, usage: any): Promise<string> {
   const batteryText = rec.battery ? 
-    `Includes ${rec.battery.capacity_kwh}kWh ${rec.battery.brand} battery system sized for ${(usage.night_usage / 365).toFixed(1)}kWh daily night usage + 20% buffer. This enables 80% self-consumption and maximizes bill savings.` :
+    `Includes ${rec.battery.capacity_kwh}kWh ${rec.battery.brand} battery system sized for ${(usage.night_usage).toFixed(1)}kWh daily night usage + 20% buffer. This enables 80% self-consumption and maximizes bill savings.` :
     'No battery system included.';
     
-  return `Recommended ${rec.panels.totalKw}kW solar system with ${rec.panels.count} x ${rec.panels.wattage}W ${rec.panels.brand} panels sized using proper day/night methodology: 60% day usage (${(usage.day_usage/1000).toFixed(1)}MWh) + 40% night usage (${(usage.night_usage/1000).toFixed(1)}MWh) + battery losses, multiplied by 1.25x safety factor. ${batteryText} System designed to maximize energy bill reduction through high self-consumption during peak rate periods.`;
+  return `Recommended ${rec.panels.totalKw}kW solar system with ${rec.panels.count} x ${rec.panels.wattage}W ${rec.panels.brand} panels sized using proper day/night methodology: 60% day usage (${(usage.day_usage).toFixed(1)}kWh) + 40% night usage (${(usage.night_usage).toFixed(1)}kWh) + battery losses, multiplied by 1.25x safety factor. ${batteryText} System designed to maximize energy bill reduction through high self-consumption during peak rate periods.`;
 }
 
 async function getFallbackSizing() {
