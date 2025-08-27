@@ -33,7 +33,7 @@ import { Glass } from '@/components/Glass';
 import { useDropzone } from 'react-dropzone';
 import { SavingsWizard } from '@/components/SavingsWizard';
 import { subscribe } from "@/ai/orchestrator/bus";
-import SiteShadingAnalyzer from '@/components/SiteShadingAnalyzer';
+import ComprehensiveShadeAnalyzer from '@/components/ComprehensiveShadeAnalyzer';
 
 interface ExtractedField {
   label: string;
@@ -717,66 +717,32 @@ export default function BatteryRoi() {
             </Glass>
           )}
 
+          {/* Site Step */}
           {currentStep === 'site' && (
             <Glass className="p-6">
-              <h3 className="text-lg font-semibold mb-6">Site Information</h3>
-              
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <Label>Postcode</Label>
-                    <Input
-                      value={formData.postcode}
-                      onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
-                      className="bg-white/5 border-white/20"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Roof Tilt: {formData.roofTilt}°</Label>
-                    <div className="hologram-track">
-                      <Slider
-                        value={[formData.roofTilt]}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, roofTilt: value[0] }))}
-                        max={60}
-                        min={0}
-                        step={5}
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label>Roof Azimuth: {formData.roofAzimuth}° {formData.roofAzimuth === 0 ? '(North)' : formData.roofAzimuth > 0 ? '(East)' : '(West)'}</Label>
-                    <div className="hologram-track">
-                      <Slider
-                        value={[formData.roofAzimuth]}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, roofAzimuth: value[0] }))}
-                        max={90}
-                        min={-90}
-                        step={15}
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Shading: {formData.shading}%</Label>
-                    <div className="hologram-track">
-                      <Slider
-                        value={[formData.shading]}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, shading: value[0] }))}
-                        max={50}
-                        min={0}
-                        step={5}
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ComprehensiveShadeAnalyzer
+                billData={{
+                  address: formData.address,
+                  postcode: formData.postcode
+                }}
+                proposalData={{
+                  roofTilt: formData.roofTilt,
+                  roofAzimuth: formData.roofAzimuth,
+                  shadingFactor: formData.shading
+                }}
+                onFinalDataUpdate={(siteData) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    address: siteData.address || prev.address,
+                    postcode: siteData.postcode || prev.postcode,
+                    roofTilt: siteData.roofTilt || prev.roofTilt,
+                    roofAzimuth: siteData.roofAzimuth || prev.roofAzimuth,
+                    shading: siteData.shadingFactor || prev.shading,
+                    latitude: siteData.latitude || prev.latitude,
+                    longitude: siteData.longitude || prev.longitude
+                  }));
+                }}
+              />
             </Glass>
           )}
 

@@ -86,6 +86,55 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
     const upperText = text.toUpperCase();
     const fields: ExtractedField[] = [];
 
+    // Extract address from bills (service address)
+    const addressPatterns = [
+      /(?:SERVICE\s+ADDRESS|SUPPLY\s+ADDRESS|PROPERTY\s+ADDRESS|INSTALLATION\s+ADDRESS)[:\s]*\n?\s*([A-Za-z0-9\s,.-]+?)(?:\s+\d{4}|\n|$)/i,
+      /(?:ADDRESS)[:\s]*\n?\s*([A-Za-z0-9\s,.-]+?)(?:\s+\d{4}|\n|$)/i,
+      /(\d+\s+[A-Za-z\s,.-]+?)(?:\s+[A-Z]{2,3}\s+\d{4})/i // Street number + street name + state + postcode
+    ];
+
+    for (const pattern of addressPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const address = match[1].trim().replace(/\s+/g, ' ');
+        // Basic validation - should have at least street number and name
+        if (address.length > 10 && address.split(' ').length >= 3) {
+          fields.push({
+            label: "Service Address",
+            value: address,
+            confidence: 0.80,
+            editable: true,
+            key: "address",
+            category: "site"
+          });
+          console.log('✅ Found address in bill:', address);
+          break;
+        }
+      }
+    }
+
+    // Extract postcode from bills
+    const postcodeMatches = text.match(/\b(\d{4})\b/g);
+    if (postcodeMatches) {
+      // Filter for valid Australian postcodes and find the most likely one
+      const validPostcodes = postcodeMatches.filter(pc => {
+        const num = parseInt(pc);
+        return num >= 1000 && num <= 9999;
+      });
+      if (validPostcodes.length > 0) {
+        // Use the first valid postcode found
+        fields.push({
+          label: "Postcode",
+          value: validPostcodes[0],
+          confidence: 0.85,
+          editable: true,
+          key: "postcode",
+          category: "site"
+        });
+        console.log('✅ Found postcode in bill:', validPostcodes[0]);
+      }
+    }
+
     // Basic bill data
     let retailer = "";
     let retailerConfidence = 0;
