@@ -1,32 +1,27 @@
-import React from "react";
-import { AccuracyToggle } from "./AccuracyToggle";
-import { SystemManagerButton } from "./SystemManagerButton";
-import { LiteProToggle } from "./LiteProToggle";
+import AccuracyToggle from "./AccuracyToggle";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
 import { Glass } from "./Glass";
 
-interface TopBarProps {
-  userTier: 'free' | 'lite' | 'pro';
-  onTierChange: (tier: 'lite' | 'pro') => void;
-  devMode?: boolean;
-}
-
-export const TopBar: React.FC<TopBarProps> = ({ userTier, onTierChange, devMode }) => {
+export default function TopBar() {
   return (
     <Glass className="sticky top-0 z-50 mb-6">
-      <div className="flex items-center justify-between p-3 gap-3">
-        <div className="text-sm opacity-80 font-medium">Hilts Energy Intelligence</div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between p-4">
+        <div className="text-lg font-semibold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          Hilts Energy Intelligence
+        </div>
+        <div className="flex items-center gap-3">
           <AccuracyToggle />
-          <SystemManagerButton />
-          <LiteProToggle 
-            currentTier={userTier} 
-            onTierChange={onTierChange}
-            devMode={devMode}
-          />
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="border border-white/20 bg-white/10 backdrop-blur-xl hover:bg-white/20"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            System Manager
+          </Button>
         </div>
       </div>
     </Glass>
   );
-};
-
-export default TopBar;
+}

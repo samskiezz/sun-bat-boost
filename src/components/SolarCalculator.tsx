@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Glass } from "./Glass";
-import { TopBar } from "./TopBar";
+import TopBar from "./TopBar";
 import { messageBus } from "@/lib/ai/MessageBus";
 import { modelRegistry } from "@/lib/ai/ModelRegistry";
 
@@ -278,11 +278,7 @@ const SolarCalculator = () => {
       
       {/* Top Bar */}
       <div className="container mx-auto px-4 pt-4">
-        <TopBar 
-          userTier={userTier} 
-          onTierChange={handleTierUpgrade}
-          devMode={devMode}
-        />
+        <TopBar />
       </div>
       
       {/* Header with Dev Mode toggle hidden in dropdown */}

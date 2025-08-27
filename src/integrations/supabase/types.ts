@@ -283,6 +283,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dnsps: {
+        Row: {
+          export_cap_kw: number | null
+          id: number
+          network: string
+          postcode_end: number
+          postcode_start: number
+          state: string
+        }
+        Insert: {
+          export_cap_kw?: number | null
+          id?: number
+          network: string
+          postcode_end: number
+          postcode_start: number
+          state: string
+        }
+        Update: {
+          export_cap_kw?: number | null
+          id?: number
+          network?: string
+          postcode_end?: number
+          postcode_start?: number
+          state?: string
+        }
+        Relationships: []
+      }
       doc_spans: {
         Row: {
           bbox: Json | null
@@ -310,6 +337,72 @@ export type Database = {
           page?: number
           product_id?: string
           text?: string
+        }
+        Relationships: []
+      }
+      energy_plans: {
+        Row: {
+          controlled_c_per_kwh: number | null
+          demand_c_per_kw: number | null
+          effective_from: string
+          effective_to: string | null
+          fit_c_per_kwh: number
+          hash: string
+          id: string
+          last_refreshed: string
+          meter_type: string
+          network: string
+          plan_name: string
+          retailer: string
+          source: string
+          state: string
+          supply_c_per_day: number
+          tou_windows: Json
+          usage_c_per_kwh_offpeak: number | null
+          usage_c_per_kwh_peak: number
+          usage_c_per_kwh_shoulder: number | null
+        }
+        Insert: {
+          controlled_c_per_kwh?: number | null
+          demand_c_per_kw?: number | null
+          effective_from: string
+          effective_to?: string | null
+          fit_c_per_kwh: number
+          hash: string
+          id?: string
+          last_refreshed: string
+          meter_type: string
+          network: string
+          plan_name: string
+          retailer: string
+          source: string
+          state: string
+          supply_c_per_day: number
+          tou_windows: Json
+          usage_c_per_kwh_offpeak?: number | null
+          usage_c_per_kwh_peak: number
+          usage_c_per_kwh_shoulder?: number | null
+        }
+        Update: {
+          controlled_c_per_kwh?: number | null
+          demand_c_per_kw?: number | null
+          effective_from?: string
+          effective_to?: string | null
+          fit_c_per_kwh?: number
+          hash?: string
+          id?: string
+          last_refreshed?: string
+          meter_type?: string
+          network?: string
+          plan_name?: string
+          retailer?: string
+          source?: string
+          state?: string
+          supply_c_per_day?: number
+          tou_windows?: Json
+          usage_c_per_kwh_offpeak?: number | null
+          usage_c_per_kwh_peak?: number
+          usage_c_per_kwh_shoulder?: number | null
         }
         Relationships: []
       }
@@ -476,6 +569,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      plan_scores: {
+        Row: {
+          annual_cost_aud: number
+          calc_context_hash: string
+          created_at: string | null
+          delta_vs_baseline_aud: number
+          fit_value: number
+          id: string
+          plan_id: string | null
+        }
+        Insert: {
+          annual_cost_aud: number
+          calc_context_hash: string
+          created_at?: string | null
+          delta_vs_baseline_aud: number
+          fit_value: number
+          id?: string
+          plan_id?: string | null
+        }
+        Update: {
+          annual_cost_aud?: number
+          calc_context_hash?: string
+          created_at?: string | null
+          delta_vs_baseline_aud?: number
+          fit_value?: number
+          id?: string
+          plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_scores_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "energy_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       postcode_zones: {
         Row: {
@@ -840,6 +971,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      selected_plans: {
+        Row: {
+          chosen_by_user: boolean | null
+          created_at: string | null
+          id: string
+          plan_id: string | null
+          scenario_id: string
+        }
+        Insert: {
+          chosen_by_user?: boolean | null
+          created_at?: string | null
+          id?: string
+          plan_id?: string | null
+          scenario_id: string
+        }
+        Update: {
+          chosen_by_user?: boolean | null
+          created_at?: string | null
+          id?: string
+          plan_id?: string | null
+          scenario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selected_plans_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "energy_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       specs: {
         Row: {

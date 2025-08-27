@@ -7,8 +7,58 @@ import ReadinessGateGuard from "@/components/ReadinessGateGuard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SystemManager from "./pages/SystemManager";
+import TopBar from "@/components/TopBar";
+import HowMuchCanISave from "@/modules/HowMuchCanISave";
+import BatteryRoi from "@/modules/BatteryRoi";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calculator, Battery, Sparkles } from "lucide-react";
+import "@/ai/bootstrap";
 
 const queryClient = new QueryClient();
+
+const EnergyApp = () => (
+  <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90">
+    <div className="max-w-7xl mx-auto">
+      <TopBar />
+      
+      <div className="p-6">
+        <Tabs defaultValue="savings" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8 bg-white/10 backdrop-blur-xl border border-white/20">
+            <TabsTrigger value="rebates" className="flex items-center gap-2">
+              <Calculator className="w-4 h-4" />
+              Rebates Calculator
+            </TabsTrigger>
+            <TabsTrigger value="savings" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              How much can I save?
+            </TabsTrigger>
+            <TabsTrigger value="battery" className="flex items-center gap-2">
+              <Battery className="w-4 h-4" />
+              Battery ROI Calculator
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="rebates" className="mt-0">
+            <div className="p-6 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl">
+              <h2 className="text-2xl font-bold mb-4">Rebates Calculator</h2>
+              <div className="text-sm opacity-80">
+                Calculate available rebates for your solar and battery installation.
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="savings" className="mt-0">
+            <HowMuchCanISave />
+          </TabsContent>
+          
+          <TabsContent value="battery" className="mt-0">
+            <BatteryRoi />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -18,9 +68,8 @@ const App = () => (
       <ReadinessGateGuard>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<EnergyApp />} />
             <Route path="/system" element={<SystemManager />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
