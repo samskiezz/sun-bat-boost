@@ -85,6 +85,7 @@ export default function HowMuchCanISave() {
   });
   const [planCount, setPlanCount] = useState(0);
   const [retailers, setRetailers] = useState<string[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<Array<{id: string; plan_name: string; retailer: string}>>([]);
   const [isProcessingBill, setIsProcessingBill] = useState(false);
 
   // Get solar equipment count for display instead of energy plans
@@ -121,6 +122,42 @@ export default function HowMuchCanISave() {
     };
     fetchData();
   }, []);
+
+  // Fetch plans when retailer is selected
+  const fetchPlansForRetailer = async (retailer: string) => {
+    if (!retailer) {
+      setAvailablePlans([]);
+      return;
+    }
+    
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: plans, error } = await supabase
+        .from('energy_plans')
+        .select('id, plan_name, retailer')
+        .eq('retailer', retailer)
+        .order('plan_name');
+      
+      if (error) {
+        console.error('Error fetching plans:', error);
+        return;
+      }
+      
+      setAvailablePlans(plans || []);
+    } catch (error) {
+      console.error('Error fetching plans for retailer:', error);
+    }
+  };
+
+  // Handle retailer selection
+  const handleRetailerChange = (retailer: string) => {
+    setBillData(prev => ({ 
+      ...prev, 
+      currentRetailer: retailer,
+      currentPlan: '' // Reset plan when retailer changes
+    }));
+    fetchPlansForRetailer(retailer);
+  };
 
   const [systemSize, setSystemSize] = useState({ 
     recommendedKw: 0, 
@@ -511,14 +548,18 @@ export default function HowMuchCanISave() {
                             <Label htmlFor="retailer">Current Retailer</Label>
                             <Select
                               value={billData.currentRetailer}
-                              onValueChange={(value) => setBillData(prev => ({ ...prev, currentRetailer: value }))}
+                              onValueChange={handleRetailerChange}
                             >
-                              <SelectTrigger className="bg-white/10 border-white/20">
-                                <SelectValue placeholder="Select retailer..." />
+                              <SelectTrigger className="bg-white/10 border-white/20 backdrop-blur-sm">
+                                <SelectValue placeholder="Select your energy retailer..." />
                               </SelectTrigger>
                               <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50">
                                 {retailers.map(retailer => (
-                                  <SelectItem key={retailer} value={retailer}>
+                                  <SelectItem 
+                                    key={retailer} 
+                                    value={retailer}
+                                    className="hover:bg-primary/10 focus:bg-primary/10"
+                                  >
                                     {retailer}
                                   </SelectItem>
                                 ))}
@@ -527,13 +568,39 @@ export default function HowMuchCanISave() {
                           </div>
                           <div>
                             <Label htmlFor="plan">Current Plan</Label>
-                            <Input
-                              id="plan"
+                            <Select
                               value={billData.currentPlan}
-                              onChange={(e) => setBillData(prev => ({ ...prev, currentPlan: e.target.value }))}
-                              placeholder="e.g., Essentials Plan"
-                              className="bg-white/10 border-white/20"
-                            />
+                              onValueChange={(value) => setBillData(prev => ({ ...prev, currentPlan: value }))}
+                              disabled={!billData.currentRetailer}
+                            >
+                              <SelectTrigger className="bg-white/10 border-white/20 backdrop-blur-sm">
+                                <SelectValue 
+                                  placeholder={
+                                    !billData.currentRetailer 
+                                      ? "Select retailer first..." 
+                                      : availablePlans.length === 0
+                                      ? "Loading plans..."
+                                      : "Select your current plan..."
+                                  } 
+                                />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50 max-h-60">
+                                {availablePlans.map(plan => (
+                                  <SelectItem 
+                                    key={plan.id} 
+                                    value={plan.plan_name}
+                                    className="hover:bg-primary/10 focus:bg-primary/10"
+                                  >
+                                    {plan.plan_name}
+                                  </SelectItem>
+                                ))}
+                                {billData.currentRetailer && availablePlans.length === 0 && (
+                                  <SelectItem value="custom" className="text-muted-foreground">
+                                    No plans found - Enter custom plan
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label htmlFor="usage">Quarterly Usage (kWh)</Label>
