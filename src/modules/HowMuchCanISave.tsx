@@ -163,7 +163,10 @@ export default function HowMuchCanISave() {
     recommendedKw: 0, 
     panels: 0, 
     battery: 0, 
-    estimatedGeneration: 0 
+    estimatedGeneration: 0,
+    confidence: 0,
+    aiReasoning: '',
+    products: undefined as any
   });
   const [topRates, setTopRates] = useState([]);
 
@@ -206,7 +209,10 @@ export default function HowMuchCanISave() {
       recommendedKw,
       panels,
       battery,
-      estimatedGeneration
+      estimatedGeneration,
+      confidence: 0.65,
+      aiReasoning: 'Basic calculation - AI sizing will provide more accurate results',
+      products: undefined
     });
     setCurrentStep('system-sizing');
   };
@@ -758,7 +764,12 @@ export default function HowMuchCanISave() {
                 billData={billData}
                 locationData={locationData}
                 systemSize={systemSize}
-                onSystemUpdate={(system) => setSystemSize(system)}
+                onSystemUpdate={(system) => setSystemSize({
+                  ...system,
+                  confidence: system.confidence || 0,
+                  aiReasoning: system.aiReasoning || '',
+                  products: system.products
+                })}
                 onNext={nextStep}
               />
             )}
