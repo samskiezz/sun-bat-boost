@@ -13,6 +13,7 @@ import TopThreePlansCard from "@/components/TopThreePlansCard";
 import AccuracyToggle from "@/components/AccuracyToggle";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
+import SmartOCRScanner from "@/components/SmartOCRScanner";
 
 type Step = 'method' | 'current-bill' | 'location' | 'results';
 
@@ -68,21 +69,35 @@ export default function HowMuchCanISave() {
     meterType: 'TOU'
   });
   const [planCount, setPlanCount] = useState(0);
+  const [retailers, setRetailers] = useState<string[]>([]);
+  const [isProcessingBill, setIsProcessingBill] = useState(false);
 
-  // Get plan count from database
+  // Get plan count and retailers from database
   useEffect(() => {
-    const fetchPlanCount = async () => {
+    const fetchData = async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
+        
+        // Get plan count
         const { count } = await supabase
           .from('energy_plans')
           .select('*', { count: 'exact', head: true });
         setPlanCount(count || 0);
+        
+        // Get unique retailers
+        const { data: retailerData } = await supabase
+          .from('energy_plans')
+          .select('retailer')
+          .order('retailer');
+        
+        const uniqueRetailers = [...new Set(retailerData?.map(r => r.retailer) || [])];
+        setRetailers(uniqueRetailers);
+        
       } catch (error) {
-        console.error('Error fetching plan count:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchPlanCount();
+    fetchData();
   }, []);
 
   const steps = [
@@ -240,7 +255,7 @@ export default function HowMuchCanISave() {
                           </p>
                         </div>
                         <Badge variant={inputMethod === 'upload' ? 'default' : 'secondary'}>
-                          {inputMethod === 'upload' ? 'Selected' : 'Coming Soon'}
+                          {inputMethod === 'upload' ? 'Selected' : 'Select'}
                         </Badge>
                       </CardContent>
                     </Card>
@@ -258,76 +273,103 @@ export default function HowMuchCanISave() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="retailer">Current Retailer</Label>
-                        <Input
-                          id="retailer"
-                          value={billData.currentRetailer}
-                          onChange={(e) => setBillData(prev => ({ ...prev, currentRetailer: e.target.value }))}
-                          placeholder="e.g., AGL Energy"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="plan">Current Plan</Label>
-                        <Input
-                          id="plan"
-                          value={billData.currentPlan}
-                          onChange={(e) => setBillData(prev => ({ ...prev, currentPlan: e.target.value }))}
-                          placeholder="e.g., Essentials Plan"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="usage">Quarterly Usage (kWh)</Label>
-                        <Input
-                          id="usage"
-                          type="number"
-                          value={billData.quarterlyUsage || ''}
-                          onChange={(e) => setBillData(prev => ({ ...prev, quarterlyUsage: parseFloat(e.target.value) || 0 }))}
-                          placeholder="e.g., 2400"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bill">Quarterly Bill Amount ($)</Label>
-                        <Input
-                          id="bill"
-                          type="number"
-                          value={billData.quarterlyBill || ''}
-                          onChange={(e) => setBillData(prev => ({ ...prev, quarterlyBill: parseFloat(e.target.value) || 0 }))}
-                          placeholder="e.g., 650"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="supply">Daily Supply Charge (c/day)</Label>
-                        <Input
-                          id="supply"
-                          type="number"
-                          value={billData.dailySupply || ''}
-                          onChange={(e) => setBillData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) || 0 }))}
-                          placeholder="e.g., 110"
-                          className="bg-white/10 border-white/20"
-                        />
-                      </div>
-                      <div>
-                        <Label>Average Rate (calculated)</Label>
-                        <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                          <span className="text-lg font-semibold">
-                            {billData.quarterlyUsage > 0 
-                              ? ((billData.quarterlyBill * 100 - billData.dailySupply * 91.25) / billData.quarterlyUsage).toFixed(1)
-                              : '0.0'
-                            } c/kWh
-                          </span>
+                  {inputMethod === 'upload' ? (
+                    <SmartOCRScanner
+                      onExtraction={(data) => {
+                        setBillData({
+                          currentRetailer: data.retailer || '',
+                          currentPlan: data.plan || '',
+                          quarterlyUsage: data.usage || 0,
+                          quarterlyBill: data.billAmount || 0,
+                          dailySupply: data.dailySupply || 100,
+                          averageRate: data.rate || 28
+                        });
+                        setIsProcessingBill(false);
+                      }}
+                      onProcessing={setIsProcessingBill}
+                    />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="retailer">Current Retailer</Label>
+                            <Select
+                              value={billData.currentRetailer}
+                              onValueChange={(value) => setBillData(prev => ({ ...prev, currentRetailer: value }))}
+                            >
+                              <SelectTrigger className="bg-white/10 border-white/20">
+                                <SelectValue placeholder="Select retailer..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background/95 backdrop-blur-xl border-white/20 z-50">
+                                {retailers.map(retailer => (
+                                  <SelectItem key={retailer} value={retailer}>
+                                    {retailer}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="plan">Current Plan</Label>
+                            <Input
+                              id="plan"
+                              value={billData.currentPlan}
+                              onChange={(e) => setBillData(prev => ({ ...prev, currentPlan: e.target.value }))}
+                              placeholder="e.g., Essentials Plan"
+                              className="bg-white/10 border-white/20"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="usage">Quarterly Usage (kWh)</Label>
+                            <Input
+                              id="usage"
+                              type="number"
+                              value={billData.quarterlyUsage || ''}
+                              onChange={(e) => setBillData(prev => ({ ...prev, quarterlyUsage: parseFloat(e.target.value) || 0 }))}
+                              placeholder="e.g., 2400"
+                              className="bg-white/10 border-white/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="bill">Quarterly Bill Amount ($)</Label>
+                            <Input
+                              id="bill"
+                              type="number"
+                              value={billData.quarterlyBill || ''}
+                              onChange={(e) => setBillData(prev => ({ ...prev, quarterlyBill: parseFloat(e.target.value) || 0 }))}
+                              placeholder="e.g., 650"
+                              className="bg-white/10 border-white/20"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="supply">Daily Supply Charge (c/day)</Label>
+                            <Input
+                              id="supply"
+                              type="number"
+                              value={billData.dailySupply || ''}
+                              onChange={(e) => setBillData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) || 0 }))}
+                              placeholder="e.g., 110"
+                              className="bg-white/10 border-white/20"
+                            />
+                          </div>
+                          <div>
+                            <Label>Average Rate (calculated)</Label>
+                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-lg font-semibold">
+                                {billData.quarterlyUsage > 0 
+                                  ? ((billData.quarterlyBill * 100 - billData.dailySupply * 91.25) / billData.quarterlyUsage).toFixed(1)
+                                  : '0.0'
+                                } c/kWh
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                   
                   {billData.quarterlyBill > 0 && (
                     <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">

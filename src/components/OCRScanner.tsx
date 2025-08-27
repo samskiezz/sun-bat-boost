@@ -1,10 +1,41 @@
 import SmartOCRScanner from './SmartOCRScanner';
 import { ExtractResult } from '@/ocr/extract.types';
+import { useState } from 'react';
 
 interface OCRScannerProps {
   onDataExtracted: (data: ExtractResult) => void;
 }
 
 export default function OCRScanner({ onDataExtracted }: OCRScannerProps) {
-  return <SmartOCRScanner onDataExtracted={onDataExtracted} />;
+  const [processing, setProcessing] = useState(false);
+
+  const handleExtraction = (billData: any) => {
+    // Convert SmartOCRScanner data to ExtractResult format
+    const extractResult: ExtractResult = {
+      panels: {
+        candidates: [],
+        confidence: 'LOW' as const,
+        warnings: []
+      },
+      battery: {
+        candidates: [],
+        confidence: 'LOW' as const,
+        warnings: []
+      },
+      inverter: {
+        confidence: 'LOW' as const,
+        warnings: []
+      },
+      policyCalcInput: {},
+      errors: []
+    };
+    onDataExtracted(extractResult);
+  };
+
+  return (
+    <SmartOCRScanner 
+      onExtraction={handleExtraction}
+      onProcessing={setProcessing}
+    />
+  );
 }
