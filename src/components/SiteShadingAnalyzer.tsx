@@ -58,6 +58,18 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAd
   const mapRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Auto-populate address from OCR data
+  useEffect(() => {
+    if (autoAddress && autoAddress !== manualAddress) {
+      setManualAddress(autoAddress);
+      onSiteDataUpdate({ ...siteData, address: autoAddress });
+      // Auto-trigger geocoding for OCR address
+      if (autoAddress.trim().length > 10) {
+        handleAddressLookup();
+      }
+    }
+  }, [autoAddress]);
+
   // Update address input when manualAddress changes
   useEffect(() => {
     if (manualAddress !== siteData.address) {
@@ -72,9 +84,10 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAd
     // Clear existing map
     mapRef.current.innerHTML = '';
 
-    // Create iframe with OpenStreetMap embed
+    // Create iframe with satellite imagery from Bing Maps (free)
     const iframe = document.createElement('iframe');
-    iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${siteData.longitude-0.01},${siteData.latitude-0.01},${siteData.longitude+0.01},${siteData.latitude+0.01}&layer=mapnik&marker=${siteData.latitude},${siteData.longitude}`;
+    // Bing Maps satellite view with proper zoom on the house
+    iframe.src = `https://www.bing.com/maps/embed?h=300&w=500&cp=${siteData.latitude}~${siteData.longitude}&lvl=19&typ=a&sty=h&src=SHELL&FORM=MBEDV8`;
     iframe.style.width = '100%';
     iframe.style.height = '100%';
     iframe.style.border = 'none';
@@ -133,10 +146,34 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAd
     }
   };
 
+  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Address autocomplete with Nominatim
+  const fetchAddressSuggestions = async (query: string) => {
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Australia')}&limit=5&addressdetails=1`);
+      const data = await response.json();
+      
+      const suggestions = data.map((item: any) => item.display_name);
+      setAddressSuggestions(suggestions);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Address suggestions failed:', error);
+    }
+  };
+
   const handleAddressLookup = async () => {
     if (!manualAddress.trim()) return;
 
     setGeocoding(true);
+    setShowSuggestions(false);
     try {
       const result = await performGeocode(manualAddress);
       
@@ -266,16 +303,38 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAd
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-3">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <Label htmlFor="address">Installation Address</Label>
               <Input
                 id="address"
                 value={manualAddress}
-                onChange={(e) => setManualAddress(e.target.value)}
+                onChange={(e) => {
+                  setManualAddress(e.target.value);
+                  fetchAddressSuggestions(e.target.value);
+                }}
+                onFocus={() => manualAddress.length >= 3 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Enter property address..."
                 className="bg-white/5 border-white/20"
                 onKeyPress={(e) => e.key === 'Enter' && handleAddressLookup()}
               />
+              {showSuggestions && addressSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-background border border-white/20 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {addressSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className="w-full text-left px-3 py-2 hover:bg-white/10 text-sm first:rounded-t-md last:rounded-b-md"
+                      onClick={() => {
+                        setManualAddress(suggestion);
+                        setShowSuggestions(false);
+                        setTimeout(() => handleAddressLookup(), 100);
+                      }}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-end">
               <Button
@@ -349,8 +408,8 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAd
           </div>
           
           <p className="text-xs text-muted-foreground mt-2">
-            📍 Click on the map to adjust the exact installation location. 
-            The map shows satellite imagery for better roof analysis.
+            🛰️ Satellite view shows actual roof structure for accurate shading analysis. 
+            Use address autocomplete for quick location finding.
           </p>
         </CardContent>
       </Card>

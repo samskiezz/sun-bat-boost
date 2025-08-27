@@ -64,6 +64,8 @@ function extractFromOcr(pages: OCRPage[]): ExtractResult {
     let allBatteryCandidates: BatteryCandidate[] = [];
     let inverterExtract: InverterExtract | null = null;
     
+    let addressExtract: { address?: string; postcode?: string } | null = null;
+
     chunks.forEach(chunk => {
       // Extract panels
       const panelCands = extractors.extractPanels(chunk.text, chunk.page, chunk.context);
@@ -78,6 +80,14 @@ function extractFromOcr(pages: OCRPage[]): ExtractResult {
         const invExtract = extractors.extractInverter(chunk.text, chunk.page, chunk.context);
         if (invExtract) {
           inverterExtract = invExtract;
+        }
+      }
+      
+      // Extract address (take first good match)
+      if (!addressExtract) {
+        const addrExtract = extractors.extractAddress(chunk.text, chunk.page, chunk.context);
+        if (addrExtract) {
+          addressExtract = addrExtract;
         }
       }
     });
@@ -116,7 +126,8 @@ function extractFromOcr(pages: OCRPage[]): ExtractResult {
         warnings: inverterWarnings,
       },
       policyCalcInput: {
-        // TODO: Extract postcode/zone/date from document
+        address: addressExtract?.address,
+        postcode: addressExtract?.postcode,
       },
       errors,
     };

@@ -400,9 +400,14 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
             </div>
 
             <div className="mt-6 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-              <p className="text-sm text-green-400">
+              <p className="text-sm text-green-400 mb-2">
                 ✅ Bill data extracted successfully! Review the fields above and continue to the next step.
               </p>
+              {(extractedFields.some(f => f.key === 'address') || extractedFields.some(f => f.key === 'postcode')) && (
+                <p className="text-xs text-green-300">
+                  🏠 Address information detected - this will be automatically used for site analysis
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

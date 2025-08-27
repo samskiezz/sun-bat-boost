@@ -379,11 +379,105 @@ const extractInverter = (text: string, page: number, context: string): InverterE
   return null;
 };
 
+const extractAddress = (text: string, page: number, context: string): { address?: string; postcode?: string } | null => {
+  console.log('🏠 Address extraction from text:', text.substring(0, 200) + '...');
+  
+  const result: { address?: string; postcode?: string } = {};
+  
+  // Australian postcode patterns
+  const postcodePatterns = [
+    /\b([0-9]{4})\b/g,
+    /postcode[:\s]+([0-9]{4})/gi,
+    /post\s+code[:\s]+([0-9]{4})/gi
+  ];
+  
+  // Address patterns (Australian format)
+  const addressPatterns = [
+    // Full address with street number, name, type, suburb, state, postcode
+    /(\d+(?:[A-Z])?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Circuit|Cct|Place|Pl|Court|Ct|Lane|Ln|Way|Close|Cl|Crescent|Cres|Boulevard|Blvd|Parade|Pde|Terrace|Tce|Highway|Hwy)\s*,?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*,?\s*(NSW|QLD|VIC|TAS|WA|SA|NT|ACT)\s*,?\s*(\d{4})/gi,
+    
+    // Address without state
+    /(\d+(?:[A-Z])?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Circuit|Cct|Place|Pl|Court|Ct|Lane|Ln|Way|Close|Cl|Crescent|Cres|Boulevard|Blvd|Parade|Pde|Terrace|Tce|Highway|Hwy)\s*,?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*,?\s*(\d{4})/gi,
+    
+    // Street address only
+    /(\d+(?:[A-Z])?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Circuit|Cct|Place|Pl|Court|Ct|Lane|Ln|Way|Close|Cl|Crescent|Cres|Boulevard|Blvd|Parade|Pde|Terrace|Tce|Highway|Hwy)/gi,
+    
+    // Address labels
+    /(?:address|install(?:ation)?\s+address|site\s+address|property\s+address)[:\s]+(.+?)(?:\n|$)/gi,
+    /(?:install(?:ation)?\s+location|site\s+location)[:\s]+(.+?)(?:\n|$)/gi
+  ];
+  
+  // Extract postcodes
+  let foundPostcodes: string[] = [];
+  postcodePatterns.forEach(pattern => {
+    const matches = [...text.matchAll(pattern)];
+    matches.forEach(match => {
+      const postcode = match[1];
+      // Validate Australian postcode range
+      const num = parseInt(postcode);
+      if (num >= 1000 && num <= 9999) {
+        foundPostcodes.push(postcode);
+      }
+    });
+  });
+  
+  // Extract addresses
+  let foundAddresses: string[] = [];
+  addressPatterns.forEach((pattern, index) => {
+    const matches = [...text.matchAll(pattern)];
+    matches.forEach(match => {
+      if (index <= 1) { // Full structured addresses
+        const streetNum = match[1];
+        const streetName = match[2];
+        const streetType = match[3];
+        const suburb = match[4];
+        const state = match[5] || '';
+        const postcode = match[6] || '';
+        
+        const fullAddress = `${streetNum} ${streetName} ${streetType}, ${suburb}${state ? ', ' + state : ''}${postcode ? ', ' + postcode : ''}`;
+        foundAddresses.push(fullAddress);
+        
+        if (postcode && !foundPostcodes.includes(postcode)) {
+          foundPostcodes.push(postcode);
+        }
+      } else if (index === 2) { // Street only
+        const streetNum = match[1];
+        const streetName = match[2];
+        const streetType = match[3];
+        foundAddresses.push(`${streetNum} ${streetName} ${streetType}`);
+      } else { // Labeled addresses
+        const address = match[1].trim();
+        if (address.length > 10 && address.length < 200) {
+          foundAddresses.push(address);
+        }
+      }
+    });
+  });
+  
+  // Clean and select best candidates
+  foundAddresses = [...new Set(foundAddresses)];
+  foundPostcodes = [...new Set(foundPostcodes)];
+  
+  console.log('🏠 Found addresses:', foundAddresses);
+  console.log('📮 Found postcodes:', foundPostcodes);
+  
+  if (foundAddresses.length > 0) {
+    result.address = foundAddresses[0];
+  }
+  
+  if (foundPostcodes.length > 0) {
+    result.postcode = foundPostcodes[0];
+  }
+  
+  return Object.keys(result).length > 0 ? result : null;
+};
+
 // Helper functions for pattern matching
 export const extractors = {
   extractPanels,
   extractBatteries,
   extractInverter,
+  extractAddress,
 };
 
 export const patterns = {

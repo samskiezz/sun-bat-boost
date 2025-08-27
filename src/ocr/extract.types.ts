@@ -72,6 +72,7 @@ export const ExtractResultSchema = z.object({
     warnings: z.array(z.string()),
   }),
   policyCalcInput: z.object({
+    address: z.string().optional(),
     postcode: z.string().optional(),
     zoneHint: z.string().optional(),
     installDateISO: z.string().optional(),
