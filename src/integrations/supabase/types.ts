@@ -310,6 +310,54 @@ export type Database = {
         }
         Relationships: []
       }
+      dnsps_static: {
+        Row: {
+          dnsp_code: string
+          dnsp_name: string
+          effective_from: string
+          export_cap_kw: number | null
+          id: string
+          notes: string | null
+          overlap_pct: number
+          phase_limit: string | null
+          postcode: number
+          source: string
+          state: string
+          supports_flexible_export: boolean | null
+          version: string
+        }
+        Insert: {
+          dnsp_code: string
+          dnsp_name: string
+          effective_from?: string
+          export_cap_kw?: number | null
+          id?: string
+          notes?: string | null
+          overlap_pct: number
+          phase_limit?: string | null
+          postcode: number
+          source?: string
+          state: string
+          supports_flexible_export?: boolean | null
+          version?: string
+        }
+        Update: {
+          dnsp_code?: string
+          dnsp_name?: string
+          effective_from?: string
+          export_cap_kw?: number | null
+          id?: string
+          notes?: string | null
+          overlap_pct?: number
+          phase_limit?: string | null
+          postcode?: number
+          source?: string
+          state?: string
+          supports_flexible_export?: boolean | null
+          version?: string
+        }
+        Relationships: []
+      }
       doc_spans: {
         Row: {
           bbox: Json | null

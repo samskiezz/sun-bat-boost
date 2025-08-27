@@ -3,19 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 export interface DnspDetails {
   state: string;
   network: string;
-  postcode_start: number;
-  postcode_end: number;
+  postcode: number;
   export_cap_kw: number;
+  supports_flexible_export?: boolean;
+  phase_limit?: string;
+  dnsp_code?: string;
+  overlap_pct?: number;
 }
 
 // Cache for DNSP lookups to avoid repeated database calls
-const dnspCache = new Map<string, DnspDetails[]>();
+const dnspCache = new Map<string, DnspDetails>();
 
 /**
  * Resolve DNSP (Distribution Network Service Provider) details by postcode
  * Returns the single DNSP for the postcode (each postcode has exactly one DNSP)
  */
-export async function getDnspByPostcode(postcode: string | number): Promise<DnspDetails[]> {
+export async function getDnspByPostcode(postcode: string | number): Promise<DnspDetails> {
   const postcodeNum = typeof postcode === 'string' ? parseInt(postcode) : postcode;
   
   if (isNaN(postcodeNum) || postcodeNum < 200 || postcodeNum > 9999) {
@@ -31,32 +34,47 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
 
   try {
     console.log(`Looking up DNSP for postcode ${postcodeNum}`);
-    const { data, error } = await supabase
-      .from('dnsps')
-      .select('state, network, postcode_start, postcode_end, export_cap_kw')
-      .lte('postcode_start', postcodeNum)
-      .gte('postcode_end', postcodeNum)
-      .order('state')
-      .limit(1); // Only get the first match since each postcode should have exactly one DNSP
     
-    console.log(`DNSP query result:`, { data, error, postcodeNum });
+    // Use the new spatial resolver
+    const { data, error } = await supabase.functions.invoke('dnsps-resolve', {
+      body: { postcode: postcodeNum, version: 'v1' }
+    });
 
     if (error) {
-      console.error('Error fetching DNSP data:', error);
-      throw new Error('Failed to fetch DNSP data');
+      console.error('Error calling DNSP resolver:', error);
+      throw new Error('Failed to resolve DNSP');
     }
 
-    const results = data || [];
+    if (!data?.ok) {
+      console.error('DNSP resolver returned error:', data?.error);
+      throw new Error(data?.error || 'DNSP resolution failed');
+    }
+
+    const results = data.results || [];
+    console.log(`DNSP resolver result:`, { results, postcodeNum });
     
     if (results.length === 0) {
       console.warn(`No DNSP found for postcode ${postcodeNum}`);
       throw new Error(`No distribution network found for postcode ${postcodeNum}`);
     }
     
-    // Cache the results
-    dnspCache.set(cacheKey, results);
+    // Convert to expected format (use first result)
+    const result = results[0];
+    const dnspDetails: DnspDetails = {
+      state: result.state,
+      network: result.dnsp_name,
+      postcode: result.postcode,
+      export_cap_kw: result.export_cap_kw || 5,
+      supports_flexible_export: result.supports_flexible_export || false,
+      phase_limit: result.phase_limit || '1P<=5kW;3P<=10kW',
+      dnsp_code: result.dnsp_code,
+      overlap_pct: result.overlap_pct
+    };
     
-    return results;
+    // Cache the result
+    dnspCache.set(cacheKey, dnspDetails);
+    
+    return dnspDetails;
   } catch (error) {
     console.error('DNSP lookup error:', error);
     throw error;

@@ -12,6 +12,8 @@ import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDash
 import TrainingAutomation from '@/components/TrainingAutomation';
 import EnergyPlanStats from '@/components/EnergyPlanStats';
 import DnspPanel from "@/components/SystemManager/DnspPanel";
+import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
+import DnspChecker from "@/components/SystemManager/DnspChecker";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -139,6 +141,8 @@ export default function SystemManager() {
           <div className="space-y-6">
             <EnergyPlanStats />
             <DnspPanel />
+            <DnspBuilderPanel />
+            <DnspChecker />
             <Card>
               <CardHeader>
                 <CardTitle>System Monitoring</CardTitle>
