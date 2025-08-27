@@ -4,6 +4,7 @@
 import { fetchAllGenericPlans } from "./aerClient";
 import { planToRetailPlan } from "./aerNormalize";
 import { supabase } from "@/integrations/supabase/client";
+import type { RetailPlan } from "@/ai/orchestrator/contracts";
 
 export interface IngestOptions {
   state?: string;
@@ -23,120 +24,135 @@ export interface IngestResult {
 
 export async function refreshEnergyPlans(options: IngestOptions = {}): Promise<IngestResult> {
   const startTime = Date.now();
-  const result: IngestResult = {
-    success: false,
-    totalFetched: 0,
-    totalNormalized: 0,
-    totalUpserted: 0,
-    errors: [],
-    duration: 0
-  };
+  let totalCount = 0;
+  let successCount = 0;
+  const errors: string[] = [];
 
   try {
-    console.log("Starting AER PRD data refresh...", options);
+    console.log('Starting energy plans refresh...', options);
 
-    // Step 1: Fetch raw plan data from AER
+    // Clean up old data if force refresh
+    if (options.forceRefresh) {
+      console.log('Force refresh - cleaning old data...');
+      const { error: deleteError } = await supabase
+        .from('energy_plans')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all except impossible match
+      
+      if (deleteError) {
+        console.warn('Error cleaning old data:', deleteError);
+        errors.push(`Cleanup error: ${deleteError.message}`);
+      }
+    }
+
+    // Fetch raw data from AER PRD
+    console.log('Fetching data from AER PRD...');
     const rawPlans = await fetchAllGenericPlans({
       state: options.state,
       postcode: options.postcode,
       fuelType: "ELECTRICITY",
-      type: "RESIDENTIAL",
+      type: "ALL",
       effective: "CURRENT"
     });
 
-    result.totalFetched = rawPlans.length;
-    console.log(`Fetched ${result.totalFetched} raw plans from AER PRD`);
+    console.log(`Fetched ${rawPlans.length} raw plans from AER`);
+    totalCount = rawPlans.length;
 
-    if (rawPlans.length === 0) {
-      result.errors.push("No plans fetched from AER PRD");
-      return result;
+    // Normalize plans
+    console.log('Normalizing plans...');
+    const normalizedPlans: RetailPlan[] = [];
+    
+    for (const rawPlan of rawPlans) {
+      try {
+        const normalized = planToRetailPlan(rawPlan);
+        if (normalized) {
+          normalizedPlans.push(normalized);
+        }
+      } catch (error) {
+        errors.push(`Normalization error for plan ${rawPlan.id || 'unknown'}: ${error}`);
+      }
     }
 
-    // Step 2: Normalize to our RetailPlan schema
-    const normalizedPlans = rawPlans
-      .map(planToRetailPlan)
-      .filter(Boolean); // Remove null results
+    console.log(`Normalized ${normalizedPlans.length} plans`);
 
-    result.totalNormalized = normalizedPlans.length;
-    console.log(`Normalized ${result.totalNormalized} plans`);
-
-    if (normalizedPlans.length === 0) {
-      result.errors.push("No plans could be normalized");
-      return result;
-    }
-
-    // Step 3: Batch upsert to database
-    const batchSize = options.batchSize || 50;
-    let upsertCount = 0;
+    // Batch upsert to database
+    const batchSize = options.batchSize || 100;
+    let processedCount = 0;
 
     for (let i = 0; i < normalizedPlans.length; i += batchSize) {
       const batch = normalizedPlans.slice(i, i + batchSize);
       
       try {
-        const { error } = await supabase
-          .from("energy_plans")
-          .upsert(batch as any[], {
-            onConflict: "hash",
-            ignoreDuplicates: false
+        // Convert to database format
+        const dbPlans = batch.map(plan => ({
+          id: plan.id,
+          retailer: plan.retailer,
+          plan_name: plan.plan_name,
+          state: plan.state,
+          network: plan.network,
+          meter_type: plan.meter_type,
+          supply_c_per_day: plan.supply_c_per_day,
+          usage_c_per_kwh_peak: plan.usage_c_per_kwh_peak,
+          usage_c_per_kwh_shoulder: plan.usage_c_per_kwh_shoulder,
+          usage_c_per_kwh_offpeak: plan.usage_c_per_kwh_offpeak,
+          fit_c_per_kwh: plan.fit_c_per_kwh || 0,
+          demand_c_per_kw: plan.demand_c_per_kw,
+          controlled_c_per_kwh: plan.controlled_c_per_kwh,
+          tou_windows: plan.tou_windows || [],
+          effective_from: plan.effective_from || new Date().toISOString(),
+          effective_to: plan.effective_to,
+          source: plan.source || "AER_PRD",
+          hash: plan.hash || `${plan.id}-${Date.now()}`,
+          last_refreshed: new Date().toISOString()
+        }));
+
+        const { error: upsertError } = await supabase
+          .from('energy_plans')
+          .upsert(dbPlans, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
           });
 
-        if (error) {
-          console.error(`Batch upsert error (batch ${Math.floor(i/batchSize) + 1}):`, error);
-          result.errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${error.message}`);
-        } else {
-          upsertCount += batch.length;
-          console.log(`Upserted batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(normalizedPlans.length/batchSize)} (${batch.length} plans)`);
+        if (upsertError) {
+          throw upsertError;
         }
-      } catch (batchError) {
-        console.error("Batch processing error:", batchError);
-        result.errors.push(`Batch processing failed: ${batchError}`);
+
+        processedCount += batch.length;
+        successCount += batch.length;
+        
+        console.log(`Processed batch ${Math.ceil((i + batchSize) / batchSize)} of ${Math.ceil(normalizedPlans.length / batchSize)}`);
+        
+      } catch (error) {
+        console.error(`Batch upsert error for batch starting at ${i}:`, error);
+        errors.push(`Batch ${i}-${i + batchSize}: ${error}`);
       }
     }
 
-    result.totalUpserted = upsertCount;
+    const duration = Date.now() - startTime;
+    const result: IngestResult = {
+      success: errors.length === 0,
+      totalFetched: totalCount,
+      totalNormalized: normalizedPlans.length,
+      totalUpserted: successCount,
+      errors,
+      duration: Math.round(duration / 1000)
+    };
 
-    // Step 4: Cleanup old plans (optional)
-    if (options.forceRefresh) {
-      try {
-        const cutoffDate = new Date();
-        cutoffDate.setHours(cutoffDate.getHours() - 24); // Remove plans older than 24h
-
-        const { error: deleteError } = await supabase
-          .from("energy_plans")
-          .delete()
-          .lt("last_refreshed", cutoffDate.toISOString())
-          .eq("source", "AER_PRD");
-
-        if (deleteError) {
-          console.warn("Failed to cleanup old plans:", deleteError);
-          result.errors.push(`Cleanup warning: ${deleteError.message}`);
-        }
-      } catch (cleanupError) {
-        console.warn("Cleanup error:", cleanupError);
-        result.errors.push(`Cleanup error: ${cleanupError}`);
-      }
-    }
-
-    result.success = result.totalUpserted > 0;
-    result.duration = Date.now() - startTime;
-
-    console.log("AER PRD refresh completed:", {
-      success: result.success,
-      fetched: result.totalFetched,
-      normalized: result.totalNormalized,
-      upserted: result.totalUpserted,
-      duration: `${result.duration}ms`,
-      errors: result.errors.length
-    });
-
+    console.log('Energy plans refresh completed:', result);
     return result;
 
   } catch (error) {
-    console.error("Critical error during energy plans refresh:", error);
-    result.success = false;
-    result.errors.push(`Critical error: ${error}`);
-    result.duration = Date.now() - startTime;
-    return result;
+    const duration = Date.now() - startTime;
+    console.error('Energy plans refresh failed:', error);
+    
+    return {
+      success: false,
+      totalFetched: totalCount,
+      totalNormalized: 0,
+      totalUpserted: successCount,
+      errors: [...errors, `Fatal error: ${error}`],
+      duration: Math.round(duration / 1000)
+    };
   }
 }
 

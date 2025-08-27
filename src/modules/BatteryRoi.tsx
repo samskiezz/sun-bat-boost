@@ -76,10 +76,7 @@ export default function BatteryRoi() {
 
   // Listen for plan selection from HowMuchCanISave
   useEffect(() => {
-    const unsubscribe = (subscribe as any)("plan.selected", (event: any) => {
-      console.log("Plan selected in Battery ROI:", event.plan);
-      setSelectedPlan(event.plan);
-      // Update rates from selected plan
+    subscribe("plan.selected", (event: any) => {
       if (event.plan) {
         setFormData(prev => ({
           ...prev,
@@ -88,11 +85,17 @@ export default function BatteryRoi() {
           feedInTariff: event.plan.fit_c_per_kwh || prev.feedInTariff,
           dailySupply: event.plan.supply_c_per_day || prev.dailySupply,
         }));
+        
+        // Trigger ROI recalculation with new plan rates
+        calculateROI();
+        
+        // Auto-advance to system step when plan is selected
+        if (currentStep === 'bills') {
+          setCurrentStep('system');
+        }
       }
     });
-
-    return unsubscribe;
-  }, []);
+  }, [currentStep]);
 
   const steps = [
     { id: 'method', title: 'Input Method', icon: Upload },

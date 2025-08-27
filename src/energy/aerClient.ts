@@ -6,8 +6,7 @@ import { AER_RETAILERS } from "./aerRetailers";
 const CDR_HEADERS = { 
   "x-v": "1", 
   "x-min-v": "1", 
-  "accept": "application/json",
-  "user-agent": "Hilts-Energy-Intelligence/1.0"
+  "accept": "application/json"
 };
 
 type GenericPlansParams = {
@@ -39,7 +38,7 @@ export async function fetchAllGenericPlans(
       while (hasMorePages) {
         const queryParams = new URLSearchParams({
           fuelType: params.fuelType ?? "ELECTRICITY",
-          type: params.type ?? "RESIDENTIAL",
+          type: params.type ?? "ALL",
           effective: params.effective ?? "CURRENT",
           page: String(page),
           "page-size": "1000", // max allowed

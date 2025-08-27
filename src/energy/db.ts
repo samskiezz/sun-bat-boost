@@ -70,47 +70,77 @@ const DEMO_PLANS: RetailPlan[] = [
   }
 ];
 
-export async function fetchPlans(state: string, network: string, meter: "Single"|"TOU"|"Demand"): Promise<RetailPlan[]> { 
+export async function fetchPlans(
+  state: string, 
+  network: string, 
+  meter: "Single"|"TOU"|"Demand",
+  postcode?: string
+): Promise<RetailPlan[]> {
   try {
-    // Try to fetch from database first
-    const { data: dbPlans } = await supabase
-      .from("energy_plans")
-      .select("*")
-      .eq("state", state)
-      .eq("network", network)
-      .eq("meter_type", meter)
-      .limit(10);
+    console.log(`Fetching energy plans for ${state}, ${network}, ${meter}${postcode ? `, postcode: ${postcode}` : ''}`);
     
-    if (dbPlans && dbPlans.length > 0) {
-      // Convert database plans to RetailPlan format
-      return dbPlans.map(plan => ({
-        id: plan.id,
-        retailer: plan.retailer,
-        plan_name: plan.plan_name,
-        state: plan.state,
-        network: plan.network,
-        meter_type: plan.meter_type as "Single"|"TOU"|"Demand",
-        supply_c_per_day: plan.supply_c_per_day,
-        usage_c_per_kwh_peak: plan.usage_c_per_kwh_peak,
-        usage_c_per_kwh_shoulder: plan.usage_c_per_kwh_shoulder,
-        usage_c_per_kwh_offpeak: plan.usage_c_per_kwh_offpeak,
-        fit_c_per_kwh: plan.fit_c_per_kwh,
-        demand_c_per_kw: plan.demand_c_per_kw,
-        controlled_c_per_kwh: plan.controlled_c_per_kwh,
-        tou_windows: plan.tou_windows as any,
-        effective_from: plan.effective_from
-      }));
+    // First ensure we have fresh data for this region
+    const { refreshEnergyPlans } = await import("./ingest");
+    await refreshEnergyPlans({ state, postcode });
+    
+    const { data, error } = await supabase
+      .from('energy_plans')
+      .select('*')
+      .eq('state', state)
+      .eq('meter_type', meter)
+      .order('last_updated', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Error fetching plans from database:', error);
+      console.log('Falling back to demo data...');
+      return DEMO_PLANS.filter(plan => 
+        plan.state === state && 
+        plan.meter_type === meter
+      );
     }
+
+    if (!data || data.length === 0) {
+      console.log('No plans found in database, using demo data');
+      return DEMO_PLANS.filter(plan => 
+        plan.state === state && 
+        plan.meter_type === meter
+      );
+    }
+
+    // Convert database records back to RetailPlan format
+    const plans: RetailPlan[] = data.map(row => ({
+      id: row.id,
+      retailer: row.retailer,
+      plan_name: row.plan_name,
+      state: row.state,
+      network: row.network || "Unknown",
+      meter_type: row.meter_type as "Single"|"TOU"|"Demand",
+      supply_c_per_day: Number(row.supply_c_per_day),
+      usage_c_per_kwh_peak: Number(row.usage_c_per_kwh_peak),
+      usage_c_per_kwh_shoulder: row.usage_c_per_kwh_shoulder ? Number(row.usage_c_per_kwh_shoulder) : null,
+      usage_c_per_kwh_offpeak: row.usage_c_per_kwh_offpeak ? Number(row.usage_c_per_kwh_offpeak) : null,
+      fit_c_per_kwh: Number(row.fit_c_per_kwh || 0),
+      demand_c_per_kw: row.demand_c_per_kw ? Number(row.demand_c_per_kw) : null,
+      controlled_c_per_kwh: row.controlled_c_per_kwh ? Number(row.controlled_c_per_kwh) : null,
+      tou_windows: (row.tou_windows as any) || [],
+      effective_from: row.effective_from,
+      effective_to: null,
+      source: "AER_PRD",
+      last_refreshed: row.last_refreshed
+    }));
+
+    console.log(`Retrieved ${plans.length} plans from database`);
+    return plans;
+
   } catch (error) {
-    console.warn("Failed to fetch plans from database, using demo data:", error);
+    console.error('Error in fetchPlans:', error);
+    console.log('Falling back to demo data...');
+    return DEMO_PLANS.filter(plan => 
+      plan.state === state && 
+      plan.meter_type === meter
+    );
   }
-  
-  // Fallback to demo plans
-  return DEMO_PLANS.filter(p => 
-    p.state === state && 
-    p.network === network && 
-    p.meter_type === meter
-  ); 
 }
 
 export async function exportCSV(calcContextHash: string) { 

@@ -12,7 +12,8 @@ export default function TopThreePlansCard({ context }: { context: RankContext })
   
   async function refresh() {
     setLoading(true);
-    const list = await fetchPlans(context.state, context.network, context.meter_type);
+    const postcode = context.postcode?.toString();
+    const list = await fetchPlans(context.state, context.network, context.meter_type, postcode);
     const ranked = rankPlans(list, context);
     setTop(ranked);
     setLoading(false);
