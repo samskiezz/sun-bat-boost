@@ -16,6 +16,14 @@ interface SystemSize {
   estimatedGeneration: number;
   confidence?: number;
   aiReasoning?: string;
+  rationale?: {
+    usage_analysis: {
+      day_usage_kwh: number;
+      night_usage_kwh: number;
+      battery_buffer_percent: number;
+      pv_safety_factor: number;
+    };
+  };
   products?: {
     panel: { brand: string; model: string; wattage: number };
     battery?: { brand: string; model: string; capacity: number };
@@ -438,29 +446,32 @@ export default function SystemSizingStep({
             <Calculator className="h-4 w-4 mr-2" />
             Basic Calculation
           </Button>
-          <div className="space-y-4">
-            <h3 className="font-semibold">Usage Breakdown</h3>
-            {systemSize?.rationale?.usage_analysis && (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-white/5 rounded-lg">
-                <div>
-                  <div className="text-2xl font-bold text-blue-500">
-                    {systemSize.rationale.usage_analysis.day_usage_kwh.toFixed(1)} kWh
-                  </div>
-                  <div className="text-sm text-muted-foreground">Day Usage (60%)</div>
+        </div>
+
+        {/* Usage Breakdown */}
+        <div className="space-y-4">
+          <h3 className="font-semibold">Usage Breakdown</h3>
+          {aiResults?.rationale?.usage_analysis && (
+            <div className="grid grid-cols-2 gap-4 p-4 bg-white/5 rounded-lg">
+              <div>
+                <div className="text-2xl font-bold text-blue-500">
+                  {aiResults.rationale.usage_analysis.day_usage_kwh.toFixed(1)} kWh
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-purple-500">
-                    {systemSize.rationale.usage_analysis.night_usage_kwh.toFixed(1)} kWh
-                  </div>
-                  <div className="text-sm text-muted-foreground">Night Usage (40%)</div>
-                </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  Battery Buffer: {systemSize.rationale.usage_analysis.battery_buffer_percent}% • 
-                  PV Safety Factor: {systemSize.rationale.usage_analysis.pv_safety_factor}×
-                </div>
+                <div className="text-sm text-muted-foreground">Day Usage (60%)</div>
               </div>
-            )}
-          </div>
+              <div>
+                <div className="text-2xl font-bold text-purple-500">
+                  {aiResults.rationale.usage_analysis.night_usage_kwh.toFixed(1)} kWh
+                </div>
+                <div className="text-sm text-muted-foreground">Night Usage (40%)</div>
+              </div>
+              <div className="col-span-2 text-xs text-muted-foreground">
+                Battery Buffer: {aiResults.rationale.usage_analysis.battery_buffer_percent}% • 
+                PV Safety Factor: {aiResults.rationale.usage_analysis.pv_safety_factor}×
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

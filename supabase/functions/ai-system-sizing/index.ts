@@ -528,11 +528,6 @@ async function calculateDetailedFinancials(rec: ProductRecommendation, billData:
     export_generation: Math.round(exportGeneration)
   };
 }
-    self_consumption: Math.round(selfConsumption),
-    export_income: Math.round(exportIncome),
-    export_generation: Math.round(exportGeneration)
-  };
-}
 
 async function modelSystemPerformance(rec: ProductRecommendation, solarData: any, usage: any) {
   const seasonalVar = solarData.seasonal_variation;
