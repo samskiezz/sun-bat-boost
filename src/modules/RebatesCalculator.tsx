@@ -35,11 +35,42 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
 
   const handleCalculate = (formData: any) => {
     console.log("Calculate rebates:", formData);
-    setResults({
-      stc: { amount: 4200, description: "Small-scale Technology Certificates" },
-      vpp: { amount: 800, description: "Virtual Power Plant incentive" },
-      state: { amount: 1500, description: "State government rebate" }
-    });
+    
+    // Use the actual calculation results, not fake data
+    setResults(formData);
+    
+    // Set eligibility based on the calculation results
+    if (formData.rebateResults) {
+      const totalRebates = formData.rebateResults.total_rebates || 0;
+      const batteryKwh = formData.batteryKwh || 0;
+      const solarKw = formData.solarKw || 0;
+      
+      let status = 'green';
+      let reasons = [];
+      let suggestions = [];
+      
+      if (batteryKwh > 100) {
+        status = 'red';
+        reasons.push('Battery size exceeds 100kWh limit - no federal rebates available');
+        suggestions.push('Consider reducing battery size to under 100kWh to qualify for rebates');
+      } else if (batteryKwh > 48) {
+        status = 'yellow';
+        reasons.push('Battery size over 48kWh - rebates capped at 48kWh');
+        suggestions.push('Maximum rebates achieved at 48kWh battery size');
+      } else if (batteryKwh > 28 && formData.vppProvider !== 'None') {
+        status = 'yellow';
+        reasons.push('Battery size over 28kWh - no VPP bonuses available');
+        suggestions.push('VPP bonuses are only available for batteries up to 28kWh');
+      }
+      
+      if (totalRebates > 10000) {
+        reasons.push('Excellent rebate outcome achieved');
+      } else if (totalRebates > 5000) {
+        reasons.push('Good rebate amount secured');
+      }
+      
+      setEligibility({ status, reasons, suggestions });
+    }
   };
   
   const handleRequestCall = () => {
