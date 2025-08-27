@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Battery, FileText } from "lucide-react";
+import { Calculator, Battery, FileText, Sparkles } from "lucide-react";
 
-const TABS = ["Rebates Calculator", "Battery ROI Calculator"] as const;
+const TABS = ["Rebates Calculator", "How much can I save?", "Battery ROI Calculator"] as const;
 type Tab = typeof TABS[number];
 
 const tabIcons = {
   "Rebates Calculator": Calculator,
+  "How much can I save?": Sparkles,
   "Battery ROI Calculator": Battery,
 };
 
@@ -39,6 +40,7 @@ export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
               <span className="hidden sm:inline">{tab}</span>
               <span className="sm:hidden">
                 {tab === "Rebates Calculator" && "Rebates"}
+                {tab === "How much can I save?" && "Savings"}
                 {tab === "Battery ROI Calculator" && "Battery ROI"}
               </span>
               

@@ -9,6 +9,7 @@ import { AppTabs } from "./AppTabs";
 import { RebatesCalculator } from "./RebatesCalculator";
 import { BatteryROICalculator } from "./BatteryROICalculator";
 import { BillsQuotesOCR } from "./BillsQuotesOCR";
+import { SavingsWizard } from "./SavingsWizard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Glass } from "./Glass";
 
-type Tab = "Rebates Calculator" | "Battery ROI Calculator";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -344,6 +345,19 @@ const SolarCalculator = () => {
               userTier={userTier}
               unlimitedTokens={devMode}
             />
+          )}
+          
+          {activeTab === "How much can I save?" && (
+            <SavingsWizard onApplyToROI={(scenario) => {
+              // Switch to Battery ROI tab and apply scenario data
+              setActiveTab("Battery ROI Calculator");
+              // The scenario data would be applied to BatteryROICalculator
+              console.log('Applying scenario to Battery ROI:', scenario);
+              toast({
+                title: "Scenario Applied",
+                description: "Your savings scenario has been applied to the Battery ROI Calculator.",
+              });
+            }} />
           )}
           
           {activeTab === "Battery ROI Calculator" && (
