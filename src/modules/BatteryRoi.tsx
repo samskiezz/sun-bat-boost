@@ -92,6 +92,70 @@ export default function BatteryRoi() {
     };
     fetchBatteryCount();
   }, []);
+  
+  // Listen for plan selection from HowMuchCanISave
+  useEffect(() => {
+    subscribe("plan.selected", (event: any) => {
+      if (event.plan) {
+        setFormData(prev => ({
+          ...prev,
+          peakRate: event.plan.usage_c_per_kwh_peak || prev.peakRate,
+          offPeakRate: event.plan.usage_c_per_kwh_offpeak || prev.offPeakRate,
+          feedInTariff: event.plan.fit_c_per_kwh || prev.feedInTariff,
+          dailySupply: event.plan.supply_c_per_day || prev.dailySupply,
+        }));
+        
+        // Trigger ROI recalculation with new plan rates
+        calculateROI();
+        
+        // Auto-advance to system step when plan is selected
+        if (currentStep === 'bills') {
+          setCurrentStep('system');
+        }
+      }
+    });
+  }, [currentStep]);
+
+  const onDropBill = useCallback((acceptedFiles: File[]) => {
+    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
+    setProcessing(true);
+    
+    // Mock OCR processing
+    setTimeout(() => {
+      setProcessing(false);
+      setExtractedData([
+        { label: 'Daily Usage (kWh)', value: 25, confidence: 0.95, editable: true },
+        { label: 'Peak Rate (c/kWh)', value: 28.6, confidence: 0.92, editable: true },
+        { label: 'Off-Peak Rate (c/kWh)', value: 22.1, confidence: 0.91, editable: true },
+        { label: 'Feed-in Tariff (c/kWh)', value: 8.2, confidence: 0.76, editable: true },
+        { label: 'Daily Supply Charge (c)', value: 98.45, confidence: 0.94, editable: true },
+      ]);
+      setCurrentStep('system');
+    }, 2000);
+  }, []);
+
+  const onDropQuote = useCallback((acceptedFiles: File[]) => {
+    // Handle quote upload and extract system data
+    console.log('Quote uploaded', acceptedFiles);
+  }, []);
+
+  const { getRootProps: getBillProps, getInputProps: getBillInputProps, isDragActive: isBillDragActive } = useDropzone({
+    onDrop: onDropBill,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png']
+    }
+  });
+
+  const { getRootProps: getQuoteProps, getInputProps: getQuoteInputProps, isDragActive: isQuoteDragActive } = useDropzone({
+    onDrop: onDropQuote,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png']
+    }
+  });
 
   if (!started) {
     return (
@@ -261,29 +325,6 @@ export default function BatteryRoi() {
     );
   }
   
-  // Listen for plan selection from HowMuchCanISave
-  useEffect(() => {
-    subscribe("plan.selected", (event: any) => {
-      if (event.plan) {
-        setFormData(prev => ({
-          ...prev,
-          peakRate: event.plan.usage_c_per_kwh_peak || prev.peakRate,
-          offPeakRate: event.plan.usage_c_per_kwh_offpeak || prev.offPeakRate,
-          feedInTariff: event.plan.fit_c_per_kwh || prev.feedInTariff,
-          dailySupply: event.plan.supply_c_per_day || prev.dailySupply,
-        }));
-        
-        // Trigger ROI recalculation with new plan rates
-        calculateROI();
-        
-        // Auto-advance to system step when plan is selected
-        if (currentStep === 'bills') {
-          setCurrentStep('system');
-        }
-      }
-    });
-  }, [currentStep]);
-
   const steps = [
     { id: 'method', title: 'Input Method', icon: Upload },
     { id: 'bills', title: 'Energy Data', icon: FileText },
@@ -294,47 +335,6 @@ export default function BatteryRoi() {
 
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
-
-  const onDropBill = useCallback((acceptedFiles: File[]) => {
-    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
-    setProcessing(true);
-    
-    // Mock OCR processing
-    setTimeout(() => {
-      setProcessing(false);
-      setExtractedData([
-        { label: 'Daily Usage (kWh)', value: 25, confidence: 0.95, editable: true },
-        { label: 'Peak Rate (c/kWh)', value: 28.6, confidence: 0.92, editable: true },
-        { label: 'Off-Peak Rate (c/kWh)', value: 22.1, confidence: 0.91, editable: true },
-        { label: 'Feed-in Tariff (c/kWh)', value: 8.2, confidence: 0.76, editable: true },
-        { label: 'Daily Supply Charge (c)', value: 98.45, confidence: 0.94, editable: true },
-      ]);
-      setCurrentStep('system');
-    }, 2000);
-  }, []);
-
-  const onDropQuote = useCallback((acceptedFiles: File[]) => {
-    // Handle quote upload and extract system data
-    console.log('Quote uploaded', acceptedFiles);
-  }, []);
-
-  const { getRootProps: getBillProps, getInputProps: getBillInputProps, isDragActive: isBillDragActive } = useDropzone({
-    onDrop: onDropBill,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
-    }
-  });
-
-  const { getRootProps: getQuoteProps, getInputProps: getQuoteInputProps, isDragActive: isQuoteDragActive } = useDropzone({
-    onDrop: onDropQuote,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
-    }
-  });
 
   const nextStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
