@@ -37,6 +37,11 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         
+        console.log('🔄 Refreshing energy plans database...');
+        // First refresh the energy plans database to get thousands of real plans
+        await supabase.functions.invoke('refresh-energy-plans');
+        
+        console.log('📊 Fetching top energy plans for analysis...');
         // Get plans for the user's location
         const { data: plans } = await supabase
           .from('energy_plans')
