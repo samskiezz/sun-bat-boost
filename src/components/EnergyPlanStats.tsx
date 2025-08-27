@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Database, Zap, TrendingUp } from "lucide-react";
+import { Database, Zap, TrendingUp, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface PlanStats {
   totalPlans: number;
@@ -19,6 +21,7 @@ export default function EnergyPlanStats() {
     lastUpdated: null
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -85,6 +88,27 @@ export default function EnergyPlanStats() {
     fetchStats();
   }, []);
 
+  const refreshPlans = async () => {
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('refresh-energy-plans');
+      
+      if (error) throw error;
+      
+      toast.success(`Successfully refreshed ${data.plans_count} energy plans from ${data.retailers_count} retailers`);
+      
+      // Refresh the stats after successful update
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error('Error refreshing plans:', error);
+      toast.error('Failed to refresh energy plans');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card className="border-white/20 bg-white/10 backdrop-blur-xl animate-pulse">
@@ -113,16 +137,30 @@ export default function EnergyPlanStats() {
   return (
     <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
       <CardContent className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/20">
-            <Database className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/20">
+              <Database className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Energy Plans Database</h3>
+              <p className="text-sm text-muted-foreground">
+                Live data from Australian Energy Regulator
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold">Energy Plans Database</h3>
-            <p className="text-sm text-muted-foreground">
-              Live data from Australian Energy Regulator
-            </p>
-          </div>
+          {stats.totalPlans === 0 && (
+            <Button 
+              onClick={refreshPlans} 
+              disabled={refreshing}
+              variant="outline"
+              size="sm"
+              className="bg-white/10 border-white/20 hover:bg-white/20"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Load Plans
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
