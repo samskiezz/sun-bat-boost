@@ -9,6 +9,7 @@ import { AppTabs } from "./AppTabs";
 import { RebatesCalculator } from "./RebatesCalculator";
 import { BatteryROICalculator } from "./BatteryROICalculator";
 import { SavingsWizard } from "./SavingsWizard";
+import OCRToMapDemo from "./OCRToMapDemo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,7 +28,7 @@ import TopBar from "./TopBar";
 import { messageBus } from "@/lib/ai/MessageBus";
 import { modelRegistry } from "@/lib/ai/ModelRegistry";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "OCR Demo";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -347,7 +348,7 @@ const SolarCalculator = () => {
         <div className="mx-auto max-w-6xl space-y-8">
           <SystemManagerCard devMode={devMode} />
           
-          <AppTabs activeTab={activeTab} onTabChange={handleTabChange} />
+          <AppTabs activeTab={activeTab} onTabChange={handleTabChange} showOCRDemo={devMode} />
           
           {activeTab === "Rebates Calculator" && (
             <RebatesCalculator
@@ -376,6 +377,10 @@ const SolarCalculator = () => {
           
           {activeTab === "Battery ROI Calculator" && (
             <BatteryROICalculator />
+          )}
+          
+          {activeTab === "OCR Demo" && (
+            <OCRToMapDemo />
           )}
           
           {/* AI Assistant - Only shown in dev mode */}

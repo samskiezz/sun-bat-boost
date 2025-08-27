@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,8 @@ interface SiteData {
 interface SiteShadingAnalyzerProps {
   siteData: SiteData;
   onSiteDataUpdate: (data: SiteData) => void;
+  autoAddress?: string;  // For OCR-extracted address auto-population
+  autoPostcode?: string; // For OCR-extracted postcode
 }
 
 interface ShadingAnalysis {
@@ -44,7 +46,7 @@ interface ShadingAnalysis {
   features: string[];
 }
 
-export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: SiteShadingAnalyzerProps) {
+export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate, autoAddress, autoPostcode }: SiteShadingAnalyzerProps) {
   const [manualAddress, setManualAddress] = useState(siteData.address || '');
   const [analyzing, setAnalyzing] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
@@ -53,7 +55,33 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
     siteData.latitude || -33.8688, 
     siteData.longitude || 151.2093
   ]);
+  const mapRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Update address input when manualAddress changes
+  useEffect(() => {
+    if (manualAddress !== siteData.address) {
+      onSiteDataUpdate({ ...siteData, address: manualAddress });
+    }
+  }, [manualAddress]);
+
+  // Initialize map with OpenStreetMap
+  useEffect(() => {
+    if (!mapRef.current || !siteData.latitude || !siteData.longitude) return;
+
+    // Clear existing map
+    mapRef.current.innerHTML = '';
+
+    // Create iframe with OpenStreetMap embed
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${siteData.longitude-0.01},${siteData.latitude-0.01},${siteData.longitude+0.01},${siteData.latitude+0.01}&layer=mapnik&marker=${siteData.latitude},${siteData.longitude}`;
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.style.borderRadius = '8px';
+    
+    mapRef.current.appendChild(iframe);
+  }, [siteData.latitude, siteData.longitude]);
 
   // Handle map click for location selection
   const handleMapClick = (lat: number, lng: number) => {
@@ -281,49 +309,20 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
           <div className="w-full h-64 bg-muted rounded-lg border shadow-sm overflow-hidden">
             <div 
               id="map" 
+              ref={mapRef}
               style={{ height: '100%', width: '100%' }}
-              className="relative"
+              className="relative bg-gray-100"
             >
-              {/* Placeholder for satellite view */}
-              <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 to-blue-900/20 flex items-center justify-center">
-                <div className="text-center text-white/70">
-                  <Eye className="w-8 h-8 mx-auto mb-2" />
-                  <p>Satellite View</p>
-                  <p className="text-xs">Click to select location</p>
-                </div>
-              </div>
-              
-              {/* Location marker */}
-              {siteData.latitude && siteData.longitude && (
-                <div 
-                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10"
-                  style={{
-                    left: '50%',
-                    top: '50%'
-                  }}
-                >
-                  <MapPin className="w-6 h-6 text-red-500 drop-shadow-lg" />
+              {/* Fallback when no location is set */}
+              {(!siteData.latitude || !siteData.longitude) && (
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center">
+                  <div className="text-center text-gray-600">
+                    <Eye className="w-8 h-8 mx-auto mb-2" />
+                    <p className="font-medium">Interactive Map</p>
+                    <p className="text-xs">Enter address to view satellite imagery</p>
+                  </div>
                 </div>
               )}
-              
-              {/* Click handler overlay */}
-              <div 
-                className="absolute inset-0 cursor-crosshair z-20"
-                onClick={(e) => {
-                  if (siteData.latitude && siteData.longitude) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    // Simple offset calculation for demo
-                    const latOffset = (y - rect.height/2) * 0.0001;
-                    const lngOffset = (x - rect.width/2) * 0.0001;
-                    handleMapClick(
-                      siteData.latitude + latOffset,
-                      siteData.longitude + lngOffset
-                    );
-                  }
-                }}
-              />
             </div>
           </div>
           

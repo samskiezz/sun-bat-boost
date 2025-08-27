@@ -17,6 +17,8 @@ interface ExtractedBillData {
   billAmount?: number;
   dailySupply?: number;
   rate?: number;
+  address?: string;
+  postcode?: string;
 }
 
 interface SmartOCRScannerProps {
@@ -99,48 +101,78 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
                        text.match(/amount[:\s]*\$?(\d+(?:\.\d{2})?)/i) ||
                        text.match(/\$(\d+(?:\.\d{2})?)/);
     if (billMatches) {
-      const billAmount = parseFloat(billMatches[1]);
-      if (billAmount > 50 && billAmount < 5000) { // Reasonable bill range
+      const amount = parseFloat(billMatches[1]);
+      fields.push({
+        label: "Bill Amount ($)",
+        value: amount,
+        confidence: 0.75,
+        editable: true,
+        key: "billAmount"
+      });
+    }
+
+    // Extract service address
+    const addressPatterns = [
+      /service\s+address[:\s]*([^\n]+)/i,
+      /supply\s+address[:\s]*([^\n]+)/i,
+      /premises[:\s]*([^\n]+)/i,
+      /property[:\s]*([^\n]+)/i,
+      /address[:\s]*([^\n]+(?:\d{4}))/i
+    ];
+    
+    for (const pattern of addressPatterns) {
+      const addressMatch = text.match(pattern);
+      if (addressMatch) {
+        const address = addressMatch[1].trim().replace(/\s+/g, ' ');
         fields.push({
-          label: "Bill Amount ($)",
-          value: billAmount,
-          confidence: 0.80,
+          label: "Service Address",
+          value: address,
+          confidence: 0.85,
           editable: true,
-          key: "billAmount"
+          key: "address"
         });
+        
+        // Extract postcode from address
+        const postcodeMatch = address.match(/\b(\d{4})\b/);
+        if (postcodeMatch) {
+          fields.push({
+            label: "Postcode",
+            value: postcodeMatch[1],
+            confidence: 0.90,
+            editable: true,
+            key: "postcode"
+          });
+        }
+        break;
       }
     }
 
     // Extract daily supply charge
-    const supplyMatches = text.match(/supply[:\s]*(\d+(?:\.\d{2})?)/i) ||
-                         text.match(/daily[:\s]*(\d+(?:\.\d{2})?)/i);
+    const supplyMatches = text.match(/daily[:\s]*supply[:\s]*\$?(\d+(?:\.\d{2})?)/i) ||
+                         text.match(/supply[:\s]*charge[:\s]*\$?(\d+(?:\.\d{2})?)/i);
     if (supplyMatches) {
-      const dailySupply = parseFloat(supplyMatches[1]);
-      if (dailySupply > 0 && dailySupply < 200) { // Reasonable supply charge range
-        fields.push({
-          label: "Daily Supply (c/day)",
-          value: dailySupply,
-          confidence: 0.75,
-          editable: true,
-          key: "dailySupply"
-        });
-      }
+      const supply = parseFloat(supplyMatches[1]);
+      fields.push({
+        label: "Daily Supply ($)",
+        value: supply,
+        confidence: 0.80,
+        editable: true,
+        key: "dailySupply"
+      });
     }
 
     // Extract rate (c/kWh)
-    const rateMatches = text.match(/(\d+(?:\.\d{1,2})?)\s*c\/kwh/i) ||
-                       text.match(/rate[:\s]*(\d+(?:\.\d{1,2})?)/i);
+    const rateMatches = text.match(/(\d+(?:\.\d+)?)\s*¢?\/kWh/i) ||
+                       text.match(/rate[:\s]*(\d+(?:\.\d+)?)/i);
     if (rateMatches) {
       const rate = parseFloat(rateMatches[1]);
-      if (rate > 5 && rate < 100) { // Reasonable rate range
-        fields.push({
-          label: "Rate (c/kWh)",
-          value: rate,
-          confidence: 0.70,
-          editable: true,
-          key: "rate"
-        });
-      }
+      fields.push({
+        label: "Rate (c/kWh)",
+        value: rate,
+        confidence: 0.70,
+        editable: true,
+        key: "rate"
+      });
     }
 
     return fields;
@@ -174,13 +206,14 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
         const fields = extractBillData(extractedText);
         setExtractedFields(fields);
 
-        // Convert to the expected format
+        // Convert to the expected format with proper typing
         const billData: ExtractedBillData = {};
         fields.forEach(field => {
-          if (field.key === 'retailer' || field.key === 'plan') {
-            billData[field.key] = field.value as string;
+          const key = field.key;
+          if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
+            billData[key] = field.value as string;
           } else {
-            billData[field.key] = field.value as number;
+            billData[key] = field.value as number;
           }
         });
 
@@ -227,13 +260,14 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
         i === index ? { ...field, value: newValue } : field
       );
       
-      // Update the parent with new data
+      // Update the parent with new data and proper typing
       const billData: ExtractedBillData = {};
       updated.forEach(field => {
-        if (field.key === 'retailer' || field.key === 'plan') {
-          billData[field.key] = field.value as string;
+        const key = field.key;
+        if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
+          billData[key] = field.value as string;
         } else {
-          billData[field.key] = field.value as number;
+          billData[key] = field.value as number;
         }
       });
       onExtraction(billData);

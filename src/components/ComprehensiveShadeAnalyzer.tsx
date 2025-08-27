@@ -286,6 +286,8 @@ export default function ComprehensiveShadeAnalyzer({
                 addMapsAnalysis(mapsData);
                 setFinalData(prev => ({ ...prev, ...mapsData }));
               }}
+              autoAddress={billData?.address}
+              autoPostcode={billData?.postcode}
             />
 
             {dataSources.length > 0 && (

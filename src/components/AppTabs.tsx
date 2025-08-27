@@ -1,34 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Battery, Sparkles } from "lucide-react";
+import { Calculator, Battery, Sparkles, FileText } from "lucide-react";
 
-const TABS = ["Rebates Calculator", "How much can I save?", "Battery ROI Calculator"] as const;
-type Tab = typeof TABS[number];
-
-const tabIcons = {
-  "Rebates Calculator": Calculator,
-  "How much can I save?": Sparkles,
-  "Battery ROI Calculator": Battery,
-};
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "OCR Demo";
 
 interface AppTabsProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  showOCRDemo?: boolean;
 }
 
-export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
+export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange, showOCRDemo }) => {
+  const tabs = [
+    { id: "Rebates Calculator" as Tab, label: "Rebates Calculator", icon: Calculator },
+    { id: "How much can I save?" as Tab, label: "How Much Can I Save?", icon: Sparkles },
+    { id: "Battery ROI Calculator" as Tab, label: "Battery ROI Calculator", icon: Battery },
+    ...(showOCRDemo ? [{ id: "OCR Demo" as Tab, label: "OCR Demo", icon: FileText }] : [])
+  ];
+
   return (
     <div className="sticky top-0 z-20 mb-6">
       <div className="flex gap-2 p-2 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-2xl">
-        {TABS.map((tab) => {
-          const Icon = tabIcons[tab];
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
           return (
             <motion.button
-              key={tab}
-              onClick={() => onTabChange(tab)}
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
               className={`
                 relative px-4 py-3 rounded-xl text-sm transition-all duration-200 flex items-center gap-2
-                ${activeTab === tab 
+                ${activeTab === tab.id 
                   ? "font-semibold text-foreground" 
                   : "opacity-70 hover:opacity-90 text-muted-foreground"
                 }
@@ -37,14 +38,15 @@ export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
               whileTap={{ scale: 0.98 }}
             >
               <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden">
-                {tab === "Rebates Calculator" && "Rebates"}
-                {tab === "How much can I save?" && "Savings"}
-                {tab === "Battery ROI Calculator" && "Battery ROI"}
+                {tab.id === "Rebates Calculator" && "Rebates"}
+                {tab.id === "How much can I save?" && "Savings"}
+                {tab.id === "Battery ROI Calculator" && "Battery ROI"}
+                {tab.id === "OCR Demo" && "OCR"}
               </span>
               
-              {activeTab === tab && (
+              {activeTab === tab.id && (
                 <motion.div 
                   layoutId="activeTab" 
                   className="absolute inset-0 rounded-xl bg-white/10 border border-white/30"
