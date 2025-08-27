@@ -35,40 +35,65 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
   try {
     console.log(`Looking up DNSP for postcode ${postcodeNum}`);
     
-    // Use the new spatial resolver
-    const { data, error } = await supabase.functions.invoke('dnsps-resolve', {
-      body: { postcode: postcodeNum, version: 'v1' }
-    });
+    // Try the new spatial resolver first, but fall back to old system
+    try {
+      const { data, error } = await supabase.functions.invoke('dnsps-resolve', {
+        body: { postcode: postcodeNum, version: 'v1' }
+      });
 
-    if (error) {
-      console.error('Error calling DNSP resolver:', error);
-      throw new Error('Failed to resolve DNSP');
+      if (data?.ok && data.results?.length > 0) {
+        const result = data.results[0];
+        const dnspDetails: DnspDetails = {
+          state: result.state,
+          network: result.dnsp_name,
+          postcode: result.postcode,
+          export_cap_kw: result.export_cap_kw || 5,
+          supports_flexible_export: result.supports_flexible_export || false,
+          phase_limit: result.phase_limit || '1P<=5kW;3P<=10kW',
+          dnsp_code: result.dnsp_code,
+          overlap_pct: result.overlap_pct
+        };
+        
+        // Cache the result
+        dnspCache.set(cacheKey, dnspDetails);
+        return dnspDetails;
+      }
+    } catch (spatialError) {
+      console.warn('Spatial resolver failed, falling back to range-based lookup:', spatialError);
     }
 
-    if (!data?.ok) {
-      console.error('DNSP resolver returned error:', data?.error);
-      throw new Error(data?.error || 'DNSP resolution failed');
+    // Fallback to the old range-based system
+    console.log('Using fallback range-based DNSP lookup');
+    const { data: rangeData, error: rangeError } = await supabase
+      .from('dnsps')
+      .select('state, network, postcode_start, postcode_end, export_cap_kw')
+      .lte('postcode_start', postcodeNum)
+      .gte('postcode_end', postcodeNum)
+      .order('state')
+      .limit(1);
+
+    if (rangeError) {
+      console.error('Error fetching DNSP data:', rangeError);
+      throw new Error('Failed to fetch DNSP data');
     }
 
-    const results = data.results || [];
-    console.log(`DNSP resolver result:`, { results, postcodeNum });
-    
+    const results = rangeData || [];
+    console.log(`Fallback DNSP query result:`, { results, postcodeNum });
+
     if (results.length === 0) {
       console.warn(`No DNSP found for postcode ${postcodeNum}`);
       throw new Error(`No distribution network found for postcode ${postcodeNum}`);
     }
-    
-    // Convert to expected format (use first result)
+
+    // Convert range-based result to expected format
     const result = results[0];
     const dnspDetails: DnspDetails = {
       state: result.state,
-      network: result.dnsp_name,
-      postcode: result.postcode,
+      network: result.network,
+      postcode: postcodeNum,
       export_cap_kw: result.export_cap_kw || 5,
-      supports_flexible_export: result.supports_flexible_export || false,
-      phase_limit: result.phase_limit || '1P<=5kW;3P<=10kW',
-      dnsp_code: result.dnsp_code,
-      overlap_pct: result.overlap_pct
+      supports_flexible_export: false,
+      phase_limit: '1P<=5kW;3P<=10kW'
     };
     
     // Cache the result
