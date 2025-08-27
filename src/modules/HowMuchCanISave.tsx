@@ -14,6 +14,9 @@ import AccuracyToggle from "@/components/AccuracyToggle";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
+import SystemSizingStep from "@/components/SystemSizingStep";
+import BestRatesStep from "@/components/BestRatesStep";
+import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 
 type Step = 'method' | 'current-bill' | 'location' | 'system-sizing' | 'best-rates' | 'savings-analysis';
 
@@ -542,41 +545,6 @@ export default function HowMuchCanISave() {
                 systemSize={systemSize}
               />
             )}
-              <div className="space-y-6">
-                <TopThreePlansCard context={rankingContext} />
-                
-                <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingDown className="h-5 w-5" />
-                      Your Savings Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="text-center p-4 rounded-2xl bg-gradient-to-r from-green-500/10 to-green-600/10 border border-green-500/20">
-                        <div className="text-2xl font-bold text-green-600">
-                          ${Math.max(0, billData.quarterlyBill * 4 - 2200).toLocaleString()}
-                        </div>
-                        <p className="text-sm text-muted-foreground">Potential Annual Savings</p>
-                      </div>
-                      <div className="text-center p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-blue-600/10 border border-blue-500/20">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {planCount.toLocaleString()}
-                        </div>
-                        <p className="text-sm text-muted-foreground">Plans Compared</p>
-                      </div>
-                      <div className="text-center p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-purple-600/10 border border-purple-500/20">
-                        <div className="text-2xl font-bold text-purple-600">
-                          {((Math.max(0, billData.quarterlyBill * 4 - 2200) / (billData.quarterlyBill * 4)) * 100).toFixed(0)}%
-                        </div>
-                        <p className="text-sm text-muted-foreground">Potential Savings</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </motion.div>
         </AnimatePresence>
 
@@ -595,19 +563,29 @@ export default function HowMuchCanISave() {
               </Button>
               
               <div className="text-sm text-muted-foreground">
-                {currentStep === 'results' ? 'Compare plans above' : `Step ${currentStepIndex + 1} of ${steps.length}`}
+                {currentStep === 'savings-analysis' ? 'Review your comprehensive savings analysis' : `Step ${currentStepIndex + 1} of ${steps.length}`}
               </div>
               
-              {currentStep !== 'results' ? (
+              {currentStep !== 'savings-analysis' ? (
                 <Button 
-                  onClick={currentStep === 'location' ? calculateSavings : nextStep}
+                  onClick={() => {
+                    if (currentStep === 'method') nextStep();
+                    else if (currentStep === 'current-bill') nextStep();
+                    else if (currentStep === 'location') calculateSystemSize();
+                    else if (currentStep === 'system-sizing') nextStep();
+                    else if (currentStep === 'best-rates') nextStep();
+                  }}
                   disabled={
                     (currentStep === 'current-bill' && (!billData.quarterlyBill || !billData.quarterlyUsage)) ||
                     (currentStep === 'location' && (!locationData.postcode || !locationData.state))
                   }
                   className="bg-primary hover:bg-primary/90"
                 >
-                  {currentStep === 'location' ? 'Find Savings' : 'Next'}
+                  {currentStep === 'method' && 'Start Analysis'}
+                  {currentStep === 'current-bill' && 'Next: Location'}
+                  {currentStep === 'location' && 'Auto-Size System'}
+                  {currentStep === 'system-sizing' && 'Find Best Rates'}
+                  {currentStep === 'best-rates' && 'View Savings'}
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
