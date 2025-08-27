@@ -13,9 +13,9 @@ import TopThreePlansCard from "@/components/TopThreePlansCard";
 import AccuracyToggle from "@/components/AccuracyToggle";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
-import SmartOCRScanner from "@/components/SmartOCRScanner";
+import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
 
-type Step = 'method' | 'current-bill' | 'location' | 'results';
+type Step = 'method' | 'current-bill' | 'location' | 'system-sizing' | 'best-rates' | 'savings-analysis';
 
 interface BillData {
   currentRetailer: string;
@@ -24,6 +24,18 @@ interface BillData {
   quarterlyBill: number;
   dailySupply: number;
   averageRate: number;
+  peakUsage?: number;
+  offPeakUsage?: number;
+  shoulderUsage?: number;
+  peakRate?: number;
+  offPeakRate?: number;
+  shoulderRate?: number;
+  touWindows?: Array<{
+    period: string;
+    hours: string;
+    rate: number;
+    usage: number;
+  }>;
 }
 
 interface LocationData {
@@ -100,18 +112,28 @@ export default function HowMuchCanISave() {
     fetchData();
   }, []);
 
+  const [systemSize, setSystemSize] = useState({ 
+    recommendedKw: 0, 
+    panels: 0, 
+    battery: 0, 
+    estimatedGeneration: 0 
+  });
+  const [topRates, setTopRates] = useState([]);
+
   const steps = [
     { id: 'method', title: 'Input Method', icon: Upload },
-    { id: 'current-bill', title: 'Current Bill', icon: FileText },
+    { id: 'current-bill', title: 'Energy Analysis', icon: FileText },
     { id: 'location', title: 'Location', icon: MapPin },
-    { id: 'results', title: 'Savings', icon: TrendingDown }
+    { id: 'system-sizing', title: 'Auto Size', icon: Zap },
+    { id: 'best-rates', title: 'Best Rates', icon: TrendingDown },
+    { id: 'savings-analysis', title: 'Savings', icon: Calculator }
   ];
 
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
   const nextStep = () => {
-    const stepOrder: Step[] = ['method', 'current-bill', 'location', 'results'];
+    const stepOrder: Step[] = ['method', 'current-bill', 'location', 'system-sizing', 'best-rates', 'savings-analysis'];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
@@ -119,15 +141,31 @@ export default function HowMuchCanISave() {
   };
 
   const prevStep = () => {
-    const stepOrder: Step[] = ['method', 'current-bill', 'location', 'results'];
+    const stepOrder: Step[] = ['method', 'current-bill', 'location', 'system-sizing', 'best-rates', 'savings-analysis'];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(stepOrder[currentIndex - 1]);
     }
   };
 
+  const calculateSystemSize = () => {
+    const annualUsage = billData.quarterlyUsage * 4;
+    const recommendedKw = Math.ceil(annualUsage / 1200); // Rough sizing
+    const panels = Math.ceil(recommendedKw / 0.4); // 400W panels
+    const battery = Math.ceil(recommendedKw * 1.5); // 1.5x battery sizing
+    const estimatedGeneration = recommendedKw * 1400; // Annual generation estimate
+    
+    setSystemSize({
+      recommendedKw,
+      panels,
+      battery,
+      estimatedGeneration
+    });
+    setCurrentStep('system-sizing');
+  };
+
   const calculateSavings = () => {
-    setCurrentStep('results');
+    setCurrentStep('savings-analysis');
   };
 
   // Create context for plan ranking
@@ -255,7 +293,7 @@ export default function HowMuchCanISave() {
                           </p>
                         </div>
                         <Badge variant={inputMethod === 'upload' ? 'default' : 'secondary'}>
-                          {inputMethod === 'upload' ? 'Selected' : 'Select'}
+                          {inputMethod === 'upload' ? 'Selected' : 'Smart Analysis'}
                         </Badge>
                       </CardContent>
                     </Card>
@@ -274,7 +312,8 @@ export default function HowMuchCanISave() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {inputMethod === 'upload' ? (
-                    <SmartOCRScanner
+                    <EnhancedOCRScanner
+                      mode="bill"
                       onExtraction={(data) => {
                         setBillData({
                           currentRetailer: data.retailer || '',
@@ -282,7 +321,13 @@ export default function HowMuchCanISave() {
                           quarterlyUsage: data.usage || 0,
                           quarterlyBill: data.billAmount || 0,
                           dailySupply: data.dailySupply || 100,
-                          averageRate: data.rate || 28
+                          averageRate: data.rate || 28,
+                          peakUsage: data.peakUsage,
+                          offPeakUsage: data.offPeakUsage,
+                          shoulderUsage: data.shoulderUsage,
+                          peakRate: data.peakRate,
+                          offPeakRate: data.offPeakRate,
+                          shoulderRate: data.shoulderRate
                         });
                         setIsProcessingBill(false);
                       }}
@@ -471,7 +516,32 @@ export default function HowMuchCanISave() {
               </Card>
             )}
 
-            {currentStep === 'results' && (
+            {currentStep === 'system-sizing' && (
+              <SystemSizingStep
+                billData={billData}
+                locationData={locationData}
+                systemSize={systemSize}
+                onSystemUpdate={(system) => setSystemSize(system)}
+                onNext={nextStep}
+              />
+            )}
+
+            {currentStep === 'best-rates' && (
+              <BestRatesStep
+                billData={billData}
+                locationData={locationData}
+                systemSize={systemSize}
+                onNext={nextStep}
+              />
+            )}
+
+            {currentStep === 'savings-analysis' && (
+              <SavingsAnalysisStep
+                billData={billData}
+                locationData={locationData}
+                systemSize={systemSize}
+              />
+            )}
               <div className="space-y-6">
                 <TopThreePlansCard context={rankingContext} />
                 
