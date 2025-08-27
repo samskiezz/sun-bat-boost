@@ -554,7 +554,7 @@ export default function TrainingAutomation() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium">OCR Training</div>
-                  <div className="text-xs text-muted-foreground">Document text recognition</div>
+                  <div className="text-xs text-muted-foreground">Extract panels, batteries, inverters from proposals/quotes/invoices</div>
                 </div>
                 <Switch 
                   checked={config.trainingModes?.ocrTraining ?? true}
