@@ -30,12 +30,15 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
   }
 
   try {
+    console.log(`Looking up DNSP for postcode ${postcodeNum}`);
     const { data, error } = await supabase
       .from('dnsps')
       .select('state, network, postcode_start, postcode_end, export_cap_kw')
       .lte('postcode_start', postcodeNum)
       .gte('postcode_end', postcodeNum)
       .order('state');
+    
+    console.log(`DNSP query result:`, { data, error, postcodeNum });
 
     if (error) {
       console.error('Error fetching DNSP data:', error);
@@ -79,8 +82,12 @@ export function getDefaultMeterType(state: string): "Single" | "TOU" | "Demand" 
  * Clear the DNSP cache (useful after importing new data)
  */
 export function clearDnspCache() {
+  console.log('Clearing DNSP cache');
   dnspCache.clear();
 }
+
+// Clear cache on module load to ensure fresh data
+clearDnspCache();
 
 /**
  * Get state from postcode (fallback if DNSP lookup fails)
