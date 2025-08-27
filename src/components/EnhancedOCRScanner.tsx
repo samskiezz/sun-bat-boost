@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDropzone } from "react-dropzone";
 import { pdfExtractor } from "@/utils/pdfExtract";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 // ... keep existing code (all interfaces and types)
 
@@ -522,6 +523,91 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
     return fields;
   };
 
+  const extractQuoteData = (text: string): ExtractedField[] => {
+    console.log('🔍 Extracting quote data from text:', text.substring(0, 200) + '...');
+    const fields: ExtractedField[] = [];
+
+    // Extract system size
+    const systemSizeMatches = text.match(/(\d+(?:\.\d{1,2})?)\s*kw/i) ||
+                              text.match(/system.*?(\d+(?:\.\d{1,2})?)/i);
+    if (systemSizeMatches) {
+      fields.push({
+        label: "System Size (kW)",
+        value: parseFloat(systemSizeMatches[1]),
+        confidence: 0.90,
+        editable: true,
+        key: "systemSize",
+        category: "system"
+      });
+    }
+
+    // Extract panel count
+    const panelMatches = text.match(/(\d+)\s*panels?/i) ||
+                        text.match(/panels?[:\s]*(\d+)/i);
+    if (panelMatches) {
+      fields.push({
+        label: "Panel Count",
+        value: parseInt(panelMatches[1]),
+        confidence: 0.85,
+        editable: true,
+        key: "panelCount",
+        category: "system"
+      });
+    }
+
+    // Extract battery size
+    const batteryMatches = text.match(/battery[:\s]*(\d+(?:\.\d{1,2})?)/i) ||
+                          text.match(/(\d+(?:\.\d{1,2})?)\s*kwh.*battery/i);
+    if (batteryMatches) {
+      fields.push({
+        label: "Battery Size (kWh)",
+        value: parseFloat(batteryMatches[1]),
+        confidence: 0.80,
+        editable: true,
+        key: "batterySize",
+        category: "system"
+      });
+    }
+
+    // Extract address
+    const addressMatches = text.match(/(?:site\s+address|installation\s+address|property\s+address|address)[:\s]*([A-Za-z0-9\s,.-]+)(?:\d{4})/i) ||
+                          text.match(/(\d+\s+[A-Za-z\s,.-]+)(?:\s+\d{4})/i);
+    if (addressMatches) {
+      const address = addressMatches[1].trim();
+      if (address.length > 10 && address.split(' ').length >= 3) {
+        fields.push({
+          label: "Installation Address",
+          value: address,
+          confidence: 0.85,
+          editable: true,
+          key: "address",
+          category: "site"
+        });
+      }
+    }
+
+    // Extract postcode
+    const postcodeMatches = text.match(/\b(\d{4})\b/g);
+    if (postcodeMatches) {
+      const validPostcodes = postcodeMatches.filter(pc => {
+        const num = parseInt(pc);
+        return num >= 1000 && num <= 9999;
+      });
+      if (validPostcodes.length > 0) {
+        fields.push({
+          label: "Postcode",
+          value: validPostcodes[0],
+          confidence: 0.90,
+          editable: true,
+          key: "postcode",
+          category: "site"
+        });
+      }
+    }
+
+    return fields;
+  };
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
@@ -541,32 +627,42 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       }
 
       if (extractedText.length > 0) {
-        // Use AI to analyze the document
+        // Use AI to analyze the document with timeout
         console.log(`🤖 Sending to AI for ${mode} analysis...`);
         
-        const response = await fetch('https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/ai-document-analyzer', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`
-          },
-          body: JSON.stringify({
-            text: extractedText,
-            documentType: mode,
-            filename: file.name
-          })
-        });
-
-        const aiResult = await response.json();
-        
-        if (aiResult.success && aiResult.data) {
-          const aiData = aiResult.data;
-          console.log('🎯 AI extraction successful:', aiData);
+        try {
+          // Create a timeout promise
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 15000)
+          );
           
-          // Convert AI results to field format
-          const fields: ExtractedField[] = [];
+          // Create the API call promise
+          const apiPromise = supabase.functions.invoke('ai-document-analyzer', {
+            body: {
+              text: extractedText.substring(0, 10000), // Limit text size
+              documentType: mode,
+              filename: file.name
+            }
+          });
           
-          if (mode === 'bill') {
+          // Race between timeout and API call
+          const { data: aiResult, error: supabaseError } = await Promise.race([
+            apiPromise,
+            timeoutPromise
+          ]) as any;
+          
+          if (supabaseError) {
+            throw new Error(supabaseError.message);
+          }
+          
+          if (aiResult?.success && aiResult?.data) {
+            const aiData = aiResult.data;
+            console.log('🎯 AI extraction successful:', aiData);
+            
+            // Convert AI results to field format
+            const fields: ExtractedField[] = [];
+            
+            if (mode === 'bill') {
             // Address data
             if (aiData.address) {
               fields.push({
@@ -830,14 +926,43 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
           onExtraction(billData);
           
+            toast({
+              title: `AI Analysis Complete`,
+              description: `Extracted ${fields.length} fields with ${Math.round(aiData.confidence || 85)}% confidence`,
+              variant: "default"
+            });
+            
+          } else {
+            throw new Error(aiResult?.error || 'AI analysis failed');
+          }
+        } catch (aiError) {
+          // Fall back to basic extraction if AI fails
+          console.warn('AI analysis failed, falling back to basic extraction:', aiError);
+          
           toast({
-            title: `AI Analysis Complete`,
-            description: `Extracted ${fields.length} fields with ${Math.round(aiData.confidence)}% confidence`,
+            title: "Using Basic Extraction",
+            description: "AI analysis failed, using pattern-based extraction instead.",
             variant: "default"
           });
           
-        } else {
-          throw new Error(aiResult.error || 'AI analysis failed');
+          const fallbackFields = mode === 'bill' 
+            ? extractBillData(extractedText) 
+            : extractQuoteData(extractedText);
+          
+          setExtractedFields(fallbackFields);
+
+          // Create bill data object
+          const billData: EnhancedBillData = {};
+          fallbackFields.forEach(field => {
+            if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode' || 
+                field.key === 'panelBrand' || field.key === 'panelModel' || field.key === 'inverterBrand' || field.key === 'batteryBrand') {
+              (billData as any)[field.key] = field.value as string;
+            } else {
+              (billData as any)[field.key] = field.value as number;
+            }
+          });
+
+          onExtraction(billData);
         }
       } else {
         throw new Error('No text extracted from document');
