@@ -5,40 +5,72 @@ import { ResultCards } from "./ResultCards";
 import { LimitLine } from "./LimitLine";
 import { InitialDataLoader } from "./InitialDataLoader";
 import { SEOHead } from "./SEOHead";
-import { AIAssistant } from "./AIAssistant";
+import { EnhancedAISystem } from "./EnhancedAISystem";
+import PricingTiers from "./PricingTiers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateBatteryRebates, getStateFromPostcode, type RebateInputs } from "@/utils/rebateCalculations";
 import { calculateSolarRebates, type CalculatorInputs } from "@/utils/solarCalculations";
 import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
 import { AICore, type AppMode } from "@/lib/ai/AICore";
-import { Sparkles, Zap, Brain } from "lucide-react";
+import { Sparkles, Zap, Brain, Crown, Users } from "lucide-react";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
   const [appMode, setAppMode] = useState<AppMode>('lite');
+  const [userTier, setUserTier] = useState<'free' | 'lite' | 'pro'>('free');
   const [showAI, setShowAI] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
   const aiCoreRef = useRef<AICore | null>(null);
 
   useEffect(() => {
-    // Initialize AI Core when mode changes
-    if (appMode === 'pro') {
+    // Initialize AI Core and show AI based on user tier
+    if (userTier !== 'free') {
       aiCoreRef.current = new AICore({ mode: appMode });
       setShowAI(true);
     } else {
       setShowAI(false);
     }
-  }, [appMode]);
+  }, [appMode, userTier]);
+
+  useEffect(() => {
+    // Load user tier from localStorage
+    const savedTier = localStorage.getItem('userTier') as 'free' | 'lite' | 'pro' | null;
+    const savedAuth = localStorage.getItem('isAuthenticated') === 'true';
+    
+    if (savedTier) {
+      setUserTier(savedTier);
+      setIsAuthenticated(savedAuth);
+      if (savedTier === 'pro') {
+        setAppMode('pro');
+      }
+    }
+  }, []);
 
   const handleCalculate = async (formData: any) => {
-    // Notify AI Core of user action if in pro mode
-    if (appMode === 'pro' && aiCoreRef.current) {
+    // Check usage limits
+    if (!canUseCalculator()) {
+      toast({
+        title: "Daily limit reached",
+        description: "You've used all 3 free calculations today. Sign up for unlimited access!",
+        variant: "destructive"
+      });
+      setShowPricing(true);
+      return;
+    }
+
+    incrementUsage();
+
+    // Notify AI Core of user action if AI is available
+    if (userTier !== 'free' && aiCoreRef.current) {
       await aiCoreRef.current.onUserAction('USER_STARTED_CALCULATION', formData);
     }
     try {
@@ -120,7 +152,7 @@ const SolarCalculator = () => {
       });
 
       // Notify AI Core of successful calculation
-      if (appMode === 'pro' && aiCoreRef.current) {
+      if (userTier !== 'free' && aiCoreRef.current) {
         await aiCoreRef.current.onUserAction('USER_COMPLETED_CALCULATION', calculationResults);
       }
     } catch (error) {
@@ -146,40 +178,99 @@ const SolarCalculator = () => {
     });
   };
 
+  const handleTierUpgrade = (tier: 'lite' | 'pro') => {
+    if (tier === 'lite') {
+      // Simulate sign-up process
+      setUserTier('lite');
+      setIsAuthenticated(true);
+      localStorage.setItem('userTier', 'lite');
+      localStorage.setItem('isAuthenticated', 'true');
+      setShowPricing(false);
+      toast({
+        title: "Welcome to Lite!",
+        description: "You now have unlimited calculations with AI suggestions.",
+      });
+    } else if (tier === 'pro') {
+      // This would trigger Stripe payment flow
+      setShowPricing(false);
+      toast({
+        title: "Redirecting to payment...",
+        description: "You'll be redirected to complete your Pro upgrade.",
+      });
+      // TODO: Integrate with Stripe payment flow
+    }
+  };
+
+  const handleSignUp = () => {
+    handleTierUpgrade('lite');
+  };
+
+  const handleUpgrade = () => {
+    setShowPricing(true);
+  };
+
+  const canUseCalculator = () => {
+    if (userTier !== 'free') return true;
+    
+    // Check daily usage for free tier
+    const today = new Date().toDateString();
+    const usageKey = `calculator_usage_${today}`;
+    const todayUsage = parseInt(localStorage.getItem(usageKey) || '0');
+    
+    return todayUsage < 3;
+  };
+
+  const incrementUsage = () => {
+    if (userTier === 'free') {
+      const today = new Date().toDateString();
+      const usageKey = `calculator_usage_${today}`;
+      const todayUsage = parseInt(localStorage.getItem(usageKey) || '0');
+      localStorage.setItem(usageKey, (todayUsage + 1).toString());
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <SEOHead results={results} location={results?.input?.postcode} />
       <InitialDataLoader />
       
-      {/* Mode Toggle Header */}
+      {/* Tier Status Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-semibold">Rebate Calculator</h1>
-              <Badge variant={appMode === 'pro' ? 'default' : 'outline'} className="gap-1">
-                {appMode === 'pro' ? <Sparkles className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
-                {appMode === 'pro' ? 'Pro Mode' : 'Lite Mode'}
+              <h1 className="text-lg font-semibold">Solar Rebate Calculator</h1>
+              <Badge variant={
+                userTier === 'pro' ? 'default' : 
+                userTier === 'lite' ? 'secondary' : 
+                'outline'
+              } className="gap-1">
+                {userTier === 'pro' && <Crown className="w-3 h-3" />}
+                {userTier === 'lite' && <Zap className="w-3 h-3" />}
+                {userTier === 'free' && <Users className="w-3 h-3" />}
+                {userTier === 'pro' ? 'Pro' : userTier === 'lite' ? 'Lite' : 'Free'} 
+                {userTier === 'free' && ' (3 daily)'}
               </Badge>
             </div>
             
             <div className="flex items-center gap-2">
-              <Button
-                variant={appMode === 'lite' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAppMode('lite')}
-              >
-                <Zap className="w-4 h-4 mr-1" />
-                Lite
-              </Button>
-              <Button
-                variant={appMode === 'pro' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAppMode('pro')}
-              >
-                <Sparkles className="w-4 h-4 mr-1" />
-                Pro
-              </Button>
+              {userTier === 'free' && (
+                <Button size="sm" onClick={() => setShowPricing(true)} className="bg-blue-600 hover:bg-blue-700">
+                  Sign Up Free
+                </Button>
+              )}
+              {userTier === 'lite' && (
+                <Button size="sm" onClick={handleUpgrade} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
+                  <Crown className="w-4 h-4 mr-1" />
+                  Upgrade to Pro
+                </Button>
+              )}
+              {userTier === 'pro' && (
+                <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-indigo-600">
+                  <Crown className="w-3 h-3 mr-1" />
+                  Pro Active
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -219,13 +310,15 @@ const SolarCalculator = () => {
               )}
             </div>
             
-            {/* AI Assistant Panel (Pro Mode Only) */}
+            {/* Enhanced AI System Panel */}
             {showAI && (
               <div className="lg:col-span-1">
                 <div className="sticky top-8">
-                  <AIAssistant 
+                  <EnhancedAISystem 
                     mode={appMode} 
+                    tier={userTier}
                     onSuggestionAccept={handleSuggestionAccept}
+                    onUpgradeRequest={handleUpgrade}
                     className="h-[600px]"
                   />
                 </div>
@@ -234,6 +327,21 @@ const SolarCalculator = () => {
           </div>
         </div>
       </div>
+
+      {/* Pricing Modal */}
+      <Dialog open={showPricing} onOpenChange={setShowPricing}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Choose Your Plan</DialogTitle>
+          </DialogHeader>
+          <PricingTiers
+            currentTier={userTier}
+            onTierSelect={handleTierUpgrade}
+            onSignUp={handleSignUp}
+            onUpgrade={() => handleTierUpgrade('pro')}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
