@@ -50,6 +50,8 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
 
   // Initialize Google Maps
   useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    
     const initMap = async () => {
       if (!window.google || !mapRef.current) return;
 
@@ -84,6 +86,18 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
         mapInstanceRef.current = map;
         setMapLoaded(true);
 
+        // Setup cleanup function
+        cleanup = () => {
+          if (marker) {
+            marker.setMap(null);
+          }
+          if (map && mapRef.current) {
+            // Clear all overlays and listeners
+            (window as any).google.maps.event.clearInstanceListeners(map);
+            mapInstanceRef.current = null;
+          }
+        };
+
         // If we have coordinates but no address, try reverse geocoding
         if (siteData.latitude && siteData.longitude && !siteData.address) {
           performReverseGeocode(siteData.latitude, siteData.longitude);
@@ -102,14 +116,53 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
     // Load Google Maps script if not already loaded
     if (!window.google) {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,places&loading=async`;
       script.async = true;
       script.onload = initMap;
+      script.onerror = () => {
+        console.error('Failed to load Google Maps script');
+        toast({
+          title: "Map Error",
+          description: "Failed to load Google Maps. Please check your connection.",
+          variant: "destructive"
+        });
+      };
       document.head.appendChild(script);
+      
+      // Setup cleanup for script
+      cleanup = () => {
+        const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`);
+        if (existingScript && existingScript.parentNode) {
+          existingScript.parentNode.removeChild(existingScript);
+        }
+      };
     } else {
       initMap();
     }
+
+    // Cleanup function
+    return () => {
+      if (cleanup) {
+        cleanup();
+      }
+      setMapLoaded(false);
+    };
   }, [siteData.latitude, siteData.longitude]);
+
+  // Separate cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      // Force cleanup on unmount
+      if (mapInstanceRef.current) {
+        try {
+          (window as any).google?.maps?.event?.clearInstanceListeners(mapInstanceRef.current);
+          mapInstanceRef.current = null;
+        } catch (error) {
+          console.warn('Error during map cleanup:', error);
+        }
+      }
+    };
+  }, []);
 
   const performGeocode = async (address: string) => {
     if (!window.google) return null;
@@ -135,17 +188,21 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
   const performReverseGeocode = async (lat: number, lng: number) => {
     if (!window.google) return;
 
-    const geocoder = new (window as any).google.maps.Geocoder();
-    
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status === 'OK' && results && results[0]) {
-        setManualAddress(results[0].formatted_address);
-        onSiteDataUpdate({
-          ...siteData,
-          address: results[0].formatted_address
-        });
-      }
-    });
+    try {
+      const geocoder = new (window as any).google.maps.Geocoder();
+      
+      geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
+        if (status === 'OK' && results && results[0]) {
+          setManualAddress(results[0].formatted_address);
+          onSiteDataUpdate({
+            ...siteData,
+            address: results[0].formatted_address
+          });
+        }
+      });
+    } catch (error) {
+      console.warn('Error in reverse geocoding:', error);
+    }
   };
 
   const handleAddressLookup = async () => {
@@ -167,23 +224,27 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
         
         // Update map
         if (mapInstanceRef.current) {
-          const newCenter = { lat: result.lat, lng: result.lng };
-          mapInstanceRef.current.setCenter(newCenter);
-          
-          // Add new marker
-          new (window as any).google.maps.Marker({
-            position: newCenter,
-            map: mapInstanceRef.current,
-            title: 'Installation Site',
-            icon: {
-              path: (window as any).google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: '#ff6b35',
-              fillOpacity: 0.8,
-              strokeColor: '#ffffff',
-              strokeWeight: 2
-            }
-          });
+          try {
+            const newCenter = { lat: result.lat, lng: result.lng };
+            mapInstanceRef.current.setCenter(newCenter);
+            
+            // Add new marker (remove old ones first)
+            const marker = new (window as any).google.maps.Marker({
+              position: newCenter,
+              map: mapInstanceRef.current,
+              title: 'Installation Site',
+              icon: {
+                path: (window as any).google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: '#ff6b35',
+                fillOpacity: 0.8,
+                strokeColor: '#ffffff',
+                strokeWeight: 2
+              }
+            });
+          } catch (error) {
+            console.warn('Error updating map:', error);
+          }
         }
         
         toast({
