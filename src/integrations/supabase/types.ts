@@ -352,6 +352,7 @@ export type Database = {
           last_refreshed: string
           meter_type: string
           network: string
+          plan_id: string | null
           plan_name: string
           retailer: string
           source: string
@@ -373,6 +374,7 @@ export type Database = {
           last_refreshed: string
           meter_type: string
           network: string
+          plan_id?: string | null
           plan_name: string
           retailer: string
           source: string
@@ -394,6 +396,7 @@ export type Database = {
           last_refreshed?: string
           meter_type?: string
           network?: string
+          plan_id?: string | null
           plan_name?: string
           retailer?: string
           source?: string
@@ -572,31 +575,40 @@ export type Database = {
       }
       plan_scores: {
         Row: {
+          annual_bill: number | null
           annual_cost_aud: number
+          annual_savings: number | null
           calc_context_hash: string
           created_at: string | null
           delta_vs_baseline_aud: number
           fit_value: number
           id: string
           plan_id: string | null
+          rank: number | null
         }
         Insert: {
+          annual_bill?: number | null
           annual_cost_aud: number
+          annual_savings?: number | null
           calc_context_hash: string
           created_at?: string | null
           delta_vs_baseline_aud: number
           fit_value: number
           id?: string
           plan_id?: string | null
+          rank?: number | null
         }
         Update: {
+          annual_bill?: number | null
           annual_cost_aud?: number
+          annual_savings?: number | null
           calc_context_hash?: string
           created_at?: string | null
           delta_vs_baseline_aud?: number
           fit_value?: number
           id?: string
           plan_id?: string | null
+          rank?: number | null
         }
         Relationships: [
           {
