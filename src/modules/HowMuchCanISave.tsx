@@ -87,19 +87,26 @@ export default function HowMuchCanISave() {
   const [retailers, setRetailers] = useState<string[]>([]);
   const [isProcessingBill, setIsProcessingBill] = useState(false);
 
-  // Get plan count and retailers from database
+  // Get solar equipment count for display instead of energy plans
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         
-        // Get plan count
-        const { count } = await supabase
-          .from('energy_plans')
+        // Get solar panel count for display
+        const { count: panelCount } = await supabase
+          .from('pv_modules')
           .select('*', { count: 'exact', head: true });
-        setPlanCount(count || 0);
         
-        // Get unique retailers
+        // Get battery count
+        const { count: batteryCount } = await supabase
+          .from('batteries')
+          .select('*', { count: 'exact', head: true });
+        
+        // Show combined solar equipment count
+        setPlanCount((panelCount || 0) + (batteryCount || 0));
+        
+        // Get unique retailers for bill analysis
         const { data: retailerData } = await supabase
           .from('energy_plans')
           .select('retailer')
@@ -240,33 +247,33 @@ export default function HowMuchCanISave() {
                   <Calculator className="h-10 w-10 text-primary" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                    How Much Can I Save?
-                  </h1>
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
-                    className="flex items-center justify-center gap-2 mt-2"
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+                  How Much Can I Save?
+                </h1>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="flex items-center justify-center gap-2 mt-2"
+                >
+                  <span className="text-lg text-muted-foreground">Going solar with</span>
+                  <motion.span 
+                    key={planCount}
+                    initial={{ scale: 1.2, color: "#3b82f6" }}
+                    animate={{ 
+                      scale: 1,
+                      color: ["#3b82f6", "#8b5cf6", "#3b82f6"]
+                    }}
+                    transition={{
+                      scale: { duration: 0.5 },
+                      color: { duration: 2, repeat: Infinity }
+                    }}
+                    className="text-lg font-bold text-primary"
                   >
-                    <span className="text-lg text-muted-foreground">Compare with</span>
-                     <motion.span 
-                       key={planCount}
-                       initial={{ scale: 1.2, color: "#3b82f6" }}
-                       animate={{ 
-                         scale: 1,
-                         color: ["#3b82f6", "#8b5cf6", "#3b82f6"]
-                       }}
-                       transition={{
-                         scale: { duration: 0.5 },
-                         color: { duration: 2, repeat: Infinity }
-                       }}
-                       className="text-lg font-bold text-primary"
-                     >
-                       {planCount.toLocaleString()}
-                     </motion.span>
-                    <span className="text-lg text-muted-foreground">live energy plans</span>
-                  </motion.div>
+                    {planCount.toLocaleString()}
+                  </motion.span>
+                  <span className="text-lg text-muted-foreground">solar & battery options</span>
+                </motion.div>
                 </div>
               </motion.div>
 
@@ -278,7 +285,7 @@ export default function HowMuchCanISave() {
                 className="max-w-4xl mx-auto space-y-4"
               >
                 <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
-                  Get comprehensive analysis of your energy savings potential with our AI-powered calculator
+                  Calculate your potential savings from solar panels, batteries, or both with our AI-powered analysis
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
@@ -297,7 +304,7 @@ export default function HowMuchCanISave() {
                     </motion.div>
                     <h3 className="font-semibold text-lg mb-2">Smart Bill Analysis</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Upload your electricity bill for AI-powered extraction of usage patterns, TOU rates, and tariff details
+                      Upload your electricity bill for AI-powered extraction of usage patterns and baseline costs for solar comparison
                     </p>
                   </motion.div>
                   
@@ -313,9 +320,9 @@ export default function HowMuchCanISave() {
                     >
                       <Zap className="h-6 w-6 text-green-400" />
                     </motion.div>
-                    <h3 className="font-semibold text-lg mb-2">Auto System Sizing</h3>
+                    <h3 className="font-semibold text-lg mb-2">Solar System Sizing</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      AI calculates optimal solar & battery size based on your energy profile, or upload your solar quote
+                      AI calculates optimal solar and battery size based on your energy profile, or upload your solar quote
                     </p>
                   </motion.div>
                   
@@ -331,9 +338,9 @@ export default function HowMuchCanISave() {
                     >
                       <TrendingDown className="h-6 w-6 text-purple-400" />
                     </motion.div>
-                    <h3 className="font-semibold text-lg mb-2">Maximum Savings & Rebates</h3>
+                    <h3 className="font-semibold text-lg mb-2">Solar Savings & ROI</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Find the best energy plans and calculate total savings including government rebates and incentives
+                      Calculate total savings, payback period, and ROI from solar panels, batteries, or combined systems
                     </p>
                   </motion.div>
                 </div>
@@ -351,7 +358,7 @@ export default function HowMuchCanISave() {
                   className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
                   onClick={() => setCurrentStep('method')}
                 >
-                  Start Your Savings Analysis
+                  Start Solar Savings Analysis
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </motion.div>
