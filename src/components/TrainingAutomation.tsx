@@ -103,7 +103,30 @@ export default function TrainingAutomation() {
       
       if (data?.success && data.schedules?.length > 0) {
         const latestSchedule = data.schedules[0];
-        setConfig(latestSchedule.config);
+        const serverConfig = latestSchedule.config;
+        
+        // Merge with default config to ensure all properties exist
+        const mergedConfig = {
+          enabled: serverConfig.enabled ?? false,
+          scheduleType: serverConfig.scheduleType ?? 'daily',
+          scheduleTime: serverConfig.scheduleTime ?? '02:00',
+          weekday: serverConfig.weekday ?? 'sunday',
+          triggerConditions: {
+            dataFreshness: serverConfig.triggerConditions?.dataFreshness ?? true,
+            performanceThreshold: serverConfig.triggerConditions?.performanceThreshold ?? false,
+            minimumInterval: serverConfig.triggerConditions?.minimumInterval ?? 24
+          },
+          trainingModes: {
+            ocrTraining: serverConfig.trainingModes?.ocrTraining ?? true,
+            designTraining: serverConfig.trainingModes?.designTraining ?? true,
+            rebateOptimization: serverConfig.trainingModes?.rebateOptimization ?? true,
+            ruleGeneration: serverConfig.trainingModes?.ruleGeneration ?? true
+          },
+          autoRetry: serverConfig.autoRetry ?? true,
+          maxRetries: serverConfig.maxRetries ?? 3
+        };
+        
+        setConfig(mergedConfig);
         
         setStatus({
           isRunning: latestSchedule.status === 'active',
@@ -120,7 +143,18 @@ export default function TrainingAutomation() {
         const savedConfig = localStorage.getItem('trainingAutomationConfig');
         if (savedConfig) {
           try {
-            setConfig(JSON.parse(savedConfig));
+            const parsedConfig = JSON.parse(savedConfig);
+            // Ensure trainingModes exists
+            const safeConfig = {
+              ...parsedConfig,
+              trainingModes: parsedConfig.trainingModes || {
+                ocrTraining: true,
+                designTraining: true,
+                rebateOptimization: true,
+                ruleGeneration: true
+              }
+            };
+            setConfig(safeConfig);
           } catch (e) {
             console.error('Failed to load automation config:', e);
           }
@@ -132,7 +166,18 @@ export default function TrainingAutomation() {
       const savedConfig = localStorage.getItem('trainingAutomationConfig');
       if (savedConfig) {
         try {
-          setConfig(JSON.parse(savedConfig));
+          const parsedConfig = JSON.parse(savedConfig);
+          // Ensure trainingModes exists
+          const safeConfig = {
+            ...parsedConfig,
+            trainingModes: parsedConfig.trainingModes || {
+              ocrTraining: true,
+              designTraining: true,
+              rebateOptimization: true,
+              ruleGeneration: true
+            }
+          };
+          setConfig(safeConfig);
         } catch (e) {
           console.error('Failed to load automation config:', e);
         }
@@ -512,11 +557,19 @@ export default function TrainingAutomation() {
                   <div className="text-xs text-muted-foreground">Document text recognition</div>
                 </div>
                 <Switch 
-                  checked={config.trainingModes.ocrTraining}
-                  onCheckedChange={(checked) => saveAutomationConfig({ 
-                    ...config, 
-                    trainingModes: { ...config.trainingModes, ocrTraining: checked } 
-                  })}
+                  checked={config.trainingModes?.ocrTraining ?? true}
+                  onCheckedChange={(checked) => {
+                    const defaultModes = {
+                      ocrTraining: true,
+                      designTraining: true,
+                      rebateOptimization: true,
+                      ruleGeneration: true
+                    };
+                    saveAutomationConfig({ 
+                      ...config, 
+                      trainingModes: { ...defaultModes, ...config.trainingModes, ocrTraining: checked } 
+                    });
+                  }}
                 />
               </div>
               
@@ -526,11 +579,19 @@ export default function TrainingAutomation() {
                   <div className="text-xs text-muted-foreground">System design validation</div>
                 </div>
                 <Switch 
-                  checked={config.trainingModes.designTraining}
-                  onCheckedChange={(checked) => saveAutomationConfig({ 
-                    ...config, 
-                    trainingModes: { ...config.trainingModes, designTraining: checked } 
-                  })}
+                  checked={config.trainingModes?.designTraining ?? true}
+                  onCheckedChange={(checked) => {
+                    const defaultModes = {
+                      ocrTraining: true,
+                      designTraining: true,
+                      rebateOptimization: true,
+                      ruleGeneration: true
+                    };
+                    saveAutomationConfig({ 
+                      ...config, 
+                      trainingModes: { ...defaultModes, ...config.trainingModes, designTraining: checked } 
+                    });
+                  }}
                 />
               </div>
               
@@ -540,11 +601,19 @@ export default function TrainingAutomation() {
                   <div className="text-xs text-muted-foreground">ML rebate calculation enhancement</div>
                 </div>
                 <Switch 
-                  checked={config.trainingModes.rebateOptimization}
-                  onCheckedChange={(checked) => saveAutomationConfig({ 
-                    ...config, 
-                    trainingModes: { ...config.trainingModes, rebateOptimization: checked } 
-                  })}
+                  checked={config.trainingModes?.rebateOptimization ?? true}
+                  onCheckedChange={(checked) => {
+                    const defaultModes = {
+                      ocrTraining: true,
+                      designTraining: true,
+                      rebateOptimization: true,
+                      ruleGeneration: true
+                    };
+                    saveAutomationConfig({ 
+                      ...config, 
+                      trainingModes: { ...defaultModes, ...config.trainingModes, rebateOptimization: checked } 
+                    });
+                  }}
                 />
               </div>
               
@@ -554,11 +623,19 @@ export default function TrainingAutomation() {
                   <div className="text-xs text-muted-foreground">Auto constraint synthesis</div>
                 </div>
                 <Switch 
-                  checked={config.trainingModes.ruleGeneration}
-                  onCheckedChange={(checked) => saveAutomationConfig({ 
-                    ...config, 
-                    trainingModes: { ...config.trainingModes, ruleGeneration: checked } 
-                  })}
+                  checked={config.trainingModes?.ruleGeneration ?? true}
+                  onCheckedChange={(checked) => {
+                    const defaultModes = {
+                      ocrTraining: true,
+                      designTraining: true,
+                      rebateOptimization: true,
+                      ruleGeneration: true
+                    };
+                    saveAutomationConfig({ 
+                      ...config, 
+                      trainingModes: { ...defaultModes, ...config.trainingModes, ruleGeneration: checked } 
+                    });
+                  }}
                 />
               </div>
             </div>
