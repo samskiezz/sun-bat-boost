@@ -91,19 +91,19 @@ export default function EnergyPlanStats() {
   const refreshPlans = async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('refresh-energy-plans');
+      const { data, error } = await supabase.functions.invoke('energy-plans-scraper');
       
       if (error) throw error;
       
-      toast.success(`Successfully refreshed ${data.plans_count} energy plans from ${data.retailers_count} retailers`);
+      toast.success(`Successfully scraped ${data.stats.plans_inserted} energy plans from ${data.stats.retailers_count} retailers`);
       
       // Refresh the stats after successful update
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (error) {
-      console.error('Error refreshing plans:', error);
-      toast.error('Failed to refresh energy plans');
+      console.error('Error scraping plans:', error);
+      toast.error('Failed to scrape energy plans from Energy Made Easy');
     } finally {
       setRefreshing(false);
     }
@@ -158,7 +158,7 @@ export default function EnergyPlanStats() {
               className="bg-white/10 border-white/20 hover:bg-white/20"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Load Plans
+              Load Real Data
             </Button>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Zap, Battery, Sun, TrendingUp, Calculator, Edit, Database, Cpu, BarChart3 } from "lucide-react";
+import { Zap, Battery, Sun, TrendingUp, Calculator, Edit, Database, Cpu, BarChart3, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SystemSize {
   recommendedKw: number;
@@ -471,6 +472,34 @@ export default function SystemSizingStep({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Enhanced Energy Plans Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Live Energy Plans
+            </h3>
+            <Button 
+              onClick={async () => {
+                try {
+                  await supabase.functions.invoke('energy-plans-scraper');
+                } catch (error) {
+                  console.error('Error invoking scraper:', error);
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="bg-white/10 border-white/20 hover:bg-white/20"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Scrape Fresh Data
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Real-time energy plan data from Australian Energy Regulator
+          </div>
         </div>
       </CardContent>
     </Card>
