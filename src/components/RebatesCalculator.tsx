@@ -160,6 +160,8 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   };
 
   const calculateRebates = () => {
+    console.log("Starting new calculation with current formData:", formData);
+    
     // Import both calculation functions
     Promise.all([
       import('@/utils/solarCalculations'),
@@ -213,6 +215,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         rebateResults: combinedResults
       };
       
+      console.log("Sending calculation data:", calculationData);
       onCalculate(calculationData);
     }).catch(error => {
       console.error('Failed to calculate rebates:', error);
@@ -450,7 +453,32 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                   )}
                 </div>
               ) : inputMethod === 'picker' ? (
-                <ProductPickerForm onSubmit={onCalculate} appMode={appMode} />
+                <div className="space-y-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold mb-2">Select Your System</h3>
+                    <p className="text-muted-foreground">
+                      Choose your solar panels and battery from our database
+                    </p>
+                  </div>
+                  <ProductPickerForm 
+                    onSubmit={(data) => {
+                      console.log("ProductPickerForm submitted data:", data);
+                      // Update the form data with the picker results
+                      setFormData({
+                        postcode: data.postcode,
+                        installDate: data.installDate,
+                        solarKw: data.systemKw || 0,
+                        batteryKwh: data.selectedProducts?.battery?.capacity_kwh || 0,
+                        stcPrice: data.stcPrice,
+                        systemType: data.selectedProducts?.battery ? 'solar-battery' : 'solar-only',
+                        vppProvider: 'None'
+                      });
+                      // Move to next step
+                      nextStep();
+                    }} 
+                    appMode={appMode} 
+                  />
+                </div>
               ) : (
                 <div className="space-y-6">
                   <div className="grid gap-6 md:grid-cols-2">
