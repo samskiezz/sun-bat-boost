@@ -1,23 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Zap, Brain, FileText, TrendingUp, Settings } from "lucide-react";
+import { Calculator, Brain, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { InputModeTabs } from "@/components/InputModeTabs";
 import { HeroHeader } from "@/components/HeroHeader";
-import { ResultCards } from "@/components/ResultCards";
 import SolarCalculator from "@/components/SolarCalculator";
 import { AIAssistant } from "@/components/AIAssistant";
 import { SEOHead } from "@/components/SEOHead";
 import SystemStatusIndicator from "@/components/SystemStatusIndicator";
 import WorkingScrapingWidget from "@/components/WorkingScrapingWidget";
 import SpecsEnhancementWidget from "@/components/SpecsEnhancementWidget";
-import { useState } from "react";
 
 const Index = () => {
-  const [calculatorData, setCalculatorData] = useState<any>(null);
   const navigate = useNavigate();
 
   return (
@@ -44,14 +39,10 @@ const Index = () => {
         </Alert>
 
         <Tabs defaultValue="calculator" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="calculator" className="flex items-center gap-2">
               <Calculator className="w-4 h-4" />
               Calculator
-            </TabsTrigger>
-            <TabsTrigger value="optimizer" className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              AI Optimizer
             </TabsTrigger>
             <TabsTrigger value="assistant" className="flex items-center gap-2">
               <Brain className="w-4 h-4" />
@@ -64,49 +55,7 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="calculator" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="w-5 h-5" />
-                  Solar System Calculator
-                  <Badge variant="outline" className="ml-auto">
-                    <FileText className="w-3 h-3 mr-1" />
-                    OCR Enabled
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InputModeTabs onCalculate={setCalculatorData} appMode="pro" />
-              </CardContent>
-            </Card>
-
-            {calculatorData && (
-              <SolarCalculator />
-            )}
-          </TabsContent>
-
-          <TabsContent value="optimizer" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  AI Design Optimizer
-                  <Badge className="ml-auto bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-                    Pro
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Alert className="mb-4">
-                  <TrendingUp className="h-4 w-4" />
-                  <AlertDescription>
-                    The AI optimizer uses machine learning trained on thousands of real solar designs 
-                    to suggest optimal system configurations based on your specific requirements.
-                  </AlertDescription>
-                </Alert>
-                <InputModeTabs onCalculate={setCalculatorData} appMode="pro" />
-              </CardContent>
-            </Card>
+            <SolarCalculator />
           </TabsContent>
 
           <TabsContent value="assistant" className="space-y-6">
