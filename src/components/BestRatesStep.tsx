@@ -37,9 +37,8 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         
-        console.log('📊 Loading energy plans from database...');
-        
-        console.log('📊 Fetching top energy plans for analysis...');
+        console.log('📊 Fetching energy plans for analysis...');
+        // Get plans for the user's location - using cached database data
         // Get plans for the user's location - handle both TOU and Smart meter types
         const { data: plans } = await supabase
           .from('energy_plans')

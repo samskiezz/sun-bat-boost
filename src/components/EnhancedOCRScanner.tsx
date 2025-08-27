@@ -166,12 +166,16 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       ...Array.from(text.matchAll(/(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)\s*kwh/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.60, source: 'generic' }))
     ];
 
-    // Filter for realistic quarterly usage (200+ kWh) and sort by confidence and value
+    // Filter for realistic quarterly usage (200+ kWh, <8000 kWh) and sort by confidence and value
     const validUsage = allUsageMatches
-      .filter(match => match.value >= 200) // Minimum realistic quarterly usage
+      .filter(match => match.value >= 200 && match.value <= 8000) // Realistic quarterly usage range
       .sort((a, b) => {
         if (a.confidence !== b.confidence) return b.confidence - a.confidence;
-        return b.value - a.value; // Prefer higher usage values
+        // For same confidence, prefer values in the 400-2000 range (most common)
+        const aScore = (a.value >= 400 && a.value <= 2000) ? 1 : 0;
+        const bScore = (b.value >= 400 && b.value <= 2000) ? 1 : 0;
+        if (aScore !== bScore) return bScore - aScore;
+        return b.value - a.value;
       });
 
     if (validUsage.length > 0) {
@@ -199,36 +203,70 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       });
     }
 
-    // Total Bill Amount (most important for navigation) - Enhanced patterns
-    const billAmountMatches = text.match(/(?:total|amount|due|payable|bill|charges|balance)[\s\w]*?\$?(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i) ||
-                              text.match(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)[\s\w]*?(?:total|amount|due|payable|bill|charges)/i) ||
-                              text.match(/(?:this\s+bill|new\s+charges|amount\s+due)[\s:]*\$?(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i) ||
-                              text.match(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/i);
-    if (billAmountMatches) {
-      const billValue = parseFloat(billAmountMatches[1].replace(/,/g, ''));
-      console.log('✅ Found bill amount: $', billValue);
+    // Total Bill Amount - Enhanced with realistic filtering
+    const allBillMatches = [
+      // High priority: Explicit bill/total patterns
+      ...Array.from(text.matchAll(/(?:total|amount|due|payable|bill|new\s+charges|balance|amount\s+due)[\s\w]*?\$?(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.90, source: 'explicit' })),
+      ...Array.from(text.matchAll(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)[\s\w]*?(?:total|amount|due|payable|bill|charges)/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.90, source: 'explicit' })),
+      
+      // Medium priority: General dollar amounts
+      ...Array.from(text.matchAll(/\$(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)/gi)).map(m => ({ value: parseFloat(m[1].replace(/,/g, '')), confidence: 0.60, source: 'generic' }))
+    ];
+
+    // Filter for realistic quarterly bill amounts ($50-$3000) and sort by confidence
+    const validBills = allBillMatches
+      .filter(match => match.value >= 50 && match.value <= 3000) // Realistic quarterly bill range
+      .sort((a, b) => {
+        if (a.confidence !== b.confidence) return b.confidence - a.confidence;
+        // For same confidence, prefer values in the $200-$1500 range (most common)
+        const aScore = (a.value >= 200 && a.value <= 1500) ? 1 : 0;
+        const bScore = (b.value >= 200 && b.value <= 1500) ? 1 : 0;
+        if (aScore !== bScore) return bScore - aScore;
+        return b.value - a.value;
+      });
+
+    if (validBills.length > 0) {
+      const bestBill = validBills[0];
+      console.log(`✅ Found bill amount: $${bestBill.value} (${bestBill.source}, confidence: ${bestBill.confidence})`);
       fields.push({
         label: "Bill Amount ($)",
-        value: billValue,
-        confidence: 0.90,
+        value: bestBill.value,
+        confidence: bestBill.confidence,
         editable: true,
         key: "billAmount",
         category: "basic"
       });
     }
 
-    // Daily Supply Charge - Enhanced patterns
-    const dailySupplyMatches = text.match(/(?:daily|supply)[\s\w]*?(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?/i) ||
-                               text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?(?:daily|supply|per\s+day)/i) ||
-                               text.match(/supply\s+charge[\s:]*(\d{1,3}(?:\.\d{1,2})?)/i) ||
-                               text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*c\/day/i);
-    if (dailySupplyMatches) {
-      const dailyValue = parseFloat(dailySupplyMatches[1]);
-      console.log('✅ Found daily supply:', dailyValue, 'c/day');
+    // Daily Supply Charge - Enhanced with realistic filtering
+    const allSupplyMatches = [
+      // High priority: Explicit supply charge patterns
+      ...Array.from(text.matchAll(/(?:supply\s+charge|daily\s+supply|service\s+fee)[\s:]*(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?/gi)).map(m => ({ value: parseFloat(m[1]), confidence: 0.90, source: 'explicit' })),
+      ...Array.from(text.matchAll(/(\d{1,3}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?(?:supply|daily|per\s+day)/gi)).map(m => ({ value: parseFloat(m[1]), confidence: 0.85, source: 'contextual' })),
+      
+      // Medium priority: c/day patterns
+      ...Array.from(text.matchAll(/(\d{1,3}(?:\.\d{1,2})?)\s*c\/day/gi)).map(m => ({ value: parseFloat(m[1]), confidence: 0.80, source: 'cperday' }))
+    ];
+
+    // Filter for realistic daily supply charges (5-150 cents) and sort by confidence
+    const validSupply = allSupplyMatches
+      .filter(match => match.value >= 5 && match.value <= 150) // Realistic daily supply range
+      .sort((a, b) => {
+        if (a.confidence !== b.confidence) return b.confidence - a.confidence;
+        // For same confidence, prefer values in the 15-50 range (most common)
+        const aScore = (a.value >= 15 && a.value <= 50) ? 1 : 0;
+        const bScore = (b.value >= 15 && b.value <= 50) ? 1 : 0;
+        if (aScore !== bScore) return bScore - aScore;
+        return a.value - b.value; // Prefer lower supply charges
+      });
+
+    if (validSupply.length > 0) {
+      const bestSupply = validSupply[0];
+      console.log(`✅ Found daily supply: ${bestSupply.value} c/day (${bestSupply.source}, confidence: ${bestSupply.confidence})`);
       fields.push({
         label: "Daily Supply (c/day)",
-        value: dailyValue,
-        confidence: 0.85,
+        value: bestSupply.value,
+        confidence: bestSupply.confidence,
         editable: true,
         key: "dailySupply",
         category: "basic"

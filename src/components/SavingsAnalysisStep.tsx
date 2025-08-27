@@ -15,39 +15,28 @@ interface SavingsAnalysisStepProps {
 
 export default function SavingsAnalysisStep({ billData, locationData, systemSize, selectedPlan }: SavingsAnalysisStepProps) {
   
-  // Calculate realistic savings based on actual bill data and system sizing
-  const currentAnnualBill = billData.quarterlyBill * 4;
-  const annualUsage = billData.quarterlyUsage * 4;
-  const currentRate = billData.averageRate / 100; // Convert cents to dollars
+  // Use AI sizing results directly for accurate calculations
+  const financialData = systemSize?.financial || {};
+  const currentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
+  const newAnnualBill = financialData.new_annual_bill || currentAnnualBill;  
+  const annualSavings = financialData.annual_savings || 0;
+  const monthlySavings = financialData.monthly_savings || Math.round(annualSavings / 12);
+  const billReductionPercent = financialData.bill_reduction_percent || 0;
   
-  // System specifications from AI sizing
-  const systemKw = systemSize?.recommendations?.panels?.totalKw || 6;
+  // Solar system performance from AI sizing
+  const solarGeneration = financialData.annual_generation || 0;
+  const solarSelfConsumption = financialData.self_consumption || 0;
+  const solarExport = financialData.export_generation || 0;
+  const exportIncome = financialData.export_income || 0;
+  
+  // System specifications
+  const systemKw = systemSize?.recommendations?.panels?.totalKw || 0;
   const batteryKwh = systemSize?.recommendations?.battery?.capacity_kwh || 0;
+  const annualUsage = billData.quarterlyUsage * 4;
   
-  // Calculate solar generation based on system size and location
-  const solarIrradiance = locationData.state === 'NSW' ? 4.5 : 
-                         locationData.state === 'QLD' ? 5.2 : 
-                         locationData.state === 'VIC' ? 4.2 : 
-                         locationData.state === 'SA' ? 4.8 : 
-                         locationData.state === 'WA' ? 5.0 : 4.3;
-  
-  const solarGeneration = Math.round(systemKw * solarIrradiance * 365 * 0.85); // 85% system efficiency
-  
-  // Calculate self-consumption and export
-  const selfConsumptionRate = batteryKwh > 0 ? 0.75 : 0.35; // Battery increases self-consumption
-  const solarSelfConsumption = Math.min(solarGeneration * selfConsumptionRate, annualUsage);
-  const solarExport = Math.max(0, solarGeneration - solarSelfConsumption);
-  
-  // Calculate savings components
-  const gridOffsetSavings = solarSelfConsumption * currentRate;
-  const exportIncome = solarExport * 0.08; // 8c/kWh feed-in tariff
-  const batteryTimeshiftSavings = batteryKwh > 0 ? batteryKwh * 100 : 0; // $100/kWh annual benefit
-  
-  // Total annual savings
-  const annualSavings = Math.round(gridOffsetSavings + exportIncome + batteryTimeshiftSavings);
-  const newAnnualBill = Math.max(0, currentAnnualBill - annualSavings);
-  const monthlySavings = Math.round(annualSavings / 12);
-  const billReductionPercent = Math.round((annualSavings / currentAnnualBill) * 100);
+  // Calculate component savings for breakdown display
+  const gridOffsetSavings = solarSelfConsumption * (billData.averageRate / 100);
+  const batteryTimeshiftSavings = Math.max(0, annualSavings - gridOffsetSavings - exportIncome);
   
   // Monthly breakdown data - ENERGY BILL FOCUS
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
@@ -63,13 +52,24 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
     };
   });
 
-  // Energy breakdown for pie chart
+  // Energy breakdown for pie chart - more accurate representation
   const energyBreakdown = [
-    { name: 'Grid Purchase', value: Math.max(0, (billData.quarterlyUsage * 4) - solarSelfConsumption), color: '#ef4444' },
-    { name: 'Solar Self-Use', value: solarSelfConsumption, color: '#22c55e' },
-    { name: 'Solar Export', value: solarExport, color: '#3b82f6' },
-    { name: 'Battery Stored', value: batteryKwh * 300, color: '#8b5cf6' } // Estimated annual battery throughput
-  ];
+    { 
+      name: 'Grid Purchase', 
+      value: Math.max(0, annualUsage - solarSelfConsumption), 
+      color: '#ef4444' 
+    },
+    { 
+      name: 'Solar Self-Use', 
+      value: solarSelfConsumption, 
+      color: '#22c55e' 
+    },
+    { 
+      name: 'Solar Export', 
+      value: solarExport, 
+      color: '#3b82f6' 
+    }
+  ].filter(item => item.value > 0); // Only show non-zero values
 
   // 25-year energy savings projection (NO SYSTEM COSTS)
   const cumulativeSavings = [];
@@ -121,9 +121,9 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
           <Card className="border-white/20 bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-xl">
             <CardContent className="p-6 text-center">
               <Zap className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-blue-500">
-                {Math.round((solarSelfConsumption / annualUsage) * 100)}%
-              </div>
+                      <div className="text-2xl font-bold text-blue-500">
+                        {solarGeneration > 0 ? Math.round((solarSelfConsumption / annualUsage) * 100) : 0}%
+                      </div>
               <div className="text-sm text-muted-foreground">Energy Independence</div>
               <Badge variant="secondary" className="mt-2">
                 {solarGeneration.toLocaleString()} kWh/year
