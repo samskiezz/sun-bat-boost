@@ -10,6 +10,7 @@ import MasterTrainingControl from '@/components/MasterTrainingControl';
 import OneCatalogManager from '@/components/OneCatalogManager';
 import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
 import TrainingAutomation from '@/components/TrainingAutomation';
+import EnergyPlanStats from '@/components/EnergyPlanStats';
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -134,18 +135,21 @@ export default function SystemManager() {
         </TabsContent>
 
         <TabsContent value="monitoring">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Monitoring</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                System monitoring and health checks will be displayed here.
-                This includes real-time performance metrics, error tracking, 
-                and system resource utilization.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <EnergyPlanStats />
+            <Card>
+              <CardHeader>
+                <CardTitle>System Monitoring</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  System monitoring and health checks will be displayed here.
+                  This includes real-time performance metrics, error tracking, 
+                  and system resource utilization.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
