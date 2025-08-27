@@ -631,25 +631,23 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
         console.log(`🤖 Sending to AI for ${mode} analysis...`);
         
         try {
-          // Create a timeout promise
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 15000)
-          );
-          
-          // Create the API call promise
-          const apiPromise = supabase.functions.invoke('ai-document-analyzer', {
-            body: {
-              text: extractedText.substring(0, 10000), // Limit text size
-              documentType: mode,
-              filename: file.name
-            }
-          });
-          
-          // Race between timeout and API call
+          // Call AI with timeout handling
           const { data: aiResult, error: supabaseError } = await Promise.race([
-            apiPromise,
-            timeoutPromise
-          ]) as any;
+            supabase.functions.invoke('ai-document-analyzer', {
+              body: {
+                text: extractedText.substring(0, 10000),
+                documentType: mode,
+                filename: file.name
+              }
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('AI request timed out after 15 seconds')), 15000)
+            )
+          ]).catch(error => {
+            // Handle timeout and other errors
+            console.warn('AI request failed:', error.message);
+            return { data: null, error: { message: error.message } };
+          }) as any;
           
           if (supabaseError) {
             throw new Error(supabaseError.message);
