@@ -7,14 +7,14 @@
 @layer base {
   :root {
     /* Solar-inspired color palette */
-    --background: 210 20% 93%; /* Darker background for better contrast */
-    --foreground: 220 15% 15%; /* Darker text for better readability */
+    --background: 210 20% 95%; /* Much darker background */
+    --foreground: 220 15% 10%; /* Much darker text for strong contrast */
 
-    --card: 0 0% 97%; /* Slightly darker cards */
-    --card-foreground: 220 15% 15%;
+    --card: 0 0% 98%; /* Slightly tinted cards */
+    --card-foreground: 220 15% 10%;
 
-    --popover: 0 0% 97%;
-    --popover-foreground: 220 15% 15%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 220 15% 10%;
 
     /* Purple primary (as requested) */
     --primary: 270 91% 65%;
@@ -25,8 +25,8 @@
     --secondary: 205 100% 96%;
     --secondary-foreground: 205 100% 25%;
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 220 15% 45%;
+    --muted: 210 20% 90%; /* Darker muted background */
+    --muted-foreground: 220 15% 35%; /* Darker muted text */
 
     --accent: 280 100% 95%;
     --accent-foreground: 270 91% 65%;

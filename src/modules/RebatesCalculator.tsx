@@ -79,61 +79,17 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
 
   if (!started) {
     return (
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Animated Background Orbs */}
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.div
-            className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-r from-green-400/30 to-emerald-500/30 rounded-full blur-3xl"
-            animate={{
-              x: [0, 50, 0],
-              y: [0, -30, 0],
-              scale: [1, 1.1, 1],
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute top-1/3 right-1/3 w-48 h-48 bg-gradient-to-l from-blue-400/25 to-cyan-500/25 rounded-full blur-2xl"
-            animate={{
-              x: [0, -40, 0],
-              y: [0, 40, 0],
-              scale: [1, 0.9, 1],
-            }}
-            transition={{
-              duration: 6,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-gradient-to-br from-purple-400/20 to-pink-500/20 rounded-full blur-3xl"
-            animate={{
-              x: [0, 30, 0],
-              y: [0, -50, 0],
-              rotate: [0, 180, 360],
-            }}
-            transition={{
-              duration: 10,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        </div>
-
+      <div className="min-h-screen bg-background p-4">
         {/* Main Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 p-12 shadow-2xl"
-          >
+            className="glass-card p-8 md:p-12">
             {/* Header */}
             <motion.div 
-              className="flex items-center justify-center gap-4 mb-8"
+              className="flex flex-col items-center gap-4 mb-8"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -147,13 +103,13 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
                 </motion.div>
               </div>
               <div>
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-green-100 to-emerald-300 bg-clip-text text-transparent">
+                <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
                   Government Rebates
                 </h1>
-                <p className="text-lg text-green-100 mt-2">
+                <p className="text-lg text-foreground/80 mt-2">
                   Calculate with <motion.span 
-                    className="font-semibold text-green-300"
-                    animate={{ color: ["#86efac", "#10b981", "#86efac"] }}
+                    className="font-semibold text-primary"
+                    animate={{ color: ["hsl(270 91% 65%)", "hsl(280 100% 75%)", "hsl(270 91% 65%)"] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
                     {planCount.toLocaleString()}
@@ -164,7 +120,7 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
 
             {/* Description */}
             <motion.p 
-              className="text-xl text-white/80 mb-12 leading-relaxed max-w-3xl mx-auto"
+              className="text-xl text-foreground/70 mb-12 leading-relaxed max-w-3xl mx-auto"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
@@ -180,43 +136,43 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
               transition={{ delay: 0.8, duration: 0.6 }}
             >
               <motion.div 
-                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ duration: 0.2 }}
               >
                 <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-400/30 w-fit mx-auto mb-4">
                   📊
                 </div>
-                <h3 className="text-lg font-semibold mb-3 text-white">Smart Analysis</h3>
-                <p className="text-sm text-white/70 leading-relaxed">
+                <h3 className="text-lg font-semibold mb-3 text-foreground">Smart Analysis</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   AI-powered analysis of STC certificates, VPP incentives, and state rebates based on your location
                 </p>
               </motion.div>
 
               <motion.div 
-                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ duration: 0.2 }}
               >
                 <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 w-fit mx-auto mb-4">
                   ⚡
                 </div>
-                <h3 className="text-lg font-semibold mb-3 text-white">Auto Calculations</h3>
-                <p className="text-sm text-white/70 leading-relaxed">
+                <h3 className="text-lg font-semibold mb-3 text-foreground">Auto Calculations</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   Automatic calculation of rebate amounts based on system size, location, and installation date
                 </p>
               </motion.div>
 
               <motion.div 
-                className="group p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ duration: 0.2 }}
               >
                 <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 border border-purple-400/30 w-fit mx-auto mb-4">
                   📈
                 </div>
-                <h3 className="text-lg font-semibold mb-3 text-white">Maximum Rebates</h3>
-                <p className="text-sm text-white/70 leading-relaxed">
+                <h3 className="text-lg font-semibold mb-3 text-foreground">Maximum Rebates</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   Find all applicable rebates and incentives to maximize your solar and battery investment returns
                 </p>
               </motion.div>

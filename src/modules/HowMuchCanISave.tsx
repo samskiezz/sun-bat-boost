@@ -300,65 +300,65 @@ export default function HowMuchCanISave() {
                 transition={{ delay: 0.4, duration: 0.6 }}
                 className="max-w-4xl mx-auto space-y-4"
               >
-                <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
+                <p className="text-lg md:text-xl text-foreground/80 leading-relaxed">
                   Calculate your potential savings from solar panels, batteries, or both with our AI-powered analysis
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
                   
-                  {/* Feature 1 */}
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                    className="p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all group"
-                  >
-                    <motion.div
-                      className="p-3 rounded-xl bg-blue-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
-                    >
-                      <Upload className="h-6 w-6 text-blue-400" />
-                    </motion.div>
-                    <h3 className="font-semibold text-lg mb-2">Smart Bill Analysis</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Upload your electricity bill for AI-powered extraction of usage patterns and baseline costs for solar comparison
-                    </p>
-                  </motion.div>
-                  
-                  {/* Feature 2 */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                    className="p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all group"
-                  >
-                    <motion.div
-                      className="p-3 rounded-xl bg-green-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
-                    >
-                      <Zap className="h-6 w-6 text-green-400" />
-                    </motion.div>
-                    <h3 className="font-semibold text-lg mb-2">Solar System Sizing</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      AI calculates optimal solar and battery size based on your energy profile, or upload your solar quote
-                    </p>
-                  </motion.div>
-                  
-                  {/* Feature 3 */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 1.0, duration: 0.5 }}
-                    className="p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all group"
-                  >
-                    <motion.div
-                      className="p-3 rounded-xl bg-purple-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
-                    >
-                      <TrendingDown className="h-6 w-6 text-purple-400" />
-                    </motion.div>
-                    <h3 className="font-semibold text-lg mb-2">Solar Savings & ROI</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Calculate total savings, payback period, and ROI from solar panels, batteries, or combined systems
-                    </p>
-                  </motion.div>
+                   {/* Feature 1 */}
+                   <motion.div
+                     initial={{ opacity: 0, x: -20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: 0.6, duration: 0.5 }}
+                     className="p-6 rounded-2xl bg-card border border-border hover:border-primary/20 transition-all group"
+                   >
+                     <motion.div
+                       className="p-3 rounded-xl bg-blue-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
+                     >
+                       <Upload className="h-6 w-6 text-blue-600" />
+                     </motion.div>
+                     <h3 className="font-semibold text-lg mb-2 text-foreground">Smart Bill Analysis</h3>
+                     <p className="text-sm text-muted-foreground leading-relaxed">
+                       Upload your electricity bill for AI-powered extraction of usage patterns and baseline costs for solar comparison
+                     </p>
+                   </motion.div>
+                   
+                   {/* Feature 2 */}
+                   <motion.div
+                     initial={{ opacity: 0, y: 20 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     transition={{ delay: 0.8, duration: 0.5 }}
+                     className="p-6 rounded-2xl bg-card border border-border hover:border-primary/20 transition-all group"
+                   >
+                     <motion.div
+                       className="p-3 rounded-xl bg-green-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
+                     >
+                       <Zap className="h-6 w-6 text-green-600" />
+                     </motion.div>
+                     <h3 className="font-semibold text-lg mb-2 text-foreground">Solar System Sizing</h3>
+                     <p className="text-sm text-muted-foreground leading-relaxed">
+                       AI calculates optimal solar and battery size based on your energy profile, or upload your solar quote
+                     </p>
+                   </motion.div>
+                   
+                   {/* Feature 3 */}
+                   <motion.div
+                     initial={{ opacity: 0, x: 20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: 1.0, duration: 0.5 }}
+                     className="p-6 rounded-2xl bg-card border border-border hover:border-primary/20 transition-all group"
+                   >
+                     <motion.div
+                       className="p-3 rounded-xl bg-purple-500/20 w-fit mx-auto mb-4 group-hover:scale-110 transition-transform"
+                     >
+                       <TrendingDown className="h-6 w-6 text-purple-600" />
+                     </motion.div>
+                     <h3 className="font-semibold text-lg mb-2 text-foreground">Solar Savings & ROI</h3>
+                     <p className="text-sm text-muted-foreground leading-relaxed">
+                       Calculate total savings, payback period, and ROI from solar panels, batteries, or combined systems
+                     </p>
+                   </motion.div>
                 </div>
               </motion.div>
 
