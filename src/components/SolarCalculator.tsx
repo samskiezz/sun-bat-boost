@@ -17,7 +17,9 @@ import { checkEligibility } from "@/utils/eligibilityChecker";
 import { useToast } from "@/hooks/use-toast";
 import { useCECData } from "@/hooks/useCECData";
 import { AICore, type AppMode } from "@/lib/ai/AICore";
-import { Sparkles, Zap, Brain, Crown, Users } from "lucide-react";
+import { Sparkles, Zap, Brain, Crown, Users, Infinity } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -27,6 +29,7 @@ const SolarCalculator = () => {
   const [showAI, setShowAI] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [unlimitedTokens, setUnlimitedTokens] = useState(false);
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
   const aiCoreRef = useRef<AICore | null>(null);
@@ -210,7 +213,7 @@ const SolarCalculator = () => {
   };
 
   const canUseCalculator = () => {
-    if (userTier !== 'free') return true;
+    if (unlimitedTokens || userTier !== 'free') return true;
     
     // Check daily usage for free tier
     const today = new Date().toDateString();
@@ -221,7 +224,7 @@ const SolarCalculator = () => {
   };
 
   const incrementUsage = () => {
-    if (userTier === 'free') {
+    if (!unlimitedTokens && userTier === 'free') {
       const today = new Date().toDateString();
       const usageKey = `calculator_usage_${today}`;
       const todayUsage = parseInt(localStorage.getItem(usageKey) || '0');
@@ -254,6 +257,19 @@ const SolarCalculator = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Unlimited Tokens Dev Toggle */}
+              <div className="flex items-center gap-2 px-3 py-1 bg-card border rounded-lg">
+                <Label htmlFor="unlimited-tokens" className="text-xs font-medium">
+                  <Infinity className="w-3 h-3 inline mr-1" />
+                  Dev Mode
+                </Label>
+                <Switch
+                  id="unlimited-tokens"
+                  checked={unlimitedTokens}
+                  onCheckedChange={setUnlimitedTokens}
+                />
+              </div>
+              
               {userTier === 'free' && (
                 <Button size="sm" onClick={() => setShowPricing(true)} className="bg-blue-600 hover:bg-blue-700">
                   Sign Up Free
