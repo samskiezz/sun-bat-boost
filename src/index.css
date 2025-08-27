@@ -7,14 +7,14 @@
 @layer base {
   :root {
     /* Solar-inspired color palette */
-    --background: 210 20% 98%;
-    --foreground: 220 15% 20%;
+    --background: 210 20% 93%; /* Darker background for better contrast */
+    --foreground: 220 15% 15%; /* Darker text for better readability */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 20%;
+    --card: 0 0% 97%; /* Slightly darker cards */
+    --card-foreground: 220 15% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 20%;
+    --popover: 0 0% 97%;
+    --popover-foreground: 220 15% 15%;
 
     /* Purple primary (as requested) */
     --primary: 270 91% 65%;
@@ -42,8 +42,8 @@
 
     /* Purple/White/Black gradients */
     --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(280 100% 75%));
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 98%), hsl(0 0% 95%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
+    --gradient-subtle: linear-gradient(180deg, hsl(210 20% 91%), hsl(210 20% 88%));
     --gradient-vpp: linear-gradient(135deg, hsl(260 100% 65%), hsl(280 80% 70%));
     
     /* Glass and elegant shadows */
@@ -140,17 +140,17 @@
 .glass-card {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.15); /* Stronger background */
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   border-radius: calc(var(--radius) + 4px);
   transition: var(--transition-smooth);
 }
 
 .dark .glass-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.08); /* Better contrast in dark mode */
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .hover-glass:hover {

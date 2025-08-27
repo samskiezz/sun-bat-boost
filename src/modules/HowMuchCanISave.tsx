@@ -235,48 +235,17 @@ export default function HowMuchCanISave() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+    <div className="min-h-screen bg-gradient-subtle p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Hero Introduction */}
         <div className="relative overflow-hidden">
           {/* Animated Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-secondary/10 to-background opacity-80">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-          </div>
-          
-          {/* Floating Animation Elements */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <motion.div
-              animate={{ 
-                y: [-20, 20, -20],
-                rotate: [0, 5, 0],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-10 left-10 w-32 h-32 rounded-full bg-gradient-to-r from-blue-400/20 to-purple-400/20 backdrop-blur-3xl"
-            />
-            <motion.div
-              animate={{ 
-                y: [20, -20, 20],
-                rotate: [0, -3, 0],
-                scale: [1.1, 1, 1.1]
-              }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute top-20 right-20 w-24 h-24 rounded-full bg-gradient-to-r from-green-400/20 to-blue-400/20 backdrop-blur-3xl"
-            />
-            <motion.div
-              animate={{ 
-                y: [0, -30, 0],
-                x: [-10, 10, -10],
-                rotate: [0, 2, 0]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-              className="absolute bottom-20 left-1/3 w-20 h-20 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-400/20 backdrop-blur-3xl"
-            />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-secondary/10 opacity-90">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.2),rgba(255,255,255,0))]"></div>
           </div>
           
           {/* Main Content */}
-          <div className="relative z-10 backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-8 md:p-12 shadow-2xl">
+          <div className="relative z-10 glass-card p-8 md:p-12">
             <div className="text-center space-y-6">
               
               {/* Header with Icon */}
@@ -284,7 +253,7 @@ export default function HowMuchCanISave() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="flex items-center justify-center gap-4"
+                className="flex flex-col items-center gap-4"
               >
                 <motion.div
                   animate={{ rotate: [0, 5, -5, 0] }}
@@ -293,34 +262,34 @@ export default function HowMuchCanISave() {
                 >
                   <Calculator className="h-10 w-10 text-primary" />
                 </motion.div>
-                <div>
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                  How Much Can I Save?
-                </h1>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                  className="flex items-center justify-center gap-2 mt-2"
-                >
-                  <span className="text-lg text-muted-foreground">Going solar with</span>
-                  <motion.span 
-                    key={planCount}
-                    initial={{ scale: 1.2, color: "#3b82f6" }}
-                    animate={{ 
-                      scale: 1,
-                      color: ["#3b82f6", "#8b5cf6", "#3b82f6"]
-                    }}
-                    transition={{
-                      scale: { duration: 0.5 },
-                      color: { duration: 2, repeat: Infinity }
-                    }}
-                    className="text-lg font-bold text-primary"
+                <div className="space-y-2">
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent leading-tight">
+                    How Much Can I Save?
+                  </h1>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                    className="flex flex-col sm:flex-row items-center justify-center gap-2"
                   >
-                    {planCount.toLocaleString()}
-                  </motion.span>
-                  <span className="text-lg text-muted-foreground">solar & battery options</span>
-                </motion.div>
+                    <span className="text-base md:text-lg text-muted-foreground">Going solar with</span>
+                    <motion.span 
+                      key={planCount}
+                      initial={{ scale: 1.2, color: "#3b82f6" }}
+                      animate={{ 
+                        scale: 1,
+                        color: ["#3b82f6", "#8b5cf6", "#3b82f6"]
+                      }}
+                      transition={{
+                        scale: { duration: 0.5 },
+                        color: { duration: 2, repeat: Infinity }
+                      }}
+                      className="text-base md:text-lg font-bold text-primary"
+                    >
+                      {planCount.toLocaleString()}
+                    </motion.span>
+                    <span className="text-base md:text-lg text-muted-foreground">solar & battery options</span>
+                  </motion.div>
                 </div>
               </motion.div>
 
@@ -413,9 +382,9 @@ export default function HowMuchCanISave() {
           </div>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Header */}
         {currentStep !== 'method' && (
-          <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
+          <Card className="glass-card mb-6">
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
@@ -423,13 +392,13 @@ export default function HowMuchCanISave() {
                   <span>{Math.round(progress)}% Complete</span>
                 </div>
                 <Progress value={progress} className="h-2" />
-                <div className="flex justify-between">
-                  {steps.map((step, index) => {
-                    const Icon = step.icon;
-                    const isActive = index === currentStepIndex;
-                    const isCompleted = index < currentStepIndex;
-                    
-                    return (
+                 <div className="flex justify-between">
+                   {steps.map((step, index) => {
+                     const Icon = step.icon;
+                     const isActive = index === currentStepIndex;
+                     const isCompleted = index < currentStepIndex;
+                     
+                     return (
                       <div key={step.id} className="flex flex-col items-center space-y-2">
                         <div className={`p-2 rounded-full transition-all ${
                           isActive 

@@ -152,9 +152,21 @@ export const BatteryROICalculator: React.FC = () => {
     <div className="space-y-6">
       {/* Progress Header */}
       <Glass className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Battery ROI Calculator</h2>
-          <Badge variant="outline">{currentStepIndex + 1} of {steps.length}</Badge>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30">
+              💚
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                Battery ROI Calculator
+              </h2>
+              <p className="text-sm text-muted-foreground">Calculate your battery investment return</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="w-fit">
+            Step {currentStepIndex + 1} of {steps.length}
+          </Badge>
         </div>
         
         <Progress value={progress} className="mb-4 hologram-track" />
