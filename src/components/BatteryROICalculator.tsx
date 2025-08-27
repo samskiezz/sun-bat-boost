@@ -254,12 +254,7 @@ export const BatteryROICalculator: React.FC = () => {
           )}
 
         {currentStep === 'bills' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            <Glass className="p-6">
+          <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">Energy Usage & Rates</h3>
               
               {inputMethod === 'bills' ? (
@@ -394,15 +389,9 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               )}
             </Glass>
-          </motion.div>
-        )}
+          )}
 
-        {currentStep === 'system' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
+          {currentStep === 'system' && (
             <Glass className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold">System Configuration</h3>
@@ -494,15 +483,9 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               )}
             </Glass>
-          </motion.div>
-        )}
+          )}
 
-        {currentStep === 'site' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
+          {currentStep === 'site' && (
             <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">Site & Location Details</h3>
               
@@ -553,15 +536,9 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               </div>
             </Glass>
-          </motion.div>
-        )}
+          )}
 
-        {currentStep === 'results' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
+          {currentStep === 'results' && (
             <div className="space-y-6">
               <Glass className="p-6">
                 <div className="flex items-center gap-2 mb-6">
@@ -604,7 +581,8 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               </Glass>
             </div>
-          </motion.div>
+          )}
+        </motion.div>
       </AnimatePresence>
 
       {/* Navigation */}
