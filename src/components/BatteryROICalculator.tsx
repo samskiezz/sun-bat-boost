@@ -44,6 +44,7 @@ type Step = 'method' | 'bills' | 'system' | 'site' | 'results';
 
 export const BatteryROICalculator: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('method');
+  const [started, setStarted] = useState(false);
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
@@ -148,17 +149,139 @@ export const BatteryROICalculator: React.FC = () => {
     setCurrentStep('results');
   };
 
+  if (!started) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        {/* Main Content */}
+        <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="glass-card p-8 md:p-12"
+          >
+            {/* Header */}
+            <motion.div 
+              className="flex flex-col items-center gap-4 mb-8"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 backdrop-blur-sm">
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  🔋
+                </motion.div>
+              </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
+                  Battery ROI Calculator
+                </h1>
+                <p className="text-lg text-foreground/80 mt-2">
+                  Calculate your <motion.span 
+                    className="font-semibold text-primary"
+                    animate={{ color: ["hsl(270 91% 65%)", "hsl(280 100% 75%)", "hsl(270 91% 65%)"] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    battery investment
+                  </motion.span> return on investment
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Description */}
+            <motion.p 
+              className="text-xl text-foreground/70 mb-12 leading-relaxed max-w-3xl mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+            >
+              Analyze your battery system's financial performance with AI-powered ROI calculations
+            </motion.p>
+
+            {/* Feature Cards */}
+            <motion.div 
+              className="grid md:grid-cols-3 gap-6 mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.6 }}
+            >
+              <motion.div 
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-400/30 w-fit mx-auto mb-4">
+                  📊
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-foreground">Smart Analysis</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Upload energy bills for AI-powered extraction of usage patterns and costs
+                </p>
+              </motion.div>
+
+              <motion.div 
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 w-fit mx-auto mb-4">
+                  ⚡
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-foreground">Battery Sizing</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Calculate optimal battery size based on your energy usage and solar generation
+                </p>
+              </motion.div>
+
+              <motion.div 
+                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 border border-purple-400/30 w-fit mx-auto mb-4">
+                  💰
+                </div>
+                <h3 className="text-lg font-semibold mb-3 text-foreground">ROI Analysis</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Detailed payback period, savings analysis, and long-term investment returns
+                </p>
+              </motion.div>
+            </motion.div>
+
+            {/* CTA Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.6 }}
+            >
+              <Button
+                onClick={() => setStarted(true)}
+                size="lg"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-lg px-12 py-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              >
+                Calculate Battery ROI
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Progress Header */}
-      <Glass className="p-6">
+      <div className="glass-card p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30">
-              💚
+              🔋
             </div>
             <div>
-              <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <h2 className="text-xl md:text-2xl font-bold text-foreground">
                 Battery ROI Calculator
               </h2>
               <p className="text-sm text-muted-foreground">Calculate your battery investment return</p>
@@ -169,7 +292,7 @@ export const BatteryROICalculator: React.FC = () => {
           </Badge>
         </div>
         
-        <Progress value={progress} className="mb-4 hologram-track" />
+        <Progress value={progress} className="mb-4" />
         
         <div className="flex items-center justify-between text-sm">
           {steps.map((step, index) => {
@@ -187,7 +310,7 @@ export const BatteryROICalculator: React.FC = () => {
             );
           })}
         </div>
-      </Glass>
+      </div>
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
@@ -200,8 +323,8 @@ export const BatteryROICalculator: React.FC = () => {
         >
           {/* Step 1: Input Method */}
           {currentStep === 'method' && (
-            <Glass className="p-6">
-              <h3 className="text-lg font-semibold mb-6">How would you like to input your data?</h3>
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-semibold mb-6 text-foreground">How would you like to input your data?</h3>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <motion.button
@@ -212,7 +335,7 @@ export const BatteryROICalculator: React.FC = () => {
                   className={`p-6 rounded-xl border text-left transition-all duration-200 ${
                     inputMethod === 'bills' 
                       ? 'border-primary/50 bg-primary/5' 
-                      : 'border-white/20 bg-white/5 hover:bg-white/10'
+                      : 'border-border bg-card hover:bg-card/80'
                   }`}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -220,7 +343,7 @@ export const BatteryROICalculator: React.FC = () => {
                   <div className="flex items-center gap-3 mb-3">
                     <Upload className="w-6 h-6 text-primary" />
                     <div>
-                      <h4 className="font-medium">Upload Bills & Quotes</h4>
+                      <h4 className="font-medium text-foreground">Upload Bills & Quotes</h4>
                       <Badge variant="default" className="mt-1">Recommended</Badge>
                     </div>
                   </div>
@@ -241,7 +364,7 @@ export const BatteryROICalculator: React.FC = () => {
                   className={`p-6 rounded-xl border text-left transition-all duration-200 ${
                     inputMethod === 'manual' 
                       ? 'border-primary/50 bg-primary/5' 
-                      : 'border-white/20 bg-white/5 hover:bg-white/10'
+                      : 'border-border bg-card hover:bg-card/80'
                   }`}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -262,7 +385,7 @@ export const BatteryROICalculator: React.FC = () => {
                   </div>
                 </motion.button>
               </div>
-            </Glass>
+            </div>
           )}
 
         {currentStep === 'bills' && (
