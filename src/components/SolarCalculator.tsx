@@ -285,10 +285,18 @@ const SolarCalculator = () => {
                 </Button>
               )}
               {(unlimitedTokens || userTier === 'pro') && (
-                <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-indigo-600">
-                  <Crown className="w-3 h-3 mr-1" />
-                  {unlimitedTokens ? 'Pro (Dev Mode)' : 'Pro Active'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-indigo-600">
+                    <Crown className="w-3 h-3 mr-1" />
+                    {unlimitedTokens ? 'Pro (Dev Mode)' : 'Pro Active'}
+                  </Badge>
+                  {!showAI && (
+                    <Button size="sm" onClick={() => setShowAI(true)} variant="outline">
+                      <Brain className="w-4 h-4 mr-1" />
+                      Open AI Assistant
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -302,48 +310,58 @@ const SolarCalculator = () => {
           day: 'numeric' 
         }) : "Loading..."} />
         
-        <div className={`mx-auto space-y-8 ${showAI ? 'max-w-7xl' : 'max-w-4xl'}`}>
-          <div className={`grid gap-8 ${showAI ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            {/* Main Calculator Area */}
-            <div className={`space-y-8 ${showAI ? 'lg:col-span-2' : ''}`}>
-              <InputModeTabs onCalculate={handleCalculate} appMode={appMode} />
-              
-              {results && (
-                <ResultCards results={results} />
-              )}
-              
-              {results && eligibility && (
-                <div className="space-y-8">
-                  <LimitLine 
-                    status={eligibility.status}
-                    reasons={eligibility.reasons}
-                    suggestions={eligibility.suggestions}
-                    onRequestCall={handleRequestCall}
-                  />
-                  
-                  <div className="text-center text-sm text-muted-foreground">
-                    <p>Figures use current published formulas and datasets.</p>
-                    <p>Verified by a CEC-accredited designer before final quote.</p>
+        <div className="mx-auto max-w-4xl space-y-8">
+          <InputModeTabs onCalculate={handleCalculate} appMode={appMode} />
+          
+          {/* AI Assistant - Compact version right after input */}
+          {showAI && (
+            <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between text-lg">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-purple-600" />
+                    AI Solar Assistant
+                    <Badge variant="default" className="bg-purple-600">
+                      <Crown className="w-3 h-3 mr-1" />
+                      {unlimitedTokens ? 'Pro (Dev)' : 'Pro'}
+                    </Badge>
                   </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Enhanced AI System Panel */}
-            {showAI && (
-              <div className="lg:col-span-1">
-                <div className="sticky top-8">
-                  <EnhancedAISystem 
-                    mode={appMode} 
-                    tier={unlimitedTokens ? 'pro' : userTier}
-                    onSuggestionAccept={handleSuggestionAccept}
-                    onUpgradeRequest={handleUpgrade}
-                    className="h-[600px]"
-                  />
-                </div>
+                  <Button size="sm" onClick={() => setShowAI(false)} variant="ghost">
+                    ×
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EnhancedAISystem 
+                  mode={appMode} 
+                  tier={unlimitedTokens ? 'pro' : userTier}
+                  onSuggestionAccept={handleSuggestionAccept}
+                  onUpgradeRequest={handleUpgrade}
+                  className="h-[400px]"
+                />
+              </CardContent>
+            </Card>
+          )}
+          
+          {results && (
+            <ResultCards results={results} />
+          )}
+          
+          {results && eligibility && (
+            <div className="space-y-8">
+              <LimitLine 
+                status={eligibility.status}
+                reasons={eligibility.reasons}
+                suggestions={eligibility.suggestions}
+                onRequestCall={handleRequestCall}
+              />
+              
+              <div className="text-center text-sm text-muted-foreground">
+                <p>Figures use current published formulas and datasets.</p>
+                <p>Verified by a CEC-accredited designer before final quote.</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
