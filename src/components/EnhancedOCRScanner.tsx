@@ -95,20 +95,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   const [activeTab, setActiveTab] = useState('basic');
   const { toast } = useToast();
 
-  // Auto-advance to next step after successful extraction
-  useEffect(() => {
-    if (extractedFields.length > 0 && !processing) {
-      // Small delay to show results, then auto-advance
-      const timer = setTimeout(() => {
-        // Trigger step advancement by dispatching a custom event
-        window.dispatchEvent(new CustomEvent('ocrCompleted', { 
-          detail: { mode, fieldsExtracted: extractedFields.length } 
-        }));
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [extractedFields, processing, mode]);
+  // Remove auto-advance logic from OCR scanner - let parent handle navigation
 
   const extractBillData = (text: string): ExtractedField[] => {
     console.log('🔍 Extracting bill data from text:', text.substring(0, 200) + '...');
@@ -631,23 +618,14 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
         console.log(`🤖 Sending to AI for ${mode} analysis...`);
         
         try {
-          // Call AI with timeout handling
-          const { data: aiResult, error: supabaseError } = await Promise.race([
-            supabase.functions.invoke('ai-document-analyzer', {
-              body: {
-                text: extractedText.substring(0, 10000),
-                documentType: mode,
-                filename: file.name
-              }
-            }),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('AI request timed out after 15 seconds')), 15000)
-            )
-          ]).catch(error => {
-            // Handle timeout and other errors
-            console.warn('AI request failed:', error.message);
-            return { data: null, error: { message: error.message } };
-          }) as any;
+          console.log('🤖 Calling AI analyzer...');
+          const { data: aiResult, error: supabaseError } = await supabase.functions.invoke('ai-document-analyzer', {
+            body: {
+              text: extractedText.substring(0, 10000),
+              documentType: mode,
+              filename: file.name
+            }
+          });
           
           if (supabaseError) {
             throw new Error(supabaseError.message);
@@ -934,12 +912,11 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
             throw new Error(aiResult?.error || 'AI analysis failed');
           }
         } catch (aiError) {
-          // Fall back to basic extraction if AI fails
-          console.warn('AI analysis failed, falling back to basic extraction:', aiError);
+          console.warn('AI analysis failed, using basic extraction:', aiError);
           
           toast({
-            title: "Using Basic Extraction",
-            description: "AI analysis failed, using pattern-based extraction instead.",
+            title: "Using Pattern Extraction",
+            description: "Analyzing document with built-in patterns.",
             variant: "default"
           });
           
@@ -989,25 +966,32 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   });
 
   const handleFieldEdit = (index: number, newValue: string) => {
-    setExtractedFields(prev => {
-      const updated = prev.map((field, i) => 
+    setExtractedFields(prev => 
+      prev.map((field, i) => 
         i === index ? { ...field, value: newValue } : field
-      );
-      
+      )
+    );
+  };
+
+  // Debounced extraction to prevent rapid calls
+  useEffect(() => {
+    if (extractedFields.length === 0) return;
+    
+    const timeoutId = setTimeout(() => {
       const billData: EnhancedBillData = {};
-      updated.forEach(field => {
-          if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode' || 
-              field.key === 'panelBrand' || field.key === 'panelModel' || field.key === 'inverterBrand' || field.key === 'batteryBrand') {
-            (billData as any)[field.key] = field.value as string;
-          } else {
-            (billData as any)[field.key] = field.value as number;
-          }
+      extractedFields.forEach(field => {
+        if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode' || 
+            field.key === 'panelBrand' || field.key === 'panelModel' || field.key === 'inverterBrand' || field.key === 'batteryBrand') {
+          (billData as any)[field.key] = field.value as string;
+        } else {
+          (billData as any)[field.key] = field.value as number;
+        }
       });
       onExtraction(billData);
-      
-      return updated;
-    });
-  };
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [extractedFields, onExtraction]);
 
   const fieldsByCategory = {
     basic: extractedFields.filter(f => f.category === 'basic'),

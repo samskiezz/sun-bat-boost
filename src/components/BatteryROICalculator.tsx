@@ -139,20 +139,19 @@ export const BatteryROICalculator: React.FC = () => {
     }
   }, [extractedData]);
 
-  // Auto-advance steps when data is available
+  // Simplified auto-advance with debouncing
   useEffect(() => {
-    if (extractedData && currentStep === 'bills' && inputMethod === 'bills') {
-      // If we have bill data, move to system step
-      if (extractedData.usage || extractedData.peakRate) {
-        setTimeout(() => setCurrentStep('system'), 1000);
+    if (!extractedData || inputMethod !== 'bills') return;
+    
+    const timeoutId = setTimeout(() => {
+      if (currentStep === 'bills' && (extractedData.usage || extractedData.peakRate)) {
+        setCurrentStep('system');
+      } else if (currentStep === 'system' && (extractedData.systemSize || extractedData.batterySize)) {
+        setCurrentStep('site');
       }
-    }
-    if (extractedData && currentStep === 'system' && inputMethod === 'bills') {
-      // If we have system data, move to site step
-      if (extractedData.systemSize || extractedData.batterySize) {
-        setTimeout(() => setCurrentStep('site'), 1000);
-      }
-    }
+    }, 2000); // Longer delay to prevent rapid changes
+
+    return () => clearTimeout(timeoutId);
   }, [extractedData, currentStep, inputMethod]);
 
   const steps = [
