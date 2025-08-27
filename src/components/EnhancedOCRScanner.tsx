@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Upload, FileText, Eye, CheckCircle, AlertCircle, Edit, Loader2, Clock, Sun, Moon, Zap, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDropzone } from "react-dropzone";
 import { pdfExtractor } from "@/utils/pdfExtract";
 import { useToast } from "@/components/ui/use-toast";
+
+// ... keep existing code (all interfaces and types)
 
 interface EnhancedBillData {
   retailer?: string;
@@ -31,6 +33,17 @@ interface EnhancedBillData {
   batterySize?: number;
   inverterSize?: number;
   estimatedGeneration?: number;
+  // Additional system data
+  panelBrand?: string;
+  panelModel?: string;
+  panelWattage?: number;
+  inverterBrand?: string;
+  inverterModel?: string;
+  inverterCount?: number;
+  batteryBrand?: string;
+  batteryModel?: string;
+  batteryCount?: number;
+  systemPrice?: number;
   // Site Data (from proposals)
   address?: string;
   postcode?: string;
@@ -80,6 +93,21 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   const [processing, setProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const { toast } = useToast();
+
+  // Auto-advance to next step after successful extraction
+  useEffect(() => {
+    if (extractedFields.length > 0 && !processing) {
+      // Small delay to show results, then auto-advance
+      const timer = setTimeout(() => {
+        // Trigger step advancement by dispatching a custom event
+        window.dispatchEvent(new CustomEvent('ocrCompleted', { 
+          detail: { mode, fieldsExtracted: extractedFields.length } 
+        }));
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [extractedFields, processing, mode]);
 
   const extractBillData = (text: string): ExtractedField[] => {
     console.log('🔍 Extracting bill data from text:', text.substring(0, 200) + '...');
@@ -505,37 +533,320 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
     try {
       let extractedText = "";
 
+      // Extract text from PDF
       if (file.type === "application/pdf") {
         const result = await pdfExtractor.extractFromFile(file);
         extractedText = result.text;
+        console.log(`📄 Extracted ${extractedText.length} characters from PDF`);
       }
 
       if (extractedText.length > 0) {
-        const fields = extractBillData(extractedText);
-        setExtractedFields(fields);
-
-        const billData: EnhancedBillData = {};
-        fields.forEach(field => {
-          if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode') {
-            (billData as any)[field.key] = field.value as string;
-          } else {
-            (billData as any)[field.key] = field.value as number;
-          }
-        });
-
-        onExtraction(billData);
+        // Use AI to analyze the document
+        console.log(`🤖 Sending to AI for ${mode} analysis...`);
         
-        toast({
-          title: `${mode === 'bill' ? 'Bill' : 'Quote'} Processed`,
-          description: `Extracted ${fields.length} fields with TOU analysis`,
-          variant: "default"
+        const response = await fetch('https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/ai-document-analyzer', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`
+          },
+          body: JSON.stringify({
+            text: extractedText,
+            documentType: mode,
+            filename: file.name
+          })
         });
+
+        const aiResult = await response.json();
+        
+        if (aiResult.success && aiResult.data) {
+          const aiData = aiResult.data;
+          console.log('🎯 AI extraction successful:', aiData);
+          
+          // Convert AI results to field format
+          const fields: ExtractedField[] = [];
+          
+          if (mode === 'bill') {
+            // Address data
+            if (aiData.address) {
+              fields.push({
+                label: "Service Address",
+                value: aiData.address,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "address",
+                category: "site"
+              });
+            }
+            
+            if (aiData.postcode) {
+              fields.push({
+                label: "Postcode",
+                value: aiData.postcode,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "postcode",
+                category: "site"
+              });
+            }
+            
+            // Bill data
+            if (aiData.retailer) {
+              fields.push({
+                label: "Retailer",
+                value: aiData.retailer,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "retailer",
+                category: "basic"
+              });
+            }
+            
+            if (aiData.usage) {
+              fields.push({
+                label: "Usage (kWh)",
+                value: aiData.usage,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "usage",
+                category: "basic"
+              });
+            }
+            
+            if (aiData.billAmount) {
+              fields.push({
+                label: "Bill Amount ($)",
+                value: aiData.billAmount,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "billAmount",
+                category: "basic"
+              });
+            }
+            
+            if (aiData.dailySupply) {
+              fields.push({
+                label: "Daily Supply (c)",
+                value: aiData.dailySupply,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "dailySupply",
+                category: "basic"
+              });
+            }
+            
+            // TOU rates
+            if (aiData.peakRate) {
+              fields.push({
+                label: "Peak Rate (c/kWh)",
+                value: aiData.peakRate,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "peakRate",
+                category: "tou"
+              });
+            }
+            
+            if (aiData.offPeakRate) {
+              fields.push({
+                label: "Off-Peak Rate (c/kWh)",
+                value: aiData.offPeakRate,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "offPeakRate",
+                category: "tou"
+              });
+            }
+            
+            if (aiData.shoulderRate) {
+              fields.push({
+                label: "Shoulder Rate (c/kWh)",
+                value: aiData.shoulderRate,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "shoulderRate",
+                category: "tou"
+              });
+            }
+          } else if (mode === 'quote') {
+            // System data
+            if (aiData.systemSize) {
+              fields.push({
+                label: "System Size (kW)",
+                value: aiData.systemSize,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "systemSize",
+                category: "system"
+              });
+            }
+            
+            if (aiData.panelCount) {
+              fields.push({
+                label: "Panel Count",
+                value: aiData.panelCount,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "panelCount",
+                category: "system"
+              });
+            }
+            
+            if (aiData.panelBrand) {
+              fields.push({
+                label: "Panel Brand",
+                value: aiData.panelBrand,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "panelBrand",
+                category: "system"
+              });
+            }
+            
+            if (aiData.panelModel) {
+              fields.push({
+                label: "Panel Model",
+                value: aiData.panelModel,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "panelModel",
+                category: "system"
+              });
+            }
+            
+            if (aiData.inverterBrand) {
+              fields.push({
+                label: "Inverter Brand",
+                value: aiData.inverterBrand,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "inverterBrand",
+                category: "system"
+              });
+            }
+            
+            if (aiData.inverterSize) {
+              fields.push({
+                label: "Inverter Size (kW)",
+                value: aiData.inverterSize,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "inverterSize",
+                category: "system"
+              });
+            }
+            
+            if (aiData.batteryBrand) {
+              fields.push({
+                label: "Battery Brand",
+                value: aiData.batteryBrand,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "batteryBrand",
+                category: "system"
+              });
+            }
+            
+            if (aiData.batterySize) {
+              fields.push({
+                label: "Battery Size (kWh)",
+                value: aiData.batterySize,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "batterySize",
+                category: "system"
+              });
+            }
+            
+            // Site data
+            if (aiData.address) {
+              fields.push({
+                label: "Installation Address",
+                value: aiData.address,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "address",
+                category: "site"
+              });
+            }
+            
+            if (aiData.roofTilt) {
+              fields.push({
+                label: "Roof Tilt (°)",
+                value: aiData.roofTilt,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "roofTilt",
+                category: "site"
+              });
+            }
+            
+            if (aiData.roofAzimuth) {
+              fields.push({
+                label: "Roof Azimuth (°)",
+                value: aiData.roofAzimuth,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "roofAzimuth",
+                category: "site"
+              });
+            }
+            
+            if (aiData.shadingFactor) {
+              fields.push({
+                label: "Shading (%)",
+                value: aiData.shadingFactor,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "shadingFactor",
+                category: "site"
+              });
+            }
+            
+            if (aiData.systemPrice) {
+              fields.push({
+                label: "System Price ($)",
+                value: aiData.systemPrice,
+                confidence: aiData.confidence / 100,
+                editable: true,
+                key: "systemPrice",
+                category: "system"
+              });
+            }
+          }
+          
+          setExtractedFields(fields);
+
+          // Create bill data object
+          const billData: EnhancedBillData = {};
+          fields.forEach(field => {
+            if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode' || 
+                field.key === 'panelBrand' || field.key === 'panelModel' || field.key === 'inverterBrand' || field.key === 'batteryBrand') {
+              (billData as any)[field.key] = field.value as string;
+            } else {
+              (billData as any)[field.key] = field.value as number;
+            }
+          });
+
+          onExtraction(billData);
+          
+          toast({
+            title: `AI Analysis Complete`,
+            description: `Extracted ${fields.length} fields with ${Math.round(aiData.confidence)}% confidence`,
+            variant: "default"
+          });
+          
+        } else {
+          throw new Error(aiResult.error || 'AI analysis failed');
+        }
+      } else {
+        throw new Error('No text extracted from document');
       }
     } catch (error) {
       console.error("OCR processing error:", error);
       toast({
         title: "Processing Failed",
-        description: "Failed to process the file. Please try again.",
+        description: error.message || "Failed to process the file. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -562,11 +873,12 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
       
       const billData: EnhancedBillData = {};
       updated.forEach(field => {
-        if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode') {
-          (billData as any)[field.key] = field.value as string;
-        } else {
-          (billData as any)[field.key] = field.value as number;
-        }
+          if (field.key === 'retailer' || field.key === 'plan' || field.key === 'address' || field.key === 'postcode' || 
+              field.key === 'panelBrand' || field.key === 'panelModel' || field.key === 'inverterBrand' || field.key === 'batteryBrand') {
+            (billData as any)[field.key] = field.value as string;
+          } else {
+            (billData as any)[field.key] = field.value as number;
+          }
       });
       onExtraction(billData);
       

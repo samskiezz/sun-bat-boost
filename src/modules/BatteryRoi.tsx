@@ -82,7 +82,27 @@ export default function BatteryRoi() {
     longitude: undefined
   });
   
-  // Fetch battery count for display
+  // Listen for OCR completion to auto-advance
+  useEffect(() => {
+    const handleOCRCompleted = (event: any) => {
+      const { mode: eventMode, fieldsExtracted } = event.detail;
+      console.log(`🎯 OCR completed for ${eventMode} with ${fieldsExtracted} fields`);
+      
+      // Auto-advance to next step based on mode
+      if (eventMode === 'bill' && fieldsExtracted > 0) {
+        // Advance from bills step to system step
+        setTimeout(() => nextStep(), 1000);
+      } else if (eventMode === 'quote' && fieldsExtracted > 0) {
+        // Advance from system step to site step
+        setTimeout(() => nextStep(), 1000);
+      }
+    };
+
+    window.addEventListener('ocrCompleted', handleOCRCompleted);
+    return () => window.removeEventListener('ocrCompleted', handleOCRCompleted);
+  }, []);
+
+  // Auto-fetch battery count
   useEffect(() => {
     const fetchBatteryCount = async () => {
       try {
@@ -90,7 +110,7 @@ export default function BatteryRoi() {
         const { count } = await supabase
           .from('batteries')
           .select('*', { count: 'exact', head: true });
-        setBatteryCount(count || 342); // fallback to demo number
+        setBatteryCount(count || 342);
       } catch (error) {
         console.error('Error fetching battery count:', error);
         setBatteryCount(342);
