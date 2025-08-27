@@ -6,46 +6,91 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Extended seed data covering all major Australian DNSPs
+// Comprehensive Australian postcode-to-DNSP mapping
 const SEED_DATA = [
-  // NSW - Ausgrid
+  // NSW - Ausgrid (Sydney Metro)
   { state: "NSW", postcode_start: 2000, postcode_end: 2249, network: "Ausgrid", export_cap_kw: 5.0 },
   { state: "NSW", postcode_start: 2250, postcode_end: 2299, network: "Ausgrid", export_cap_kw: 5.0 },
   
-  // NSW - Endeavour Energy  
+  // NSW - Endeavour Energy (Western Sydney, Blue Mountains, Central Coast, Hunter Valley)
   { state: "NSW", postcode_start: 2300, postcode_end: 2339, network: "Endeavour Energy", export_cap_kw: 5.0 },
   { state: "NSW", postcode_start: 2745, postcode_end: 2786, network: "Endeavour Energy", export_cap_kw: 5.0 },
+  { state: "NSW", postcode_start: 2150, postcode_end: 2179, network: "Endeavour Energy", export_cap_kw: 5.0 },
+  { state: "NSW", postcode_start: 2200, postcode_end: 2234, network: "Endeavour Energy", export_cap_kw: 5.0 },
   
-  // NSW - Essential Energy
+  // NSW - Essential Energy (Rural and Regional NSW)
   { state: "NSW", postcode_start: 2340, postcode_end: 2599, network: "Essential Energy", export_cap_kw: 5.0 },
   { state: "NSW", postcode_start: 2620, postcode_end: 2899, network: "Essential Energy", export_cap_kw: 5.0 },
+  { state: "NSW", postcode_start: 2400, postcode_end: 2490, network: "Essential Energy", export_cap_kw: 5.0 },
   
   // ACT - Evoenergy
   { state: "ACT", postcode_start: 2600, postcode_end: 2618, network: "Evoenergy", export_cap_kw: 5.0 },
+  { state: "ACT", postcode_start: 2900, postcode_end: 2920, network: "Evoenergy", export_cap_kw: 5.0 },
   
-  // VIC - Ausgrid (some postcodes)
-  { state: "VIC", postcode_start: 3000, postcode_end: 3199, network: "CitiPower", export_cap_kw: 5.0 },
-  { state: "VIC", postcode_start: 3200, postcode_end: 3399, network: "Powercor", export_cap_kw: 5.0 },
-  { state: "VIC", postcode_start: 3400, postcode_end: 3999, network: "AusNet Services", export_cap_kw: 5.0 },
+  // VIC - CitiPower (Melbourne CBD and inner suburbs)
+  { state: "VIC", postcode_start: 3000, postcode_end: 3006, network: "CitiPower", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3008, postcode_end: 3008, network: "CitiPower", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3031, postcode_end: 3031, network: "CitiPower", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3121, postcode_end: 3121, network: "CitiPower", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3141, postcode_end: 3142, network: "CitiPower", export_cap_kw: 5.0 },
   
-  // QLD - Energex
-  { state: "QLD", postcode_start: 4000, postcode_end: 4299, network: "Energex", export_cap_kw: 5.0 },
+  // VIC - Powercor (Western Melbourne, Western Victoria)
+  { state: "VIC", postcode_start: 3012, postcode_end: 3030, network: "Powercor", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3032, postcode_end: 3120, network: "Powercor", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3200, postcode_end: 3249, network: "Powercor", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3300, postcode_end: 3399, network: "Powercor", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3400, postcode_end: 3499, network: "Powercor", export_cap_kw: 5.0 },
+  
+  // VIC - AusNet Services (Eastern and Northern Melbourne, Eastern Victoria)
+  { state: "VIC", postcode_start: 3122, postcode_end: 3140, network: "AusNet Services", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3143, postcode_end: 3199, network: "AusNet Services", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3620, postcode_end: 3699, network: "AusNet Services", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3700, postcode_end: 3799, network: "AusNet Services", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3800, postcode_end: 3999, network: "AusNet Services", export_cap_kw: 5.0 },
+  
+  // VIC - United Energy (South Eastern Melbourne, Mornington Peninsula)
+  { state: "VIC", postcode_start: 3150, postcode_end: 3199, network: "United Energy", export_cap_kw: 5.0 },
+  { state: "VIC", postcode_start: 3930, postcode_end: 3944, network: "United Energy", export_cap_kw: 5.0 },
+  
+  // QLD - Energex (South East Queensland)
+  { state: "QLD", postcode_start: 4000, postcode_end: 4179, network: "Energex", export_cap_kw: 5.0 },
+  { state: "QLD", postcode_start: 4200, postcode_end: 4299, network: "Energex", export_cap_kw: 5.0 },
   { state: "QLD", postcode_start: 4300, postcode_end: 4399, network: "Energex", export_cap_kw: 5.0 },
+  { state: "QLD", postcode_start: 4500, postcode_end: 4519, network: "Energex", export_cap_kw: 5.0 },
   
-  // QLD - Ergon Energy
-  { state: "QLD", postcode_start: 4400, postcode_end: 4999, network: "Ergon Energy", export_cap_kw: 5.0 },
+  // QLD - Ergon Energy (Regional Queensland)  
+  { state: "QLD", postcode_start: 4180, postcode_end: 4199, network: "Ergon Energy", export_cap_kw: 5.0 },
+  { state: "QLD", postcode_start: 4400, postcode_end: 4499, network: "Ergon Energy", export_cap_kw: 5.0 },
+  { state: "QLD", postcode_start: 4520, postcode_end: 4899, network: "Ergon Energy", export_cap_kw: 5.0 },
+  { state: "QLD", postcode_start: 4900, postcode_end: 4999, network: "Ergon Energy", export_cap_kw: 5.0 },
   
-  // SA - SA Power Networks  
-  { state: "SA", postcode_start: 5000, postcode_end: 5799, network: "SA Power Networks", export_cap_kw: 10.0 },
+  // SA - SA Power Networks (All of South Australia)
+  { state: "SA", postcode_start: 5000, postcode_end: 5199, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5200, postcode_end: 5299, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5300, postcode_end: 5399, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5400, postcode_end: 5499, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5500, postcode_end: 5599, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5600, postcode_end: 5699, network: "SA Power Networks", export_cap_kw: 10.0 },
+  { state: "SA", postcode_start: 5700, postcode_end: 5799, network: "SA Power Networks", export_cap_kw: 10.0 },
   
-  // WA - Western Power
-  { state: "WA", postcode_start: 6000, postcode_end: 6999, network: "Western Power", export_cap_kw: 5.0 },
+  // WA - Western Power (South West Interconnected System)
+  { state: "WA", postcode_start: 6000, postcode_end: 6199, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6200, postcode_end: 6299, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6300, postcode_end: 6399, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6400, postcode_end: 6499, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6500, postcode_end: 6599, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6600, postcode_end: 6699, network: "Western Power", export_cap_kw: 5.0 },
+  { state: "WA", postcode_start: 6700, postcode_end: 6799, network: "Western Power", export_cap_kw: 5.0 },
   
-  // TAS - TasNetworks
-  { state: "TAS", postcode_start: 7000, postcode_end: 7999, network: "TasNetworks", export_cap_kw: 5.0 },
+  // TAS - TasNetworks (All of Tasmania)
+  { state: "TAS", postcode_start: 7000, postcode_end: 7099, network: "TasNetworks", export_cap_kw: 5.0 },
+  { state: "TAS", postcode_start: 7100, postcode_end: 7199, network: "TasNetworks", export_cap_kw: 5.0 },
+  { state: "TAS", postcode_start: 7200, postcode_end: 7299, network: "TasNetworks", export_cap_kw: 5.0 },
+  { state: "TAS", postcode_start: 7300, postcode_end: 7399, network: "TasNetworks", export_cap_kw: 5.0 },
   
-  // NT - Power and Water
+  // NT - Power and Water Corporation (All of Northern Territory)
   { state: "NT", postcode_start: 800, postcode_end: 899, network: "Power and Water Corporation", export_cap_kw: 5.0 },
+  { state: "NT", postcode_start: 900, postcode_end: 999, network: "Power and Water Corporation", export_cap_kw: 5.0 },
 ];
 
 serve(async (req) => {
