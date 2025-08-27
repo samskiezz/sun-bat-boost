@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, Sun, Compass, Eye, Calculator, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import 'leaflet/dist/leaflet.css';
 
-// Google Maps type declarations
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+// Fix Leaflet default markers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 interface SiteData {
   address?: string;
@@ -43,165 +47,65 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
   const [analyzing, setAnalyzing] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [shadingAnalysis, setShadingAnalysis] = useState<ShadingAnalysis | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const [mapPosition, setMapPosition] = useState<[number, number]>([
+    siteData.latitude || -33.8688, 
+    siteData.longitude || 151.2093
+  ]);
   const { toast } = useToast();
 
-  // Initialize Google Maps
-  useEffect(() => {
-    let cleanup: (() => void) | null = null;
-    
-    const initMap = async () => {
-      if (!window.google || !mapRef.current) return;
-
-      try {
-        const defaultLat = siteData.latitude || -33.8688;
-        const defaultLng = siteData.longitude || 151.2093;
-
-        const map = new (window as any).google.maps.Map(mapRef.current, {
-          center: { lat: defaultLat, lng: defaultLng },
-          zoom: 20,
-          mapTypeId: 'satellite',
-          tilt: 0,
-          streetViewControl: false,
-          fullscreenControl: false
-        });
-
-        // Add marker for the property
-        const marker = new (window as any).google.maps.Marker({
-          position: { lat: defaultLat, lng: defaultLng },
-          map: map,
-          title: 'Installation Site',
-          icon: {
-            path: (window as any).google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#ff6b35',
-            fillOpacity: 0.8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-          }
-        });
-
-        mapInstanceRef.current = map;
-        setMapLoaded(true);
-
-        // Setup cleanup function
-        cleanup = () => {
-          if (marker) {
-            marker.setMap(null);
-          }
-          if (map && mapRef.current) {
-            // Clear all overlays and listeners
-            (window as any).google.maps.event.clearInstanceListeners(map);
-            mapInstanceRef.current = null;
-          }
-        };
-
-        // If we have coordinates but no address, try reverse geocoding
-        if (siteData.latitude && siteData.longitude && !siteData.address) {
-          performReverseGeocode(siteData.latitude, siteData.longitude);
-        }
-
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        toast({
-          title: "Map Error",
-          description: "Failed to load satellite view. Please try again.",
-          variant: "destructive"
-        });
-      }
-    };
-
-    // Load Google Maps script if not already loaded
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,places&loading=async`;
-      script.async = true;
-      script.onload = initMap;
-      script.onerror = () => {
-        console.error('Failed to load Google Maps script');
-        toast({
-          title: "Map Error",
-          description: "Failed to load Google Maps. Please check your connection.",
-          variant: "destructive"
-        });
-      };
-      document.head.appendChild(script);
-      
-      // Setup cleanup for script
-      cleanup = () => {
-        const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`);
-        if (existingScript && existingScript.parentNode) {
-          existingScript.parentNode.removeChild(existingScript);
-        }
-      };
-    } else {
-      initMap();
-    }
-
-    // Cleanup function
-    return () => {
-      if (cleanup) {
-        cleanup();
-      }
-      setMapLoaded(false);
-    };
-  }, [siteData.latitude, siteData.longitude]);
-
-  // Separate cleanup effect for component unmount
-  useEffect(() => {
-    return () => {
-      // Force cleanup on unmount
-      if (mapInstanceRef.current) {
-        try {
-          (window as any).google?.maps?.event?.clearInstanceListeners(mapInstanceRef.current);
-          mapInstanceRef.current = null;
-        } catch (error) {
-          console.warn('Error during map cleanup:', error);
-        }
-      }
-    };
-  }, []);
-
-  const performGeocode = async (address: string) => {
-    if (!window.google) return null;
-
-    return new Promise<{ lat: number; lng: number; formatted_address: string } | null>((resolve) => {
-      const geocoder = new (window as any).google.maps.Geocoder();
-      
-      geocoder.geocode({ address: `${address}, Australia` }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          resolve({
-            lat: location.lat(),
-            lng: location.lng(),
-            formatted_address: results[0].formatted_address
-          });
-        } else {
-          resolve(null);
-        }
-      });
+  // Component to handle map clicks
+  const MapClickHandler = () => {
+    useMapEvents({
+      click: (e) => {
+        const { lat, lng } = e.latlng;
+        setMapPosition([lat, lng]);
+        onSiteDataUpdate({ ...siteData, latitude: lat, longitude: lng });
+        performReverseGeocode(lat, lng);
+      },
     });
+    return null;
   };
 
-  const performReverseGeocode = async (lat: number, lng: number) => {
-    if (!window.google) return;
+  // Update map position when site data changes
+  useEffect(() => {
+    if (siteData.latitude && siteData.longitude) {
+      setMapPosition([siteData.latitude, siteData.longitude]);
+    }
+  }, [siteData]);
 
+  // Geocode address using Nominatim (free OpenStreetMap geocoding)
+  const performGeocode = async (address: string): Promise<{ lat: number; lng: number; formatted_address: string } | null> => {
     try {
-      const geocoder = new (window as any).google.maps.Geocoder();
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Australia')}&limit=1`);
+      const data = await response.json();
       
-      geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
-        if (status === 'OK' && results && results[0]) {
-          setManualAddress(results[0].formatted_address);
-          onSiteDataUpdate({
-            ...siteData,
-            address: results[0].formatted_address
-          });
-        }
-      });
+      if (data.length > 0) {
+        const result = data[0];
+        return {
+          lat: parseFloat(result.lat),
+          lng: parseFloat(result.lon),
+          formatted_address: result.display_name
+        };
+      }
+      return null;
     } catch (error) {
-      console.warn('Error in reverse geocoding:', error);
+      console.error('Geocoding failed:', error);
+      return null;
+    }
+  };
+
+  // Reverse geocode coordinates using Nominatim
+  const performReverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+      const data = await response.json();
+      
+      if (data.display_name) {
+        setManualAddress(data.display_name);
+        onSiteDataUpdate({ ...siteData, address: data.display_name });
+      }
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
     }
   };
 
@@ -221,31 +125,7 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
         };
         
         onSiteDataUpdate(updatedData);
-        
-        // Update map
-        if (mapInstanceRef.current) {
-          try {
-            const newCenter = { lat: result.lat, lng: result.lng };
-            mapInstanceRef.current.setCenter(newCenter);
-            
-            // Add new marker (remove old ones first)
-            const marker = new (window as any).google.maps.Marker({
-              position: newCenter,
-              map: mapInstanceRef.current,
-              title: 'Installation Site',
-              icon: {
-                path: (window as any).google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: '#ff6b35',
-                fillOpacity: 0.8,
-                strokeColor: '#ffffff',
-                strokeWeight: 2
-              }
-            });
-          } catch (error) {
-            console.warn('Error updating map:', error);
-          }
-        }
+        setMapPosition([result.lat, result.lng]);
         
         toast({
           title: "Location Found",
@@ -280,9 +160,6 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
     
     try {
       // Simulate AI-powered shading analysis
-      // In a real implementation, this would use satellite imagery analysis,
-      // elevation data, and ML models to detect shading obstacles
-      
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Mock analysis results based on location patterns
@@ -337,9 +214,6 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
   };
 
   const calculateRoofParameters = () => {
-    // Mock roof parameter calculation from satellite imagery
-    // In reality, this would use ML models to analyze roof geometry
-    
     const mockTilt = 15 + Math.random() * 25; // 15-40 degrees typical range
     const mockAzimuth = Math.random() * 360; // 0-360 degrees
     
@@ -408,41 +282,48 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div 
-            ref={mapRef}
-            className="w-full h-64 rounded-lg bg-muted/20 flex items-center justify-center"
-          >
-            {!mapLoaded && (
-              <div className="text-center space-y-2">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto opacity-50" />
-                <p className="text-sm text-muted-foreground">Loading satellite view...</p>
-              </div>
-            )}
+          <div className="w-full h-64 bg-muted rounded-lg border shadow-sm overflow-hidden">
+            <MapContainer
+              center={mapPosition}
+              zoom={18}
+              style={{ height: '100%', width: '100%' }}
+              key={`${mapPosition[0]}-${mapPosition[1]}`}
+            >
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+              />
+              <Marker position={mapPosition} />
+              <MapClickHandler />
+            </MapContainer>
           </div>
           
-          {mapLoaded && (
-            <div className="mt-4 flex gap-3">
-              <Button
-                onClick={() => siteData.latitude && siteData.longitude && performShadingAnalysis(siteData.latitude, siteData.longitude)}
-                disabled={analyzing || !siteData.latitude}
-                variant="outline"
-                className="bg-white/5 border-white/20"
-              >
-                {analyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sun className="w-4 h-4 mr-2" />}
-                Analyze Shading
-              </Button>
-              
-              <Button
-                onClick={calculateRoofParameters}
-                disabled={!siteData.latitude}
-                variant="outline"
-                className="bg-white/5 border-white/20"
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Calculate Roof Angle
-              </Button>
-            </div>
-          )}
+          <div className="mt-4 flex gap-3">
+            <Button
+              onClick={() => siteData.latitude && siteData.longitude && performShadingAnalysis(siteData.latitude, siteData.longitude)}
+              disabled={analyzing || !siteData.latitude}
+              variant="outline"
+              className="bg-white/5 border-white/20"
+            >
+              {analyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sun className="w-4 h-4 mr-2" />}
+              Analyze Shading
+            </Button>
+            
+            <Button
+              onClick={calculateRoofParameters}
+              disabled={!siteData.latitude}
+              variant="outline"
+              className="bg-white/5 border-white/20"
+            >
+              <Calculator className="w-4 h-4 mr-2" />
+              Calculate Roof Angle
+            </Button>
+          </div>
+          
+          <p className="text-xs text-muted-foreground mt-2">
+            📍 Click on the map to adjust the exact installation location. 
+            The map shows satellite imagery for better roof analysis.
+          </p>
         </CardContent>
       </Card>
 
@@ -498,11 +379,11 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
 
             {/* Detected Features */}
             {shadingAnalysis.features.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Detected Features:</h4>
+              <div className="space-y-2">
+                <h5 className="font-medium text-sm">Detected Features:</h5>
                 <div className="flex flex-wrap gap-2">
                   {shadingAnalysis.features.map((feature, index) => (
-                    <Badge key={index} variant="outline" className="bg-white/5">
+                    <Badge key={index} variant="secondary" className="text-xs">
                       {feature}
                     </Badge>
                   ))}
@@ -518,49 +399,49 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Compass className="w-5 h-5 text-primary" />
-            Site Parameters
+            Manual Site Parameters
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="tilt">Roof Tilt (°)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="roofTilt">Roof Tilt (°)</Label>
               <Input
-                id="tilt"
+                id="roofTilt"
                 type="number"
                 min="0"
-                max="60"
+                max="90"
                 value={siteData.roofTilt || ''}
                 onChange={(e) => onSiteDataUpdate({
                   ...siteData,
-                  roofTilt: parseFloat(e.target.value) || 0
+                  roofTilt: parseFloat(e.target.value) || undefined
                 })}
+                placeholder="30"
                 className="bg-white/5 border-white/20"
-                placeholder="25"
               />
             </div>
             
-            <div>
-              <Label htmlFor="azimuth">Roof Azimuth (°)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="roofAzimuth">Roof Azimuth (°)</Label>
               <Input
-                id="azimuth"
+                id="roofAzimuth"
                 type="number"
                 min="0"
                 max="360"
                 value={siteData.roofAzimuth || ''}
                 onChange={(e) => onSiteDataUpdate({
                   ...siteData,
-                  roofAzimuth: parseFloat(e.target.value) || 0
+                  roofAzimuth: parseFloat(e.target.value) || undefined
                 })}
+                placeholder="180"
                 className="bg-white/5 border-white/20"
-                placeholder="0 (North)"
               />
             </div>
             
-            <div>
-              <Label htmlFor="shading">Shading (%)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="shadingFactor">Shading Factor (%)</Label>
               <Input
-                id="shading"
+                id="shadingFactor"
                 type="number"
                 min="0"
                 max="100"
@@ -568,16 +449,18 @@ export default function SiteShadingAnalyzer({ siteData, onSiteDataUpdate }: Site
                 value={siteData.shadingFactor || ''}
                 onChange={(e) => onSiteDataUpdate({
                   ...siteData,
-                  shadingFactor: parseFloat(e.target.value) || 0
+                  shadingFactor: parseFloat(e.target.value) || undefined
                 })}
+                placeholder="5.0"
                 className="bg-white/5 border-white/20"
-                placeholder="0"
               />
             </div>
           </div>
           
-          <div className="text-sm text-muted-foreground">
-            💡 Tip: Use the satellite analysis tools above for accurate measurements, or enter known values manually.
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>• <strong>Roof Tilt:</strong> 0° = flat, 30° = typical residential, 90° = vertical</p>
+            <p>• <strong>Roof Azimuth:</strong> 0° = North, 90° = East, 180° = South, 270° = West</p>
+            <p>• <strong>Shading Factor:</strong> Percentage of daylight hours affected by shading</p>
           </div>
         </CardContent>
       </Card>

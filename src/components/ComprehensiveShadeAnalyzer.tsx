@@ -11,12 +11,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import SiteShadingAnalyzer from './SiteShadingAnalyzer';
 
-// Google Maps type declarations
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+// Updated for Leaflet/OpenStreetMap integration
 
 interface SiteData {
   address?: string;
@@ -86,10 +81,10 @@ export default function ComprehensiveShadeAnalyzer({
     setDataSources(sources);
   }, [billData, proposalData]);
 
-  // Add Google Maps analysis result
+  // Add OpenStreetMap analysis result
   const addMapsAnalysis = (mapsData: Partial<SiteData>) => {
     const newSource: DataSource = {
-      name: 'Google Maps Analysis',
+      name: 'OpenStreetMap Analysis',
       type: 'maps',
       confidence: 0.9,
       data: mapsData,
@@ -131,7 +126,7 @@ export default function ComprehensiveShadeAnalyzer({
           
           // Prioritize by type and confidence
           for (const source of fieldSources) {
-            // Google Maps has highest priority for location data
+            // OpenStreetMap has highest priority for location data
             if ((field === 'latitude' || field === 'longitude' || field === 'shadingFactor') && source.type === 'maps') {
               bestSource = source;
               break;
@@ -284,7 +279,7 @@ export default function ComprehensiveShadeAnalyzer({
               </CardContent>
             </Card>
 
-            {/* Google Maps Integration */}
+            {/* OpenStreetMap Integration */}
             <SiteShadingAnalyzer
               siteData={finalData}
               onSiteDataUpdate={(mapsData) => {
@@ -482,7 +477,7 @@ export default function ComprehensiveShadeAnalyzer({
                   <p className="text-sm text-muted-foreground">
                     Final values determined using highest confidence data from each source type. 
                     {dataSources.filter(s => s.type === 'maps').length > 0 && 
-                      " Google Maps analysis provided the most accurate shading data."
+                      " OpenStreetMap analysis provided the most accurate shading data."
                     }
                   </p>
                 </div>
