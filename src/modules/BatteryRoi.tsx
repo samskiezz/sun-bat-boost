@@ -105,9 +105,6 @@ export default function BatteryRoi() {
           dailySupply: event.plan.supply_c_per_day || prev.dailySupply,
         }));
         
-        // Trigger ROI recalculation with new plan rates
-        calculateROI();
-        
         // Auto-advance to system step when plan is selected
         if (currentStep === 'bills') {
           setCurrentStep('system');
