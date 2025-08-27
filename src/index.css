@@ -98,19 +98,20 @@
     /* Dark mode gradients */
     --gradient-solar: linear-gradient(135deg, hsl(25 95% 53%), hsl(35 100% 65%));
     --gradient-sky: linear-gradient(135deg, hsl(205 80% 40%), hsl(220 90% 50%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
     --gradient-subtle: linear-gradient(180deg, hsl(25 10% 8%), hsl(25 10% 12%));
-    --gradient-vpp: linear-gradient(135deg, hsl(260 90% 55%), hsl(280 70% 60%));
-    
+    --gradient-vpp: linear-gradient(135deg, hsl(25 95% 53%), hsl(35 100% 65%));
+
     /* Dark mode shadows */
-    --shadow-solar: 0 10px 30px -10px hsl(25 95% 53% / 0.4);
-    --shadow-glow: 0 0 40px hsl(35 100% 65% / 0.3);
-    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.5);
-    --shadow-vpp: 0 10px 30px -10px hsl(260 90% 55% / 0.4);
+    --shadow-glass: 0 8px 32px rgba(0,0,0,0.3);
+    --shadow-glow: 0 0 40px hsl(25 95% 53% / 0.3);
+    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.3);
+    --shadow-vpp: 0 10px 30px -10px hsl(25 95% 53% / 0.3);
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary: 224.3 76.3% 94.1%;
+    --sidebar-primary-foreground: 220.9 39.3% 11%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
@@ -122,52 +123,45 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
   }
 }
 
-/* Glassmorphism Utilities */
-@layer utilities {
-  .glass {
-    @apply backdrop-blur-2xl bg-white/10 dark:bg-white/5 border border-white/20 rounded-2xl shadow-glass;
+/* Glass morphism utility */
+.glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--gradient-glass);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Custom animations for enhanced UI */
+@keyframes slide-right {
+  0% {
+    transform: translateX(-100%);
   }
-  
-  .glass-card {
-    @apply backdrop-blur-2xl bg-white/10 dark:bg-white/5 border border-white/20 rounded-2xl shadow-2xl;
+  100% {
+    transform: translateX(100%);
   }
-  
-  .hover-glass {
-    @apply hover:scale-[1.01] transition-transform duration-200;
+}
+
+@keyframes hologram-shimmer {
+  0%, 100% {
+    background-position: -200% 0;
   }
-  
-  .hologram-track {
-    position: relative;
-    overflow: hidden;
+  50% {
+    background-position: 200% 0;
   }
-  
-  .hologram-track::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: hologram 3s infinite linear;
-  }
-  
-  @keyframes hologram {
-    0% { left: -100%; }
-    100% { left: 100%; }
-  }
-  
-  .gradient-glass {
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  }
-  
-  .gradient-violet-subtle {
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1), transparent);
-  }
+}
+
+.animate-slide-right {
+  animation: slide-right 3s ease-in-out infinite;
+}
+
+.hologram-slider {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background-size: 200% 100%;
+  animation: hologram-shimmer 3s ease-in-out infinite;
 }

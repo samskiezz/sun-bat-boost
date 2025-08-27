@@ -40,6 +40,8 @@ import { ResultCards } from './ResultCards';
 import { LimitLine } from './LimitLine';
 import { Glass } from './Glass';
 import { useDropzone } from 'react-dropzone';
+import { SavingsWizard } from './SavingsWizard';
+import { SavingsCTACard } from './SavingsCTACard';
 
 interface ExtractedField {
   label: string;
@@ -69,6 +71,7 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
   userTier,
   unlimitedTokens
 }) => {
+  const [showSavingsWizard, setShowSavingsWizard] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('method');
   const [inputMethod, setInputMethod] = useState<'upload' | 'picker' | 'manual'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -175,8 +178,29 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
     setCurrentStep('results');
   };
 
+  if (showSavingsWizard) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <button
+          onClick={() => setShowSavingsWizard(false)}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Rebates Calculator
+        </button>
+        <SavingsWizard onApplyToROI={(scenario) => {
+          // Could integrate with rebates calculation here
+          console.log('Savings scenario:', scenario);
+        }} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Savings CTA Card */}
+      <SavingsCTACard onStartWizard={() => setShowSavingsWizard(true)} />
+
       {/* Pro Features */}
       {isProUser && (
         <Glass className="p-6">

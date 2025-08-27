@@ -31,6 +31,7 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { Glass } from './Glass';
 import { useDropzone } from 'react-dropzone';
+import { SavingsWizard } from './SavingsWizard';
 
 interface ExtractedField {
   label: string;
@@ -39,10 +40,10 @@ interface ExtractedField {
   editable: boolean;
 }
 
-type Step = 'method' | 'bills' | 'system' | 'site' | 'results';
+type Step = 'savings-wizard' | 'method' | 'bills' | 'system' | 'site' | 'results';
 
 export const BatteryROICalculator: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState<Step>('method');
+  const [currentStep, setCurrentStep] = useState<Step>('savings-wizard');
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
@@ -71,16 +72,17 @@ export const BatteryROICalculator: React.FC = () => {
     shading: 0
   });
 
-  const steps = [
-    { id: 'method', title: 'Input Method', icon: Upload },
-    { id: 'bills', title: 'Energy Data', icon: FileText },
-    { id: 'system', title: 'System Size', icon: Zap },
-    { id: 'site', title: 'Site Details', icon: Home },
-    { id: 'results', title: 'ROI Analysis', icon: TrendingUp }
+  const steps: { key: Step; title: string; icon: React.ReactNode }[] = [
+    { key: 'savings-wizard', title: 'Savings Wizard', icon: <Zap className="w-5 h-5" /> },
+    { key: 'method', title: 'Method', icon: <Zap className="w-5 h-5" /> },
+    { key: 'bills', title: 'Energy Data', icon: <FileText className="w-5 h-5" /> },
+    { key: 'system', title: 'System Size', icon: <Calculator className="w-5 h-5" /> },
+    { key: 'site', title: 'Site Details', icon: <Home className="w-5 h-5" /> },
+    { key: 'results', title: 'ROI Analysis', icon: <TrendingUp className="w-5 h-5" /> },
   ];
 
-  const currentStepIndex = steps.findIndex(step => step.id === currentStep);
-  const progress = ((currentStepIndex + 1) / steps.length) * 100;
+  const getCurrentStepIndex = () => steps.findIndex(step => step.key === currentStep);
+  const progress = ((getCurrentStepIndex() + 1) / steps.length) * 100;
 
   const onDropBill = useCallback((acceptedFiles: File[]) => {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
@@ -153,22 +155,24 @@ export const BatteryROICalculator: React.FC = () => {
       <Glass className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Battery ROI Calculator</h2>
-          <Badge variant="outline">{currentStepIndex + 1} of {steps.length}</Badge>
+          <Badge variant="outline">{getCurrentStepIndex() + 1} of {steps.length}</Badge>
         </div>
         
         <Progress value={progress} className="mb-4 hologram-track" />
         
         <div className="flex items-center justify-between text-sm">
           {steps.map((step, index) => {
-            const Icon = step.icon;
+            const isActive = step.key === currentStep;
+            const isCompleted = getCurrentStepIndex() > index;
+            
             return (
               <div 
-                key={step.id}
+                key={step.key}
                 className={`flex items-center gap-2 ${
-                  index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
+                  isActive ? 'text-primary' : isCompleted ? 'text-green-500' : 'text-muted-foreground'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                {step.icon}
                 <span className="hidden sm:inline">{step.title}</span>
               </div>
             );
@@ -178,15 +182,33 @@ export const BatteryROICalculator: React.FC = () => {
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Step 1: Input Method */}
-          {currentStep === 'method' && (
+        {currentStep === 'savings-wizard' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <SavingsWizard onApplyToROI={(scenario) => {
+              // Apply scenario data to ROI calculator
+              setFormData(prev => ({
+                ...prev,
+                usage: scenario.results.billBefore / 12, // Monthly usage estimate
+                retailer: scenario.currentSetup.retailer,
+                plan: scenario.currentSetup.plan,
+                systemSize: scenario.recommendations.pvSize,
+                batterySize: scenario.recommendations.batterySize,
+                batteryPower: scenario.recommendations.batteryPower
+              }));
+              setCurrentStep('site'); // Skip to site details after applying
+            }} />
+          </motion.div>
+        )}
+        {currentStep === 'method' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">How would you like to input your data?</h3>
               
@@ -250,10 +272,15 @@ export const BatteryROICalculator: React.FC = () => {
                 </motion.button>
               </div>
             </Glass>
-          )}
+          </motion.div>
+        )}
 
-          {/* Step 2: Bills/Energy Data */}
-          {currentStep === 'bills' && (
+        {currentStep === 'bills' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">Energy Usage & Rates</h3>
               
@@ -389,10 +416,15 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               )}
             </Glass>
-          )}
+          </motion.div>
+        )}
 
-          {/* Step 3: System Size */}
-          {currentStep === 'system' && (
+        {currentStep === 'system' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <Glass className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold">System Configuration</h3>
@@ -484,10 +516,15 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               )}
             </Glass>
-          )}
+          </motion.div>
+        )}
 
-          {/* Step 4: Site Details */}
-          {currentStep === 'site' && (
+        {currentStep === 'site' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">Site & Location Details</h3>
               
@@ -538,10 +575,15 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               </div>
             </Glass>
-          )}
+          </motion.div>
+        )}
 
-          {/* Step 5: Results */}
-          {currentStep === 'results' && (
+        {currentStep === 'results' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <div className="space-y-6">
               <Glass className="p-6">
                 <div className="flex items-center gap-2 mb-6">
@@ -584,8 +626,8 @@ export const BatteryROICalculator: React.FC = () => {
                 </div>
               </Glass>
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Navigation */}
