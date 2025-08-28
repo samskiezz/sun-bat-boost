@@ -135,6 +135,24 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
     { id: 'results', title: 'Results', icon: BarChart3 }
   ];
 
+  const getCurrentStepIndex = () => {
+    return steps.findIndex(step => step.id === currentStep);
+  };
+
+  const nextStep = () => {
+    const currentIndex = getCurrentStepIndex();
+    if (currentIndex < steps.length - 1) {
+      setCurrentStep(steps[currentIndex + 1].id as WizardStep);
+    }
+  };
+
+  const prevStep = () => {
+    const currentIndex = getCurrentStepIndex();
+    if (currentIndex > 0) {
+      setCurrentStep(steps[currentIndex - 1].id as WizardStep);
+    }
+  };
+
   const onDropBill = useCallback((acceptedFiles: File[]) => {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
     setProcessing(true);
