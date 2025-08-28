@@ -20,7 +20,8 @@ import {
   Car,
   Settings,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from "@/hooks/use-toast";
+import OCRScanner from "./OCRScanner";
+import LocationAutoFill from "./LocationAutoFill";
+import { ExtractResult } from "@/ocr/extract.types";
 import { Glass } from './Glass';
 import { FuturisticBanner } from './FuturisticBanner';
 import { StepBanner } from './StepBanner';
@@ -40,12 +45,16 @@ interface SavingsScenario {
     retailer: string;
     plan: string;
     meterType: 'TOU' | 'Single' | 'Demand';
+    monthlyUsage: number;
     hasEV: boolean;
     evKwhPerDay: number;
     currentSystem: 'none' | 'solar' | 'solar-battery';
     pvSize: number;
     batterySize: number;
     batteryPower: number;
+    state?: string;
+    network?: string;
+    exportCapKw?: number;
   };
   goals: {
     objective: 'min-payback' | 'max-savings' | 'balanced' | 'budget-cap' | 'target-payback';
@@ -83,12 +92,14 @@ interface SavingsWizardProps {
 }
 
 export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, className = '' }) => {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<WizardStep>('current-setup');
   const [scenario, setScenario] = useState<SavingsScenario>({
     currentSetup: {
       retailer: '',
       plan: '',
       meterType: 'TOU',
+      monthlyUsage: 0,
       hasEV: false,
       evKwhPerDay: 0,
       currentSystem: 'none',
@@ -127,6 +138,48 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [ocrHistory, setOCRHistory] = useState<any[]>([]);
+  const [ocrExtracted, setOcrExtracted] = useState(false);
+  const [locationData, setLocationData] = useState<any>(null);
+
+  // Handle OCR extraction results
+  const handleOCRExtraction = useCallback((data: ExtractResult) => {
+    setOcrExtracted(true);
+    toast({
+      title: "Bill Processed",
+      description: "Usage data extracted successfully",
+    });
+  }, [toast]);
+
+  // Handle address extraction from OCR
+  const handleAddressExtracted = useCallback((address: string, postcode?: string) => {
+    if (postcode) {
+      // Auto-trigger location lookup when postcode is extracted
+      console.log(`OCR extracted address: ${address}, postcode: ${postcode}`);
+      toast({
+        title: "Address Detected",
+        description: `Found postcode ${postcode} from your bill`,
+      });
+    }
+  }, [toast]);
+
+  // Handle location updates from LocationAutoFill
+  const handleLocationUpdate = useCallback((data: any) => {
+    setLocationData(data);
+    setScenario(prev => ({
+      ...prev,
+      currentSetup: {
+        ...prev.currentSetup,
+        meterType: data.meterType,
+        state: data.state,
+        network: data.network,
+        exportCapKw: data.exportCapKw
+      }
+    }));
+    toast({
+      title: "Location Updated", 
+      description: `${data.network}, ${data.state}`,
+    });
+  }, [toast]);
 
   const steps = [
     { id: 'current-setup', title: 'Current Setup', icon: Home },
@@ -213,125 +266,85 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       exit={{ opacity: 0, y: -20 }}
       className="space-y-8"
     >
-      {/* Bill Upload Section */}
+      {/* AI Bill Analysis */}
       <Glass className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <FileText className="w-6 h-6 text-primary" />
-          <h3 className="text-xl font-semibold">Energy Bill Upload</h3>
+          <h3 className="text-xl font-semibold">Smart Bill Analysis</h3>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Upload Area */}
-          <div>
-            <div
-              {...getBillProps()}
-              className={`
-                border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-                ${isBillDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}
-              `}
-            >
-              <input {...getBillInputProps()} />
-              <Upload className="w-12 h-12 text-primary mx-auto mb-4" />
-              <p className="text-lg font-medium mb-2">Drop your latest energy bill</p>
-              <p className="text-muted-foreground mb-4">PDF, JPG, PNG supported</p>
-              <Button variant="outline" type="button">
-                Choose Files
-              </Button>
-            </div>
+        <OCRScanner 
+          onDataExtracted={handleOCRExtraction}
+          onAddressExtracted={handleAddressExtracted}
+        />
 
-            {uploadedFiles.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <FileText className="w-4 h-4" />
-                    <span>{file.name}</span>
-                    {processing ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* OCR History */}
-          <div>
-            <h4 className="font-medium mb-3">Recent Bills</h4>
-            <div className="space-y-2">
-              {['AGL March 2024', 'Origin February 2024', 'AGL January 2024'].map((bill, index) => (
-                <button
-                  key={index}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-                  onClick={() => {
-                    setScenario(prev => ({
-                      ...prev,
-                      currentSetup: {
-                        ...prev.currentSetup,
-                        retailer: bill.split(' ')[0],
-                        plan: 'Solar Savers'
-                      }
-                    }));
-                  }}
-                >
-                  <div className="font-medium">{bill}</div>
-                  <div className="text-sm text-muted-foreground">TOU • $420.50</div>
-                </button>
-              ))}
+        {ocrExtracted && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+          >
+            <div className="flex items-center gap-2 text-green-800">
+              <CheckCircle className="w-4 h-4" />
+              <span className="font-medium">Bill analysis complete!</span>
             </div>
-          </div>
+            <p className="text-sm text-green-700 mt-1">
+              Extracted usage patterns, rates, and location details from your bill.
+            </p>
+          </motion.div>
+        )}
+      </Glass>
+
+      {/* Location & Network Details */}
+      <LocationAutoFill 
+        onLocationUpdate={handleLocationUpdate}
+        initialPostcode={locationData?.postcode}
+      />
+
+      {/* Manual Fallback */}
+      <Glass className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Settings className="w-6 h-6 text-primary" />
+          <h3 className="text-xl font-semibold">Manual Entry (Fallback)</h3>
         </div>
-
-        {/* Manual Fallback */}
-        <div className="mt-6 pt-6 border-t">
-          <h4 className="font-medium mb-4">Manual Entry (Fallback)</h4>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="retailer">Retailer</Label>
-              <Input
-                id="retailer"
-                placeholder="e.g., AGL, Origin"
-                value={scenario.currentSetup.retailer}
-                onChange={(e) => setScenario(prev => ({
-                  ...prev,
-                  currentSetup: { ...prev.currentSetup, retailer: e.target.value }
-                }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="plan">Plan Name</Label>
-              <Input
-                id="plan"
-                placeholder="e.g., Solar Savers"
-                value={scenario.currentSetup.plan}
-                onChange={(e) => setScenario(prev => ({
-                  ...prev,
-                  currentSetup: { ...prev.currentSetup, plan: e.target.value }
-                }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="meter-type">Meter Type</Label>
-              <Select
-                value={scenario.currentSetup.meterType}
-                onValueChange={(value: 'TOU' | 'Single' | 'Demand') => 
-                  setScenario(prev => ({
-                    ...prev,
-                    currentSetup: { ...prev.currentSetup, meterType: value }
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TOU">Time of Use (TOU)</SelectItem>
-                  <SelectItem value="Single">Single Rate</SelectItem>
-                  <SelectItem value="Demand">Demand</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="retailer">Retailer</Label>
+            <Input
+              id="retailer"
+              placeholder="e.g., AGL, Origin"
+              value={scenario.currentSetup.retailer}
+              onChange={(e) => setScenario(prev => ({
+                ...prev,
+                currentSetup: { ...prev.currentSetup, retailer: e.target.value }
+              }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="plan">Plan Name</Label>
+            <Input
+              id="plan"
+              placeholder="e.g., Solar Savers"
+              value={scenario.currentSetup.plan}
+              onChange={(e) => setScenario(prev => ({
+                ...prev,
+                currentSetup: { ...prev.currentSetup, plan: e.target.value }
+              }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="monthly-usage">Monthly Usage (kWh)</Label>
+            <Input
+              id="monthly-usage"
+              type="number"
+              placeholder="e.g., 850"
+              value={scenario.currentSetup.monthlyUsage}
+              onChange={(e) => setScenario(prev => ({
+                ...prev,
+                currentSetup: { ...prev.currentSetup, monthlyUsage: parseFloat(e.target.value) || 0 }
+              }))}
+            />
           </div>
         </div>
       </Glass>

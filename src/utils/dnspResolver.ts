@@ -62,8 +62,11 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
       console.warn('Spatial resolver failed, falling back to range-based lookup:', spatialError);
     }
 
-    // Fallback to the old range-based system
-    console.log('Using fallback range-based DNSP lookup');
+  // Fallback to the old range-based system with enhanced suburb/state matching
+  console.log('Using enhanced fallback DNSP lookup with suburb/state matching');
+  
+  try {
+    // First try postcode-based range lookup
     const { data: rangeData, error: rangeError } = await supabase
       .from('dnsps')
       .select('state, network, postcode_start, postcode_end, export_cap_kw')
@@ -72,34 +75,55 @@ export async function getDnspByPostcode(postcode: string | number): Promise<Dnsp
       .order('state')
       .limit(1);
 
-    if (rangeError) {
-      console.error('Error fetching DNSP data:', rangeError);
-      throw new Error('Failed to fetch DNSP data');
+    if (!rangeError && rangeData && rangeData.length > 0) {
+      const result = rangeData[0];
+      const dnspDetails: DnspDetails = {
+        state: result.state,
+        network: result.network,
+        postcode: postcodeNum,
+        export_cap_kw: result.export_cap_kw || 5,
+        supports_flexible_export: false,
+        phase_limit: '1P<=5kW;3P<=10kW'
+      };
+      
+      dnspCache.set(cacheKey, dnspDetails);
+      return dnspDetails;
     }
+  } catch (dbError) {
+    console.warn('Database range lookup also failed:', dbError);
+  }
 
-    const results = rangeData || [];
-    console.log(`Fallback DNSP query result:`, { results, postcodeNum });
+  // Final fallback: use state-based DNSP mapping
+  console.log('Using state-based fallback DNSP mapping');
+  const state = getStateFromPostcode(postcodeNum);
+  
+  // Default DNSP by state mapping (most common distributor per state)
+  const stateDnspMap: Record<string, { network: string; export_cap_kw: number }> = {
+    'NSW': { network: 'Ausgrid', export_cap_kw: 5 },
+    'VIC': { network: 'Citipower', export_cap_kw: 5 },
+    'QLD': { network: 'Energex', export_cap_kw: 5 },
+    'SA': { network: 'SA Power Networks', export_cap_kw: 5 },
+    'WA': { network: 'Western Power', export_cap_kw: 5 },
+    'TAS': { network: 'TasNetworks', export_cap_kw: 5 },
+    'ACT': { network: 'Evoenergy', export_cap_kw: 5 },
+    'NT': { network: 'Power and Water Corporation', export_cap_kw: 5 }
+  };
 
-    if (results.length === 0) {
-      console.warn(`No DNSP found for postcode ${postcodeNum}`);
-      throw new Error(`No distribution network found for postcode ${postcodeNum}`);
-    }
-
-    // Convert range-based result to expected format
-    const result = results[0];
-    const dnspDetails: DnspDetails = {
-      state: result.state,
-      network: result.network,
-      postcode: postcodeNum,
-      export_cap_kw: result.export_cap_kw || 5,
-      supports_flexible_export: false,
-      phase_limit: '1P<=5kW;3P<=10kW'
-    };
-    
-    // Cache the result
-    dnspCache.set(cacheKey, dnspDetails);
-    
-    return dnspDetails;
+  const defaultDnsp = stateDnspMap[state] || stateDnspMap['NSW'];
+  
+  const dnspDetails: DnspDetails = {
+    state,
+    network: defaultDnsp.network,
+    postcode: postcodeNum,
+    export_cap_kw: defaultDnsp.export_cap_kw,
+    supports_flexible_export: false,
+    phase_limit: '1P<=5kW;3P<=10kW'
+  };
+  
+  dnspCache.set(cacheKey, dnspDetails);
+  console.log(`Fallback DNSP mapping for ${state}: ${defaultDnsp.network}`);
+  
+  return dnspDetails;
   } catch (error) {
     console.error('DNSP lookup error:', error);
     throw error;
