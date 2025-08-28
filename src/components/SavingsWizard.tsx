@@ -186,16 +186,50 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   }, [toast, setScenario]);
 
   // Handle address extraction from OCR
-  const handleAddressExtracted = useCallback((address: string, postcode?: string) => {
+  const handleAddressExtracted = useCallback(async (address: string, postcode?: string) => {
     if (postcode) {
-      // Auto-trigger location lookup when postcode is extracted
+      // Auto-trigger DNSP lookup when postcode is extracted
       console.log(`OCR extracted address: ${address}, postcode: ${postcode}`);
-      toast({
-        title: "Address Detected",
-        description: `Found postcode ${postcode} from your bill`,
-      });
+      
+      try {
+        // Import the DNSP resolver function
+        const { getDnspByPostcode } = await import('@/utils/dnspResolver');
+        const dnspDetails = await getDnspByPostcode(postcode);
+        
+        // Automatically update scenario with DNSP data
+        setScenario(prev => ({
+          ...prev,
+          currentSetup: {
+            ...prev.currentSetup,
+            state: dnspDetails.state,
+            network: dnspDetails.network,
+            exportCapKw: dnspDetails.export_cap_kw
+          }
+        }));
+        
+        // Update location data for display
+        setLocationData({
+          state: dnspDetails.state,
+          network: dnspDetails.network,
+          exportCapKw: dnspDetails.export_cap_kw,
+          meterType: 'TOU', // Default for most areas
+          postcode: postcode
+        });
+        
+        toast({
+          title: "Auto-Detected Location",
+          description: `${dnspDetails.network}, ${dnspDetails.state} - Export limit: ${dnspDetails.export_cap_kw}kW`,
+        });
+      } catch (error) {
+        console.error('DNSP lookup failed:', error);
+        toast({
+          title: "Address Detected",
+          description: `Found postcode ${postcode} - please verify location details`,
+          variant: "default"
+        });
+      }
     }
-  }, [toast]);
+  }, [toast, setScenario]);
 
   // Handle location updates from LocationAutoFill
   const handleLocationUpdate = useCallback((data: any) => {
