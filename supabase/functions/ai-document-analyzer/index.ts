@@ -104,13 +104,13 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Analyze this ${documentType} document and extract all relevant data:\n\n${text}` }
         ],
-        max_completion_tokens: 2000,
-        response_format: { type: "json_object" }
+        max_tokens: 2000,
+        temperature: 0.1
       }),
     });
 
