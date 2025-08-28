@@ -10,6 +10,7 @@ import { RebatesCalculator } from "./RebatesCalculator";
 import { BatteryROICalculator } from "./BatteryROICalculator";
 import { SavingsWizard } from "./SavingsWizard";
 import OCRToMapDemo from "./OCRToMapDemo";
+import SmartOCRScanner from "./SmartOCRScanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,6 +44,7 @@ const SolarCalculator = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [unlimitedTokens, setUnlimitedTokens] = useState(false);
   const [devMode, setDevMode] = useState(false);
+  const [ocrData, setOcrData] = useState<any>(null);
   const { toast } = useToast();
   const { lastUpdated, refreshData } = useCECData();
   const aiCoreRef = useRef<AICore | null>(null);
@@ -351,15 +353,24 @@ const SolarCalculator = () => {
           <AppTabs activeTab={activeTab} onTabChange={handleTabChange} showOCRDemo={devMode} />
           
           {activeTab === "Rebates Calculator" && (
-            <RebatesCalculator
-              onCalculate={handleCalculate}
-              results={results}
-              eligibility={eligibility}
-              onRequestCall={handleRequestCall}
-              appMode={appMode}
-              userTier={userTier}
-              unlimitedTokens={devMode}
-            />
+            <>
+              <SmartOCRScanner 
+                onExtraction={(data) => {
+                  console.log('🔍 OCR Data extracted in SolarCalculator:', data);
+                  setOcrData(data);
+                }}
+                onProcessing={() => {}}
+              />
+              <RebatesCalculator
+                onCalculate={handleCalculate}
+                results={results}
+                eligibility={eligibility}
+                onRequestCall={handleRequestCall}
+                appMode={appMode}
+                userTier={userTier}
+                unlimitedTokens={devMode}
+              />
+            </>
           )}
           
           {activeTab === "How much can I save?" && (
@@ -376,7 +387,7 @@ const SolarCalculator = () => {
           )}
           
           {activeTab === "Battery ROI Calculator" && (
-            <BatteryROICalculator />
+            <BatteryROICalculator preExtractedData={ocrData} />
           )}
           
           {activeTab === "OCR Demo" && (

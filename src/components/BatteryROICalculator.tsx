@@ -88,11 +88,15 @@ interface ExtractedData {
 
 type Step = 'method' | 'bills' | 'system' | 'site' | 'results';
 
-export const BatteryROICalculator: React.FC = () => {
+interface BatteryROICalculatorProps {
+  preExtractedData?: ExtractedData;
+}
+
+export const BatteryROICalculator: React.FC<BatteryROICalculatorProps> = ({ preExtractedData }) => {
   const [currentStep, setCurrentStep] = useState<Step>('method');
   const [started, setStarted] = useState(false);
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(preExtractedData || null);
   const [processing, setProcessing] = useState(false);
   const [showManualSystem, setShowManualSystem] = useState(false);
   const [siteAnalysis, setSiteAnalysis] = useState<any>(null);
@@ -119,7 +123,20 @@ export const BatteryROICalculator: React.FC = () => {
     shading: 0
   });
 
-  // Auto-populate form data when extracted data changes
+  // Auto-populate form data and skip steps when pre-extracted data is provided
+  useEffect(() => {
+    if (preExtractedData) {
+      console.log('🔍 Pre-extracted data received:', preExtractedData);
+      setExtractedData(preExtractedData);
+      
+      // Auto-advance to site step if we have address data
+      if (preExtractedData.address && currentStep === 'method') {
+        setInputMethod('bills');
+        setCurrentStep('site');
+        console.log('🚀 Auto-advancing to site step with address:', preExtractedData.address);
+      }
+    }
+  }, [preExtractedData, currentStep]);
   useEffect(() => {
     if (extractedData) {
       setFormData(prev => ({
