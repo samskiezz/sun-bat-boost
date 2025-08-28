@@ -33,12 +33,29 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from "@/hooks/use-toast";
 import OCRScanner from "./OCRScanner";
 import LocationAutoFill from "./LocationAutoFill";
-import { ExtractResult } from "@/ocr/extract.types";
 import { Glass } from './Glass';
 import { FuturisticBanner } from './FuturisticBanner';
 import { StepBanner } from './StepBanner';
 import { EnhancedSlider } from './EnhancedSlider';
 import { useDropzone } from 'react-dropzone';
+
+// OCR extracted data interface
+interface ExtractedBillData {
+  retailer?: string;
+  plan?: string;
+  address?: string;
+  postcode?: string;
+  usage?: number;
+  billAmount?: number;
+  dailySupply?: number;
+  rate?: number;
+  // Solar detection fields
+  solarExportKwh?: number;
+  solarFeedInRate?: number;
+  solarCreditAmount?: number;
+  hasSolar?: boolean;
+  estimatedSolarSize?: number;
+}
 
 interface SavingsScenario {
   currentSetup: {
@@ -142,13 +159,31 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   const [locationData, setLocationData] = useState<any>(null);
 
   // Handle OCR extraction results
-  const handleOCRExtraction = useCallback((data: ExtractResult) => {
+  const handleOCRExtraction = useCallback((data: ExtractedBillData) => {
     setOcrExtracted(true);
-    toast({
-      title: "Bill Processed",
-      description: "Usage data extracted successfully",
-    });
-  }, [toast]);
+    
+    // Check if solar system was detected and update the scenario accordingly
+    if (data.hasSolar) {
+      setScenario(prev => ({
+        ...prev,
+        currentSetup: {
+          ...prev.currentSetup,
+          currentSystem: data.estimatedSolarSize && data.estimatedSolarSize > 0 ? 'solar' : 'solar',
+          pvSize: data.estimatedSolarSize || 6.6, // Default to 6.6kW if size not determined
+        }
+      }));
+      
+      toast({
+        title: "Solar System Detected!",
+        description: `Found ${data.estimatedSolarSize ? data.estimatedSolarSize + 'kW' : ''} solar system from your bill`,
+      });
+    } else {
+      toast({
+        title: "Bill Processed",
+        description: "No solar system detected - ready for new system design",
+      });
+    }
+  }, [toast, setScenario]);
 
   // Handle address extraction from OCR
   const handleAddressExtracted = useCallback((address: string, postcode?: string) => {

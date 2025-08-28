@@ -8,17 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDropzone } from "react-dropzone";
 import { pdfExtractor } from "@/utils/pdfExtract";
-import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ExtractedBillData {
   retailer?: string;
   plan?: string;
+  address?: string;
+  postcode?: string;
   usage?: number;
   billAmount?: number;
   dailySupply?: number;
   rate?: number;
-  address?: string;
-  postcode?: string;
+  // Solar detection fields
+  solarExportKwh?: number;
+  solarFeedInRate?: number;
+  solarCreditAmount?: number;
+  hasSolar?: boolean;
+  estimatedSolarSize?: number;
 }
 
 interface SmartOCRScannerProps {
@@ -175,6 +182,89 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
       });
     }
 
+    // SOLAR DETECTION (CRITICAL ADDITION)
+    // Look for solar feed-in tariff patterns
+    const solarPatterns = [
+      /(?:feed-?in|solar export|solar credit|feed in tariff|solar feed-in)[\s\S]*?(\d+(?:\.\d+)?)\s*(?:kwh|kWh)/gi,
+      /(?:exported|generation|solar|feed)[\s\S]*?(\d+(?:\.\d+)?)\s*(?:kwh|kWh)/gi,
+      /(?:credit|rebate)[\s\S]*?solar[\s\S]*?\$(\d+(?:\.\d+)?)/gi,
+      /(\d+(?:\.\d+)?)\s*(?:kwh|kWh)[\s\S]*?(?:exported|feed-?in|solar)/gi
+    ];
+
+    let solarExportKwh = 0;
+    let solarCreditAmount = 0;
+    let hasSolar = false;
+
+    for (const pattern of solarPatterns) {
+      const matches = [...text.matchAll(pattern)];
+      if (matches.length > 0) {
+        hasSolar = true;
+        const value = parseFloat(matches[0][1]);
+        if (pattern.source.includes('$')) {
+          solarCreditAmount = Math.max(solarCreditAmount, value);
+        } else {
+          solarExportKwh = Math.max(solarExportKwh, value);
+        }
+      }
+    }
+
+    // Estimate solar system size based on monthly exports
+    let estimatedSolarSize = 0;
+    if (solarExportKwh > 0) {
+      // Rough estimation: 1kW system exports ~100-150kWh/month in good conditions
+      // Conservative estimate: 1kW = 120kWh/month
+      estimatedSolarSize = Math.round((solarExportKwh / 120) * 10) / 10; // Round to 1 decimal
+      estimatedSolarSize = Math.max(3.0, Math.min(15.0, estimatedSolarSize)); // Cap between 3-15kW
+    }
+
+    if (hasSolar) {
+      fields.push({
+        label: "Solar System Detected",
+        value: "Yes - Feed-in credits found",
+        confidence: 0.95,
+        editable: false,
+        key: "hasSolar"
+      });
+
+      if (solarExportKwh > 0) {
+        fields.push({
+          label: "Solar Export (kWh)",
+          value: solarExportKwh,
+          confidence: 0.90,
+          editable: true,
+          key: "solarExportKwh"
+        });
+      }
+
+      if (estimatedSolarSize > 0) {
+        fields.push({
+          label: "Estimated Solar Size (kW)",
+          value: estimatedSolarSize,
+          confidence: 0.75,
+          editable: true,
+          key: "estimatedSolarSize"
+        });
+      }
+
+      if (solarCreditAmount > 0) {
+        fields.push({
+          label: "Solar Credit ($)",
+          value: solarCreditAmount,
+          confidence: 0.85,
+          editable: true,
+          key: "solarCreditAmount"
+        });
+      }
+    } else {
+      fields.push({
+        label: "Solar System Detected",
+        value: "No - No feed-in credits found",
+        confidence: 0.90,
+        editable: false,
+        key: "hasSolar"
+      });
+    }
+
     return fields;
   };
 
@@ -203,27 +293,141 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
       }
 
       if (extractedText.length > 0) {
-        const fields = extractBillData(extractedText);
-        setExtractedFields(fields);
+        // First try AI-powered extraction
+        try {
+          const { data: aiResult, error } = await supabase.functions.invoke('ai-document-analyzer', {
+            body: {
+              text: extractedText,
+              documentType: 'bill',
+              filename: file.name
+            }
+          });
 
-        // Convert to the expected format with proper typing
-        const billData: ExtractedBillData = {};
-        fields.forEach(field => {
-          const key = field.key;
-          if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
-            billData[key] = field.value as string;
+          if (!error && aiResult?.success && aiResult?.data) {
+            const aiData = aiResult.data;
+            
+            // Convert AI result to display fields
+            const aiFields: ExtractedField[] = [];
+            
+            if (aiData.retailer) {
+              aiFields.push({ label: "Retailer", value: aiData.retailer, confidence: 0.95, editable: true, key: "retailer" });
+            }
+            if (aiData.address) {
+              aiFields.push({ label: "Address", value: aiData.address, confidence: 0.90, editable: true, key: "address" });
+            }
+            if (aiData.postcode) {
+              aiFields.push({ label: "Postcode", value: aiData.postcode, confidence: 0.90, editable: true, key: "postcode" });
+            }
+            if (aiData.usage) {
+              aiFields.push({ label: "Usage (kWh)", value: aiData.usage, confidence: 0.85, editable: true, key: "usage" });
+            }
+            if (aiData.billAmount) {
+              aiFields.push({ label: "Bill Amount ($)", value: aiData.billAmount, confidence: 0.85, editable: true, key: "billAmount" });
+            }
+            
+            // Solar detection results (HIGH PRIORITY)
+            if (aiData.hasSolar !== undefined) {
+              aiFields.push({
+                label: "Solar System Detected",
+                value: aiData.hasSolar ? "Yes - Feed-in credits found" : "No - No solar detected",
+                confidence: 0.95,
+                editable: false,
+                key: "hasSolar"
+              });
+            }
+            
+            if (aiData.solarExportKwh) {
+              aiFields.push({
+                label: "Solar Export (kWh)",
+                value: aiData.solarExportKwh,
+                confidence: 0.90,
+                editable: true,
+                key: "solarExportKwh"
+              });
+            }
+            
+            if (aiData.estimatedSolarSize) {
+              aiFields.push({
+                label: "Estimated Solar Size (kW)",
+                value: aiData.estimatedSolarSize,
+                confidence: 0.80,
+                editable: true,
+                key: "estimatedSolarSize"
+              });
+            }
+            
+            if (aiData.solarCreditAmount) {
+              aiFields.push({
+                label: "Solar Credit ($)",
+                value: aiData.solarCreditAmount,
+                confidence: 0.85,
+                editable: true,
+                key: "solarCreditAmount"
+              });
+            }
+
+            setExtractedFields(aiFields);
+
+            // Convert to billData format with solar info
+            const billData: ExtractedBillData = {};
+            aiFields.forEach(field => {
+              const key = field.key;
+              if (key === 'hasSolar') {
+                billData[key] = field.value === 'Yes - Feed-in credits found';
+              } else if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
+                billData[key] = String(field.value);
+              } else if (typeof field.value === 'number') {
+                (billData as any)[key] = field.value;
+              } else if (typeof field.value === 'string' && !isNaN(parseFloat(field.value))) {
+                (billData as any)[key] = parseFloat(field.value);
+              }
+            });
+
+            // Ensure solar detection is properly set
+            billData.hasSolar = aiData.hasSolar;
+            billData.solarExportKwh = aiData.solarExportKwh;
+            billData.estimatedSolarSize = aiData.estimatedSolarSize;
+            billData.solarCreditAmount = aiData.solarCreditAmount;
+
+            onExtraction(billData);
+            
+            toast({
+              title: "AI Analysis Complete",
+              description: `Extracted ${aiFields.length} fields${aiData.hasSolar ? ' - Solar system detected!' : ''}`,
+            });
+            
           } else {
-            billData[key] = field.value as number;
+            throw new Error('AI extraction failed, falling back to regex');
           }
-        });
+        } catch (aiError) {
+          console.log('AI extraction failed, using regex fallback:', aiError);
+          
+          // Fallback to regex-based extraction
+          const fields = extractBillData(extractedText);
+          setExtractedFields(fields);
 
-        onExtraction(billData);
-        
-        toast({
-          title: "Bill Processed",
-          description: `Extracted ${fields.length} fields from your bill`,
-          variant: "default"
-        });
+          const billData: ExtractedBillData = {};
+          fields.forEach(field => {
+            const key = field.key;
+            if (key === 'hasSolar') {
+              // Handle boolean conversion for hasSolar field
+              billData[key] = typeof field.value === 'string' && field.value.toLowerCase().includes('yes');
+            } else if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
+              billData[key] = String(field.value);
+            } else if (typeof field.value === 'number') {
+              (billData as any)[key] = field.value;
+            } else if (typeof field.value === 'string' && !isNaN(parseFloat(field.value))) {
+              (billData as any)[key] = parseFloat(field.value);
+            }
+          });
+
+          onExtraction(billData);
+
+          toast({
+            title: "Regex Analysis Complete",
+            description: `Extracted ${fields.length} fields using pattern matching`,
+          });
+        }
       } else {
         toast({
           title: "Processing Error",
@@ -264,10 +468,14 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
       const billData: ExtractedBillData = {};
       updated.forEach(field => {
         const key = field.key;
-        if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
-          billData[key] = field.value as string;
-        } else {
-          billData[key] = field.value as number;
+        if (key === 'hasSolar') {
+          billData[key] = typeof field.value === 'string' && field.value.toLowerCase().includes('yes');
+        } else if (key === 'retailer' || key === 'plan' || key === 'address' || key === 'postcode') {
+          billData[key] = String(field.value);
+        } else if (typeof field.value === 'number') {
+          (billData as any)[key] = field.value;
+        } else if (typeof field.value === 'string' && !isNaN(parseFloat(field.value))) {
+          (billData as any)[key] = parseFloat(field.value);
         }
       });
       onExtraction(billData);

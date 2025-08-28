@@ -39,6 +39,13 @@ interface ExtractedData {
   offPeakRate?: number;
   shoulderRate?: number;
   
+  // Solar Detection Data
+  solarExportKwh?: number; // kWh exported to grid
+  solarFeedInRate?: number; // feed-in tariff rate c/kWh
+  solarCreditAmount?: number; // dollar amount credited
+  hasSolar?: boolean; // true if solar detected
+  estimatedSolarSize?: number; // estimated system size kW
+  
   // System Data (from proposals)
   systemSize?: number; // kW
   panelCount?: number;
@@ -114,7 +121,22 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const extractedData = JSON.parse(data.choices[0].message.content) as ExtractedData;
+    
+    let extractedData: ExtractedData;
+    try {
+      extractedData = JSON.parse(data.choices[0].message.content) as ExtractedData;
+    } catch (parseError) {
+      console.error('❌ JSON parsing error:', parseError);
+      console.log('Raw OpenAI response:', data.choices[0].message.content);
+      
+      // Fallback: try to extract what we can from the raw content
+      const content = data.choices[0].message.content;
+      extractedData = {
+        confidence: 50,
+        extractedFields: ['fallback_parsing'],
+        // Add basic extraction fallback here if needed
+      };
+    }
 
     console.log(`✅ Successfully extracted ${extractedData.extractedFields?.length || 0} fields`);
     console.log(`🎯 Confidence: ${extractedData.confidence}%`);
@@ -151,6 +173,17 @@ EXTRACTION RULES:
 5. Billing: Extract total bill amount and daily supply charges
 6. Account: Extract account numbers if present
 
+SOLAR FEED-IN DETECTION (CRITICAL):
+7. Solar Credits: Look for "Feed-in Tariff", "Solar Credit", "Solar Export", "Feed In Credit", or similar terms
+8. Export Amount: Extract kWh exported to grid (indicates solar system size)
+9. Feed-in Rate: Extract cents per kWh for solar exports
+10. Solar Revenue: Extract dollar amount credited for solar exports
+
+SOLAR SYSTEM DETECTION:
+- If ANY solar feed-in credits are found, customer HAS solar panels
+- Estimate system size from monthly export: small exports (0-200kWh) = ~3-6kW, medium (200-800kWh) = ~6-10kW, large (800+kWh) = 10kW+
+- Look for solar generation vs consumption ratios
+
 TIME OF USE PATTERNS:
 - Peak: Usually weekdays 2pm-8pm or similar
 - Off-Peak: Usually nights and weekends
@@ -177,6 +210,11 @@ Return JSON with this exact structure:
   "peakRate": "peak rate in c/kWh or null",
   "offPeakRate": "off-peak rate in c/kWh or null",
   "shoulderRate": "shoulder rate in c/kWh or null",
+  "solarExportKwh": "kWh exported to grid or null",
+  "solarFeedInRate": "feed-in tariff rate in c/kWh or null",
+  "solarCreditAmount": "dollar amount credited for solar or null",
+  "hasSolar": "true if solar feed-in detected, false otherwise",
+  "estimatedSolarSize": "estimated system size in kW based on exports or null",
   "confidence": "confidence percentage 0-100",
   "extractedFields": ["list of successfully extracted field names"]
 }`;
