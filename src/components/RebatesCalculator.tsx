@@ -37,6 +37,9 @@ import { QuickSizesForm } from './forms/QuickSizesForm';
 import { ResultCards } from './ResultCards';
 import { LimitLine } from './LimitLine';
 import { Glass } from './Glass';
+import { FuturisticBanner } from './FuturisticBanner';
+import { StepBanner } from './StepBanner';
+import { EnhancedSlider } from './EnhancedSlider';
 import { masterOCRPipeline } from '@/utils/masterOCRPipeline';
 import { useCECData } from '@/hooks/useCECData';
 import { useToast } from '@/hooks/use-toast';
@@ -356,32 +359,28 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Progress Header */}
-      <Glass className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Australian Solar Rebates Calculator</h2>
-          <Badge variant="outline">{currentStepIndex + 1} of {steps.length}</Badge>
-        </div>
-        
-        <Progress value={progress} className="mb-4 hologram-track" />
-        
-        <div className="flex items-center justify-between text-sm">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <div 
-                key={step.id}
-                className={`flex items-center gap-2 ${
-                  index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{step.title}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Glass>
+      {/* Enhanced Banner */}
+      <FuturisticBanner
+        title="Rebates Calculator"
+        subtitle="Australian Solar & Battery Rebates"
+        description="Calculate your solar rebates with CEC-approved data and AI-powered accuracy. Upload bills, choose systems, or enter details manually."
+        icon={Calculator}
+        badge={{
+          text: `${isProUser ? 'Pro' : 'Standard'} Analysis`,
+          icon: Award
+        }}
+        gradient="primary"
+      />
+
+      {/* Step Progress Banner */}
+      <StepBanner
+        currentStep={currentStep}
+        steps={steps}
+        title="Rebate Analysis"
+        subtitle="Calculate your Australian solar and battery rebates"
+        icon={Calculator}
+        compact={currentStep !== 'method'}
+      />
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
@@ -626,16 +625,23 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                       {(formData.systemType === 'solar-only' || formData.systemType === 'solar-battery') && (
                         <div>
                           <Label>Solar System Size: {formData.solarKw} kW</Label>
-                          <div className="hologram-track">
-                            <Slider
-                              value={[formData.solarKw]}
-                              onValueChange={(value) => setFormData(prev => ({ ...prev, solarKw: value[0] }))}
-                              max={99}
-                              min={1}
-                              step={0.1}
-                              className="mt-2"
-                            />
-                          </div>
+                  <EnhancedSlider
+                    value={[formData.solarKw]}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, solarKw: value[0] }))}
+                    max={99}
+                    min={1}
+                    step={0.1}
+                    label="Solar System Size"
+                    unit="kW"
+                    description="Recommended: 6-10kW for most homes"
+                    gradient="primary"
+                    marks={[
+                      { value: 3, label: 'Small' },
+                      { value: 6.6, label: 'Standard' },
+                      { value: 10, label: 'Large' },
+                      { value: 15, label: 'XL' }
+                    ]}
+                  />
                           <div className="text-xs text-muted-foreground mt-1">Range: 1-99kW</div>
                         </div>
                       )}

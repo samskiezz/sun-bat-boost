@@ -22,7 +22,8 @@ import {
   Minus,
   RefreshCw,
   MapPin,
-  Sun
+  Sun,
+  Battery
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,9 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import EnhancedOCRScanner from '@/components/EnhancedOCRScanner';
 import SiteAnalyzer from '@/components/SiteAnalyzer';
+import { FuturisticBanner } from './FuturisticBanner';
+import { StepBanner } from './StepBanner';
+import { EnhancedSlider } from './EnhancedSlider';
 
 interface ExtractedData {
   // Address & Location
@@ -260,6 +264,19 @@ export const BatteryROICalculator: React.FC<BatteryROICalculatorProps> = ({ preE
   if (!started) {
     return (
       <div className="min-h-screen bg-background p-4">
+        {/* Enhanced Banner */}
+        <FuturisticBanner
+          title="Battery ROI Calculator"
+          subtitle="Investment Analysis & Returns"
+          description="Analyze your battery system's financial performance with AI-powered ROI calculations and comprehensive market data."
+          icon={Battery}
+          badge={{
+            text: "Investment Grade",
+            icon: TrendingUp
+          }}
+          gradient="glass"
+        />
+        
         {/* Main Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 text-center">
           <motion.div

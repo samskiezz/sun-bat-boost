@@ -30,6 +30,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { Glass } from './Glass';
+import { FuturisticBanner } from './FuturisticBanner';
+import { StepBanner } from './StepBanner';
+import { EnhancedSlider } from './EnhancedSlider';
 import { useDropzone } from 'react-dropzone';
 
 interface SavingsScenario {
@@ -125,15 +128,12 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   const [processing, setProcessing] = useState(false);
   const [ocrHistory, setOCRHistory] = useState<any[]>([]);
 
-  const steps: { key: WizardStep; title: string; icon: React.ReactNode }[] = [
-    { key: 'current-setup', title: 'Current Setup', icon: <Home className="w-5 h-5" /> },
-    { key: 'goals', title: 'Goals & Constraints', icon: <Target className="w-5 h-5" /> },
-    { key: 'auto-design', title: 'Auto-Design', icon: <Brain className="w-5 h-5" /> },
-    { key: 'results', title: 'Results', icon: <BarChart3 className="w-5 h-5" /> },
+  const steps = [
+    { id: 'current-setup', title: 'Current Setup', icon: Home },
+    { id: 'goals', title: 'Goals & Constraints', icon: Target },
+    { id: 'auto-design', title: 'Auto-Design', icon: Brain },
+    { id: 'results', title: 'Results', icon: BarChart3 }
   ];
-
-  const getCurrentStepIndex = () => steps.findIndex(step => step.key === currentStep);
-  const progress = ((getCurrentStepIndex() + 1) / steps.length) * 100;
 
   const onDropBill = useCallback((acceptedFiles: File[]) => {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
@@ -186,20 +186,6 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       }));
       setCurrentStep('results');
     }, 3000);
-  };
-
-  const nextStep = () => {
-    const currentIndex = getCurrentStepIndex();
-    if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1].key);
-    }
-  };
-
-  const prevStep = () => {
-    const currentIndex = getCurrentStepIndex();
-    if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1].key);
-    }
   };
 
   const renderCurrentSetup = () => (
@@ -803,40 +789,28 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
 
   return (
     <div className={`max-w-6xl mx-auto space-y-8 ${className}`}>
-      {/* Progress Header */}
-      <Glass className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">How much can I save? (Solar + Battery)</h2>
-          <div className="text-sm text-muted-foreground">
-            Step {getCurrentStepIndex() + 1} of {steps.length}
-          </div>
-        </div>
-        
-        <Progress value={progress} className="mb-4" />
-        
-        <div className="flex justify-between">
-          {steps.map((step, index) => {
-            const isActive = step.key === currentStep;
-            const isCompleted = getCurrentStepIndex() > index;
-            
-            return (
-              <div
-                key={step.key}
-                className={`
-                  flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                  ${isActive ? 'bg-primary text-primary-foreground' : 
-                    isCompleted ? 'bg-green-100 text-green-800' : 
-                    'text-muted-foreground'
-                  }
-                `}
-              >
-                {step.icon}
-                <span className="font-medium hidden sm:inline">{step.title}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Glass>
+      {/* Enhanced Banner */}
+      <FuturisticBanner
+        title="How Much Can I Save?"
+        subtitle="AI-Powered Savings Analysis"
+        description="Get personalized solar and battery system recommendations tailored to your specific usage patterns and goals."
+        icon={Target}
+        badge={{
+          text: "Smart Analysis",
+          icon: Brain
+        }}
+        gradient="vpp"
+      />
+
+      {/* Step Progress Banner */}
+      <StepBanner
+        currentStep={currentStep}
+        steps={steps}
+        title="Savings Optimization"
+        subtitle="Personalized system recommendations"
+        icon={Target}
+        compact={currentStep !== 'current-setup'}
+      />
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
