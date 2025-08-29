@@ -620,16 +620,18 @@ export default function HowMuchCanISave() {
                           shoulderRate: data.shoulderRate
                         });
                         
-                        // Auto-detect location from OCR extracted data
+                        // FIXED: Auto-detect location from OCR extracted data
                         if (data.postcode || data.address) {
                           const postcode = data.postcode;
-                          if (postcode) {
+                          console.log(`🔍 Auto-detecting DNSP for postcode: ${postcode}`);
+                          
+                          if (postcode && postcode.length >= 4) {
                             try {
                               // Import the DNSP resolver function
                               const { getDnspByPostcode } = await import('@/utils/dnspResolver');
                               const dnspDetails = await getDnspByPostcode(postcode);
                               
-                              // Auto-populate location data
+                              // Auto-populate location data with detected DNSP
                               setLocationData({
                                 postcode: postcode,
                                 state: dnspDetails.state,
@@ -637,17 +639,26 @@ export default function HowMuchCanISave() {
                                 meterType: 'TOU' // Default for most areas
                               });
                               
-                              console.log(`Auto-detected DNSP: ${dnspDetails.network}, ${dnspDetails.state}`);
+                              console.log(`✅ Auto-detected DNSP: ${dnspDetails.network}, ${dnspDetails.state}`);
+                              
+                              // Skip to system sizing step after successful auto-detection
+                              setTimeout(() => {
+                                setCurrentStep('system-sizing');
+                              }, 1500);
+                              
                             } catch (error) {
-                              console.error('DNSP auto-detection failed:', error);
-                              // Still set postcode if DNSP lookup fails
+                              console.error('❌ DNSP auto-detection failed:', error);
+                              // Still set postcode and proceed to location step for manual correction
                               if (data.postcode) {
                                 setLocationData(prev => ({
                                   ...prev,
                                   postcode: data.postcode
                                 }));
+                                console.log(`⚠️ Set postcode manually: ${data.postcode}, proceeding to location step`);
                               }
                             }
+                          } else {
+                            console.warn('⚠️ Invalid postcode format, user will need to enter manually');
                           }
                         }
                         

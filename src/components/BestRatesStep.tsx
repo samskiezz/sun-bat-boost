@@ -33,11 +33,16 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
 
   useEffect(() => {
     const fetchTopPlans = async () => {
+      if (!locationData?.state || !billData?.quarterlyUsage) {
+        console.log('⏳ Missing required data for plan analysis');
+        setLoading(false);
+        return;
+      }
+      
       setLoading(true);
       try {
-        console.log('📊 Fetching energy plans for analysis...');
+        console.log('📊 Fetching energy plans for analysis...', locationData, billData);
         
-        // Use the proper fetchPlans function that handles tou_windows parsing
         const { fetchPlans } = await import("@/energy/db");
         const meterType: "Single"|"TOU"|"Demand" = locationData.meterType === 'TOU' ? 'TOU' : 
                          locationData.meterType === 'Demand' ? 'Demand' : 'Single';
@@ -49,9 +54,18 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
           locationData.postcode
         );
           
+        console.log(`✅ Retrieved ${plans.length} plans for ranking`);
+        
         if (plans && plans.length > 0) {
           const annualUsage = billData.quarterlyUsage * 4;
           const currentAnnualBill = billData.quarterlyBill * 4;
+          
+          console.log(`💰 Analysis parameters:`, {
+            annualUsage: `${annualUsage.toLocaleString()} kWh`,
+            currentAnnualBill: `$${currentAnnualBill.toLocaleString()}`,
+            location: `${locationData.postcode}, ${locationData.state}`,
+            meterType
+          });
           
           // Use the ranking system for accurate plan comparison
           const { rankPlans } = await import("@/energy/rankPlans");
@@ -71,10 +85,21 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
             savingsPercentage: Math.round(Math.max(0, ((currentAnnualBill - scored.annual_cost_aud) / currentAnnualBill) * 100))
           })) as EnergyPlan[];
           
+          console.log(`📈 Top plans ranked:`, rankedPlans.map(p => ({
+            retailer: p.retailer,
+            plan: p.plan_name,
+            annual: `$${p.annualCost.toLocaleString()}`,
+            savings: `$${p.annualSavings.toLocaleString()}`
+          })));
+          
           setTopPlans(rankedPlans);
+        } else {
+          console.warn('❌ No plans available for comparison');
+          setTopPlans([]);
         }
       } catch (error) {
-        console.error('Error fetching plans:', error);
+        console.error('❌ Error fetching plans:', error);
+        setTopPlans([]);
       } finally {
         setLoading(false);
       }
