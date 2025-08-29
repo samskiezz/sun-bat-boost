@@ -18,8 +18,7 @@ import BestRatesStep from "@/components/BestRatesStep";
 import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 import SystemSizingStep from "@/components/SystemSizingStep";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
-import { LocationAutoFill } from "@/components/LocationAutoFill";
-import SiteAnalysisPopup from "@/components/SiteAnalysisPopup";
+import { AutoSiteAnalysis } from "@/components/AutoSiteAnalysis";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
 
@@ -106,7 +105,6 @@ export default function HowMuchCanISave() {
   const [retailers, setRetailers] = useState<string[]>([]);
   const [availablePlans, setAvailablePlans] = useState<Array<{id: string; plan_name: string; retailer: string}>>([]);
   const [isProcessingBill, setIsProcessingBill] = useState(false);
-  const [showSiteAnalysis, setShowSiteAnalysis] = useState(false);
 
   // Helper function to estimate coordinates
   const estimateCoordinatesFromPostcode = (postcode: string) => {
@@ -864,8 +862,7 @@ export default function HowMuchCanISave() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     
-                    <LocationAutoFill
-                      initialPostcode={locationData.postcode}
+                    <AutoSiteAnalysis
                       onLocationUpdate={async (data) => {
                         const newLocationData = {
                           postcode: data.postcode,
@@ -874,30 +871,17 @@ export default function HowMuchCanISave() {
                           meterType: data.meterType || locationData.meterType
                         };
                         setLocationData(newLocationData);
-                        
-                        // Auto-trigger site analysis when postcode changes
-                        if (data.postcode && data.postcode !== locationData.postcode) {
-                          try {
-                            // Auto-generate site analysis
-                            const coords = estimateCoordinatesFromPostcode(data.postcode);
-                            const siteAnalysis = {
-                              roofSlope: 25 + Math.round((Math.random() - 0.5) * 10),
-                              roofAzimuth: Math.round((Math.random() - 0.5) * 40), // -20 to +20 degrees
-                              shadingFactor: 0.85 + (Math.random() - 0.5) * 0.1,
-                              solarAccess: 90 + Math.round(Math.random() * 8),
-                              latitude: coords.lat,
-                              longitude: coords.lng
-                            };
-                            
-                            setBillData(prev => ({
-                              ...prev,
-                              siteAnalysis: siteAnalysis
-                            }));
-                          } catch (error) {
-                            console.error('Auto site analysis failed:', error);
-                          }
-                        }
                       }}
+                      onSiteUpdate={(siteData) => {
+                        setBillData(prev => ({
+                          ...prev,
+                          siteAnalysis: siteData
+                        }));
+                      }}
+                      onBillDataUpdate={(data) => {
+                        setBillData(prev => ({ ...prev, ...data }));
+                      }}
+                      billData={billData}
                     />
                     
                     {/* Manual Location Override */}
@@ -960,12 +944,11 @@ export default function HowMuchCanISave() {
 
                       <div className="flex items-end">
                         <Button
-                          onClick={() => setShowSiteAnalysis(true)}
+                          onClick={nextStep}
                           variant="outline"
                           className="w-full"
                         >
-                          <Satellite className="h-4 w-4 mr-2" />
-                          Detailed Analysis
+                          Continue to System Sizing
                         </Button>
                       </div>
                     </div>
@@ -1176,34 +1159,6 @@ export default function HowMuchCanISave() {
             </div>
           </CardContent>
         </Card>
-        
-        {/* Site Analysis Popup */}
-        <SiteAnalysisPopup
-          isOpen={showSiteAnalysis}
-          onClose={() => setShowSiteAnalysis(false)}
-          initialPostcode={locationData.postcode}
-          onLocationUpdate={(data) => {
-            setLocationData({
-              postcode: data.postcode,
-              state: data.state,
-              network: data.network,
-              meterType: data.meterType || 'TOU'
-            });
-          }}
-          onSiteUpdate={(data) => {
-            setBillData(prev => ({
-              ...prev,
-              siteAnalysis: {
-                roofSlope: data.roofSlope,
-                roofAzimuth: data.roofAzimuth,
-                shadingFactor: data.shadingFactor,
-                solarAccess: data.solarAccess,
-                latitude: data.latitude,
-                longitude: data.longitude
-              }
-            }));
-          }}
-        />
       </div>
     </div>
   );
