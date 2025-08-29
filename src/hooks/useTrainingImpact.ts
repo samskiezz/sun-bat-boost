@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+interface FunctionImpact {
+  accuracy: number;
+  efficiency: number;
+  episodes: number;
+  lastTrained?: string;
+}
+
 interface TrainingImpact {
   sizingConfidenceBoost: number;
   savingsPrecisionBoost: number;
@@ -8,6 +15,8 @@ interface TrainingImpact {
   planRankingConfidence: number;
   overallScore: number;
   isReady: boolean;
+  functionImpacts: Record<string, FunctionImpact>;
+  totalFunctionsTrained: number;
 }
 
 const defaultImpact: TrainingImpact = {
@@ -16,7 +25,9 @@ const defaultImpact: TrainingImpact = {
   roiCalibration: 1.0,
   planRankingConfidence: 0.85,
   overallScore: 0,
-  isReady: false
+  isReady: false,
+  functionImpacts: {},
+  totalFunctionsTrained: 0
 };
 
 export function useTrainingImpact() {
@@ -32,6 +43,12 @@ export function useTrainingImpact() {
           .order('updated_at', { ascending: false })
           .limit(1)
           .single();
+
+        // Get advanced training system data
+        const { data: allWeights, error: weightsError } = await supabase
+          .from('ai_model_weights')
+          .select('*')
+          .order('updated_at', { ascending: false });
 
         if (!error && data?.weights) {
           const weights = data.weights as any;
@@ -49,13 +66,34 @@ export function useTrainingImpact() {
           const roiCalibration = Math.min(1.0 + (convergence * 0.001), 1.08); // Max 8% boost
           const planRankingConfidence = Math.min(0.85 + (overallScore * 0.0025), 0.95); // Max 95% confidence
           
+          // Process per-function impacts from all weights
+          const functionImpacts: Record<string, FunctionImpact> = {};
+          let totalFunctionsTrained = 0;
+          
+          if (allWeights && !weightsError) {
+            for (const weight of allWeights) {
+              const weightData = weight.weights as any;
+              if (weightData.function_name) {
+                functionImpacts[weightData.function_name] = {
+                  accuracy: weightData.accuracy || 0,
+                  efficiency: weightData.efficiency || 0,
+                  episodes: weightData.episodes || 0,
+                  lastTrained: weightData.last_trained
+                };
+                totalFunctionsTrained++;
+              }
+            }
+          }
+          
           setImpact({
             sizingConfidenceBoost,
             savingsPrecisionBoost, 
             roiCalibration,
             planRankingConfidence,
             overallScore,
-            isReady: true
+            isReady: true,
+            functionImpacts,
+            totalFunctionsTrained
           });
 
           console.log('🤖 AI tuning applied:', {
@@ -63,7 +101,8 @@ export function useTrainingImpact() {
             savingsPrecisionBoost: `${((savingsPrecisionBoost - 1) * 100).toFixed(1)}%`,
             roiCalibration: `${((roiCalibration - 1) * 100).toFixed(1)}%`,
             planRankingConfidence: `${(planRankingConfidence * 100).toFixed(1)}%`,
-            overallScore: `${overallScore.toFixed(1)}%`
+            overallScore: `${overallScore.toFixed(1)}%`,
+            functionsActive: `${totalFunctionsTrained} functions trained`
           });
         }
       } catch (error) {
