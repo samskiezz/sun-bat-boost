@@ -91,19 +91,19 @@ export default function EnergyPlanStats() {
   const refreshPlans = async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('energy-plans-scraper');
+      const { data, error } = await supabase.functions.invoke('refresh-energy-plans');
       
       if (error) throw error;
       
-      toast.success(`Successfully scraped ${data.stats.plans_inserted} energy plans from ${data.stats.retailers_count} retailers`);
+      toast.success(`Successfully refreshed energy plans database`);
       
       // Refresh the stats after successful update by re-fetching
       setTimeout(() => {
         fetchStats();
       }, 1000);
     } catch (error) {
-      console.error('Error scraping plans:', error);
-      toast.error('Failed to scrape energy plans from Energy Made Easy');
+      console.error('Error refreshing plans:', error);
+      toast.error('Failed to refresh energy plans database');
     } finally {
       setRefreshing(false);
     }

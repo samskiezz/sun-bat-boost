@@ -15,6 +15,7 @@ import RefreshEnergyPlansButton from '@/components/RefreshEnergyPlansButton';
 import DnspPanel from "@/components/SystemManager/DnspPanel";
 import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
+import NetworkMapVisualization from "@/components/SystemManager/NetworkMapVisualization";
 import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
 
 export default function SystemManager() {
@@ -161,6 +162,7 @@ export default function SystemManager() {
                 </div>
               </CardContent>
             </Card>
+            <NetworkMapVisualization />
             <DnspPanel />
             <DnspBuilderPanel />
             <DnspChecker />
