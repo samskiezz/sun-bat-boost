@@ -137,77 +137,103 @@ export default function EnhancedTrainingSystem() {
     }
   ];
 
-  const startTrainingSession = async (functionName: string) => {
-    setIsTraining(true);
-    setTrainingProgress(0);
-    
-    try {
-      toast({
-        title: `Starting ${functionName}`,
-        description: "Initializing advanced ML training pipeline..."
-      });
-
-      // Simulate training progress
-      const progressInterval = setInterval(() => {
-        setTrainingProgress(prev => {
-          const newProgress = prev + Math.random() * 5;
-          if (newProgress >= 100) {
-            clearInterval(progressInterval);
-            setIsTraining(false);
-            
-            // Update metrics with persistence
-            const newMetrics = {
-              totalEpisodes: metrics.totalEpisodes + 1000,
-              accuracy: Math.min(metrics.accuracy + Math.random() * 5, 98),
-              efficiency: Math.min(metrics.efficiency + Math.random() * 3, 95),
-              loss: Math.max(metrics.loss - Math.random() * 0.1, 0.01),
-              convergence: Math.min(metrics.convergence + Math.random() * 10, 95),
-              learningRate: metrics.learningRate
-            };
-            updateMetrics(newMetrics);
-            
-            // Update performance with persistence
-            const newPerformance = {
-              solarSizing: Math.min(performance.solarSizing + Math.random() * 8, 95),
-              batterySizing: Math.min(performance.batterySizing + Math.random() * 6, 93),
-              costOptimization: Math.min(performance.costOptimization + Math.random() * 7, 91),
-              rebateOptimization: Math.min(performance.rebateOptimization + Math.random() * 5, 89),
-              overallScore: Math.min((performance.solarSizing + performance.batterySizing + performance.costOptimization + performance.rebateOptimization) / 4 + Math.random() * 5, 92)
-            };
-            updatePerformance(newPerformance);
-            
-            toast({
-              title: "Training Complete!",
-              description: `${functionName} has improved system performance.`
-            });
-            
-            return 100;
-          }
-          return newProgress;
+  const startTrainingSession = async (functionName: string, episodesPerRun: number = 1000): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      setIsTraining(true);
+      setTrainingProgress(0);
+      
+      try {
+        toast({
+          title: `Starting ${functionName}`,
+          description: `Training ${episodesPerRun.toLocaleString()} episodes...`
         });
-      }, 200);
 
-    } catch (error) {
-      console.error('Training failed:', error);
-      setIsTraining(false);
-      toast({
-        title: "Training Failed",
-        description: "Failed to start training session.",
-        variant: "destructive"
-      });
-    }
+        // Simulate training progress
+        const progressInterval = setInterval(() => {
+          setTrainingProgress(prev => {
+            const newProgress = prev + Math.random() * 5;
+            if (newProgress >= 100) {
+              clearInterval(progressInterval);
+              setIsTraining(false);
+              
+              // Update metrics with functional updates to avoid stale state
+              updateMetrics(currentMetrics => ({
+                totalEpisodes: currentMetrics.totalEpisodes + episodesPerRun,
+                accuracy: Math.min(currentMetrics.accuracy + Math.random() * 5, 98),
+                efficiency: Math.min(currentMetrics.efficiency + Math.random() * 3, 95),
+                loss: Math.max(currentMetrics.loss - Math.random() * 0.1, 0.01),
+                convergence: Math.min(currentMetrics.convergence + Math.random() * 10, 95),
+                learningRate: currentMetrics.learningRate
+              }));
+              
+              // Update performance with functional updates
+              updatePerformance(currentPerformance => {
+                const newSolar = Math.min(currentPerformance.solarSizing + Math.random() * 8, 95);
+                const newBattery = Math.min(currentPerformance.batterySizing + Math.random() * 6, 93);
+                const newCost = Math.min(currentPerformance.costOptimization + Math.random() * 7, 91);
+                const newRebate = Math.min(currentPerformance.rebateOptimization + Math.random() * 5, 89);
+                
+                return {
+                  solarSizing: newSolar,
+                  batterySizing: newBattery,
+                  costOptimization: newCost,
+                  rebateOptimization: newRebate,
+                  overallScore: Math.min((newSolar + newBattery + newCost + newRebate) / 4 + Math.random() * 5, 92)
+                };
+              });
+              
+              toast({
+                title: "Training Complete!",
+                description: `${functionName} completed ${episodesPerRun.toLocaleString()} episodes.`
+              });
+              
+              resolve();
+              return 100;
+            }
+            return newProgress;
+          });
+        }, 200);
+
+      } catch (error) {
+        console.error('Training failed:', error);
+        setIsTraining(false);
+        toast({
+          title: "Training Failed",
+          description: "Failed to start training session.",
+          variant: "destructive"
+        });
+        reject(error);
+      }
+    });
   };
 
   const runFullTrainingPipeline = async () => {
+    if (isTraining) return;
+    
     toast({
       title: "Full Training Pipeline Started",
-      description: "Running all 15 ML functions in sequence..."
+      description: "Running 5 training sessions of 1000 episodes each (5000 total episodes)..."
     });
     
-    for (const func of trainingFunctions.slice(0, 5)) {
-      await new Promise(resolve => {
-        startTrainingSession(func.name);
-        setTimeout(resolve, 5000);
+    try {
+      // Run 5 sequential training sessions, each with 1000 episodes
+      for (let i = 0; i < 5; i++) {
+        const func = trainingFunctions[i % trainingFunctions.length];
+        await startTrainingSession(`${func.name} (Session ${i + 1}/5)`, 1000);
+        // Small delay between sessions
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      toast({
+        title: "Full Pipeline Complete!",
+        description: "Successfully completed 5000 training episodes across 5 sessions."
+      });
+    } catch (error) {
+      console.error('Pipeline failed:', error);
+      toast({
+        title: "Pipeline Failed",
+        description: "Training pipeline encountered an error.",
+        variant: "destructive"
       });
     }
   };

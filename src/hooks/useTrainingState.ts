@@ -119,23 +119,31 @@ export function useTrainingState() {
     }
   }, []);
 
-  const updateMetrics = useCallback((updates: Partial<TrainingMetrics>) => {
-    const newState: TrainingState = {
-      ...state,
-      metrics: { ...state.metrics, ...updates },
-      lastUpdated: new Date().toISOString()
-    };
-    saveState(newState);
-  }, [state, saveState]);
+  const updateMetrics = useCallback((updates: Partial<TrainingMetrics> | ((current: TrainingMetrics) => Partial<TrainingMetrics>)) => {
+    setState(currentState => {
+      const updatesObj = typeof updates === 'function' ? updates(currentState.metrics) : updates;
+      const newState: TrainingState = {
+        ...currentState,
+        metrics: { ...currentState.metrics, ...updatesObj },
+        lastUpdated: new Date().toISOString()
+      };
+      saveState(newState);
+      return newState;
+    });
+  }, [saveState]);
 
-  const updatePerformance = useCallback((updates: Partial<ModelPerformance>) => {
-    const newState: TrainingState = {
-      ...state,
-      performance: { ...state.performance, ...updates },
-      lastUpdated: new Date().toISOString()
-    };
-    saveState(newState);
-  }, [state, saveState]);
+  const updatePerformance = useCallback((updates: Partial<ModelPerformance> | ((current: ModelPerformance) => Partial<ModelPerformance>)) => {
+    setState(currentState => {
+      const updatesObj = typeof updates === 'function' ? updates(currentState.performance) : updates;
+      const newState: TrainingState = {
+        ...currentState,
+        performance: { ...currentState.performance, ...updatesObj },
+        lastUpdated: new Date().toISOString()
+      };
+      saveState(newState);
+      return newState;
+    });
+  }, [saveState]);
 
   const resetState = useCallback(() => {
     const newState = { ...defaultState, lastUpdated: new Date().toISOString() };
