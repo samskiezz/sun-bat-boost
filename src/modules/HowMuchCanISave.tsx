@@ -43,6 +43,9 @@ interface BillData {
     rate: number;
     usage: number;
   }>;
+  hasEV?: boolean;
+  evChargingKwh?: number;
+  evChargingCost?: number;
 }
 
 interface LocationData {
@@ -79,7 +82,10 @@ export default function HowMuchCanISave() {
     quarterlyUsage: 0,
     quarterlyBill: 0,
     dailySupply: 100,
-    averageRate: 28
+    averageRate: 28,
+    hasEV: false,
+    evChargingKwh: 0,
+    evChargingCost: 0
   });
   const [locationData, setLocationData] = useState<LocationData>({
     postcode: '',

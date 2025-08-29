@@ -52,22 +52,24 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
           const annualUsage = billData.quarterlyUsage * 4;
           const currentAnnualBill = billData.quarterlyBill * 4;
           
-          const rankedPlans = plans.map(plan => {
-            // Calculate annual cost with this plan
-            const dailySupplyCost = plan.supply_c_per_day * 365;
-            const usageCost = annualUsage * plan.usage_c_per_kwh_peak;
-            const annualCost = (dailySupplyCost + usageCost) / 100; // Convert cents to dollars
-            
-            const annualSavings = Math.max(0, currentAnnualBill - annualCost);
-            const savingsPercentage = (annualSavings / currentAnnualBill) * 100;
-            
-            return {
-              ...plan,
-              annualCost: Math.round(annualCost),
-              annualSavings: Math.round(annualSavings),
-              savingsPercentage: Math.round(savingsPercentage)
-            } as EnergyPlan;
-          }).sort((a, b) => b.annualSavings - a.annualSavings);
+          // Use the ranking system for accurate plan comparison
+          const { rankPlans } = await import("@/energy/rankPlans");
+          const rankingContext = {
+            postcode: parseInt(locationData.postcode) || 2000,
+            state: locationData.state,
+            network: locationData.network,
+            meter_type: locationData.meterType === 'TOU' ? 'TOU' as const : 
+                       locationData.meterType === 'Demand' ? 'Demand' as const : 'Single' as const,
+            baseline_cost_aud: currentAnnualBill,
+            load: Array(8760).fill(annualUsage / 8760) // Simple hourly load profile
+          };
+
+          const rankedPlans = rankPlans(plans as any, rankingContext).map(scored => ({
+            ...scored.plan,
+            annualCost: Math.round(scored.annual_cost_aud),
+            annualSavings: Math.round(Math.max(0, currentAnnualBill - scored.annual_cost_aud)),
+            savingsPercentage: Math.round(((currentAnnualBill - scored.annual_cost_aud) / currentAnnualBill) * 100)
+          })) as EnergyPlan[];
           
           setTopPlans(rankedPlans);
         }

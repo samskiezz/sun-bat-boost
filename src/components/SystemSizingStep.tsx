@@ -191,12 +191,44 @@ export default function SystemSizingStep({
       </CardHeader>
       <CardContent className="space-y-6">
         
-        {/* AI Sizing Results */}
+        {/* AI Sizing Results with Holographic Effects */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-6 rounded-2xl bg-gradient-to-br from-primary/10 via-secondary/5 to-primary/5 border border-primary/20"
+          className="relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 via-secondary/5 to-primary/5 border border-primary/20 overflow-hidden"
         >
+          {/* Holographic Background Animation */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent animate-pulse" />
+            <motion.div
+              className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent"
+              animate={{ x: ['-100%', '100%'] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+          
+          {/* Floating Data Points */}
+          <div className="absolute inset-0 pointer-events-none">
+            {Array.from({ length: 15 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-1 h-1 bg-primary/60 rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                }}
+                animate={{
+                  opacity: [0.2, 0.8, 0.2],
+                  scale: [0.5, 1.5, 0.5],
+                }}
+                transition={{
+                  duration: 2 + Math.random() * 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
           {isCalculating ? (
             <div className="text-center py-8">
               <div className="flex items-center justify-center gap-3 mb-4">

@@ -1,10 +1,15 @@
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
-import { Calculator, TrendingUp, TrendingDown, DollarSign, Zap, Battery, Sun, Download } from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, DollarSign, Zap, Battery, Sun, Download, Car } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
+import HolographicGraph from "./HolographicGraph";
 
 interface SavingsAnalysisStepProps {
   billData: any;
@@ -14,14 +19,29 @@ interface SavingsAnalysisStepProps {
 }
 
 export default function SavingsAnalysisStep({ billData, locationData, systemSize, selectedPlan }: SavingsAnalysisStepProps) {
+  const [includeEV, setIncludeEV] = useState(billData.hasEV || false);
+  const [evChargingKwh, setEvChargingKwh] = useState(billData.evChargingKwh || 200);
+  const [evChargingAtHome, setEvChargingAtHome] = useState(0.8); // 80% home charging
   
+  // EV charging calculations
+  const evAnnualChargingCost = includeEV ? evChargingKwh * 12 * (billData.averageRate / 100) * evChargingAtHome : 0;
+  const evSolarChargingSavings = includeEV ? evChargingKwh * 12 * evChargingAtHome * 0.7 * (billData.averageRate / 100) : 0; // 70% solar charging potential
+
   // Use AI sizing results directly for accurate calculations
   const financialData = systemSize?.financial || {};
-  const currentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
-  const newAnnualBill = financialData.new_annual_bill || currentAnnualBill;  
-  const annualSavings = financialData.annual_savings || 0;
-  const monthlySavings = financialData.monthly_savings || Math.round(annualSavings / 12);
-  const billReductionPercent = financialData.bill_reduction_percent || 0;
+  let currentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
+  let newAnnualBill = financialData.new_annual_bill || currentAnnualBill;
+  let annualSavings = financialData.annual_savings || 0;
+  
+  // Add EV costs and savings
+  if (includeEV) {
+    currentAnnualBill += evAnnualChargingCost;
+    annualSavings += evSolarChargingSavings;
+    newAnnualBill = currentAnnualBill - annualSavings;
+  }
+  
+  const monthlySavings = Math.round(annualSavings / 12);
+  const billReductionPercent = Math.round((annualSavings / currentAnnualBill) * 100);
   
   // Solar system performance from AI sizing
   const solarGeneration = financialData.annual_generation || 0;
@@ -181,37 +201,19 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="monthly" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-white/10 border border-white/20">
+            <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20">
               <TabsTrigger value="monthly">Monthly Breakdown</TabsTrigger>
               <TabsTrigger value="energy">Energy Mix</TabsTrigger>
+              <TabsTrigger value="ev">EV Analysis</TabsTrigger>
               <TabsTrigger value="longterm">Long-term Projection</TabsTrigger>
               <TabsTrigger value="comparison">Plan Comparison</TabsTrigger>
             </TabsList>
             
             <TabsContent value="monthly" className="space-y-4">
-              <Card className="border-white/20 bg-white/5">
-                <CardHeader>
-                  <CardTitle className="text-lg">Monthly Bill Comparison</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={monthlyData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="month" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px'
-                        }} 
-                      />
-                       <Bar dataKey="currentBill" fill="#ef4444" name="Current Bill" />
-                       <Bar dataKey="newBill" fill="#22c55e" name="With Solar + Battery" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <HolographicGraph 
+                data={monthlyData} 
+                title="Monthly Energy Bill Analysis"
+              />
             </TabsContent>
             
             <TabsContent value="energy" className="space-y-4">
@@ -281,6 +283,98 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+            
+            <TabsContent value="ev" className="space-y-4">
+              <Card className="border-white/20 bg-white/5">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Car className="h-5 w-5" />
+                    Electric Vehicle Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="include-ev" 
+                      checked={includeEV}
+                      onCheckedChange={(checked) => setIncludeEV(checked as boolean)}
+                    />
+                    <Label htmlFor="include-ev">Include Electric Vehicle charging in analysis</Label>
+                  </div>
+                  
+                  {includeEV && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="ev-kwh">Monthly EV charging (kWh)</Label>
+                          <Input
+                            id="ev-kwh"
+                            type="number"
+                            value={evChargingKwh}
+                            onChange={(e) => setEvChargingKwh(parseInt(e.target.value) || 0)}
+                            className="bg-white/5 border-white/20"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ev-home">Home charging %</Label>
+                          <Input
+                            id="ev-home"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={Math.round(evChargingAtHome * 100)}
+                            onChange={(e) => setEvChargingAtHome((parseInt(e.target.value) || 0) / 100)}
+                            className="bg-white/5 border-white/20"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                        <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5">
+                          <CardContent className="p-4 text-center">
+                            <Car className="h-6 w-6 mx-auto mb-2 text-red-500" />
+                            <div className="text-xl font-bold text-red-500">
+                              ${Math.round(evAnnualChargingCost).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Annual EV Charging Cost</div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5">
+                          <CardContent className="p-4 text-center">
+                            <Sun className="h-6 w-6 mx-auto mb-2 text-green-500" />
+                            <div className="text-xl font-bold text-green-500">
+                              ${Math.round(evSolarChargingSavings).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Annual Solar EV Savings</div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5">
+                          <CardContent className="p-4 text-center">
+                            <Zap className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                            <div className="text-xl font-bold text-blue-500">
+                              {Math.round((evSolarChargingSavings / evAnnualChargingCost) * 100) || 0}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">EV Savings Rate</div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      
+                      <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
+                        <div className="text-sm">
+                          <strong>EV Solar Charging Benefits:</strong> With your solar system, you can charge your EV for approximately {Math.round((1 - (evSolarChargingSavings / evAnnualChargingCost)) * (billData.averageRate / 100) * 100)}c/kWh during solar generation hours, compared to {billData.averageRate}c/kWh from the grid.
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
             
             <TabsContent value="longterm" className="space-y-4">
