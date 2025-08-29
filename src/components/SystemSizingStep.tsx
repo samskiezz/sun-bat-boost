@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import HolographicGraph from "./HolographicGraph";
 
 interface SystemSize {
   recommendedKw: number;
@@ -287,6 +288,18 @@ export default function SystemSizingStep({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="mt-8">
+                <HolographicGraph
+                  data={Array.from({ length: 12 }, (_, i) => ({
+                    month: new Date(0, i).toLocaleString('default', { month: 'short' }),
+                    currentBill: Math.round((billData.quarterlyBill * 4) / 12),
+                    newBill: Math.round(((billData.quarterlyBill * 4) - (annualSavings || 0)) / 12),
+                    savings: Math.round((annualSavings || 0) / 12)
+                  }))}
+                  title="Monthly Savings Projection"
+                />
               </div>
 
               {/* AI Reasoning */}

@@ -17,11 +17,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!
     );
     
-    const url = new URL(req.url);
-    const postcode = Number(url.searchParams.get("postcode") || "");
-    const version = url.searchParams.get("version") || "v1";
+    let postcode: number;
+    let version: string = "v1";
     
-    if (!postcode) {
+    // Handle both POST (JSON body) and GET (query params) requests
+    if (req.method === 'POST') {
+      const body = await req.json();
+      postcode = typeof body.postcode === 'string' ? parseInt(body.postcode) : body.postcode;
+      version = body.version || "v1";
+    } else {
+      const url = new URL(req.url);
+      postcode = Number(url.searchParams.get("postcode") || "");
+      version = url.searchParams.get("version") || "v1";
+    }
+    
+    if (!postcode || isNaN(postcode)) {
       return new Response(JSON.stringify({
         ok: false,
         error: "postcode required"

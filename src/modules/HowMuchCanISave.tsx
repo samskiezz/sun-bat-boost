@@ -196,12 +196,7 @@ export default function HowMuchCanISave() {
     const stepOrder: Step[] = ['method', 'current-bill', 'location', 'system-sizing', 'best-rates', 'savings-analysis'];
     const currentIndex = stepOrder.indexOf(currentStep);
     
-    // Auto-skip location step if data is already populated from OCR
-    if (currentStep === 'current-bill' && locationData.postcode && locationData.state && locationData.network) {
-      setCurrentStep('system-sizing'); // Skip directly to system sizing
-      return;
-    }
-    
+    // Don't auto-skip location - let users verify/edit
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
     }
@@ -230,14 +225,23 @@ export default function HowMuchCanISave() {
             dailySupply: billData.dailySupply,
             averageRate: billData.averageRate,
             currentRetailer: billData.currentRetailer,
-            currentPlan: billData.currentPlan
+            currentPlan: billData.currentPlan,
+            hasEV: billData.hasEV,
+            evChargingKwh: billData.evChargingKwh || 0,
+            evChargingCost: billData.evChargingCost || 0,
+            peakRate: billData.peakRate,
+            offPeakRate: billData.offPeakRate,
+            shoulderRate: billData.shoulderRate
           },
           locationData: {
             postcode: locationData.postcode,
             state: locationData.state,
-            network: locationData.network
+            network: locationData.network,
+            meterType: locationData.meterType
           },
           preferences: {
+            offsetGoal: 90, // Target 90% offset
+            roofSpace: 'average',
             includeBattery: true,
             budgetRange: 'mid'
           }
@@ -253,16 +257,16 @@ export default function HowMuchCanISave() {
       console.log('✅ AI sizing result:', data);
       
       setSystemSize({
-        recommendedKw: data.panels.totalKw,
-        panels: data.panels.count,
-        battery: data.battery ? data.battery.capacity_kwh : 0,
-        estimatedGeneration: data.estimatedAnnualGeneration,
-        confidence: data.confidence,
-        aiReasoning: data.reasoning,
+        recommendedKw: data.recommendations.panels.totalKw,
+        panels: data.recommendations.panels.count,
+        battery: data.recommendations.battery ? data.recommendations.battery.capacity_kwh : 0,
+        estimatedGeneration: data.financial.annual_generation,
+        confidence: data.rationale.confidence,
+        aiReasoning: data.rationale.ai_reasoning,
         products: {
-          panels: data.panels,
-          battery: data.battery,
-          inverter: data.inverter
+          panels: data.recommendations.panels,
+          battery: data.recommendations.battery,
+          inverter: data.recommendations.inverter
         }
       });
       
@@ -703,43 +707,110 @@ export default function HowMuchCanISave() {
                               placeholder="e.g., 2400"
                               className="bg-white/10 border-white/20"
                             />
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="bill">Quarterly Bill Amount ($)</Label>
-                            <Input
-                              id="bill"
-                              type="number"
-                              value={billData.quarterlyBill || ''}
-                              onChange={(e) => setBillData(prev => ({ ...prev, quarterlyBill: parseFloat(e.target.value) || 0 }))}
-                              placeholder="e.g., 650"
-                              className="bg-white/10 border-white/20"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="supply">Daily Supply Charge (c/day)</Label>
-                            <Input
-                              id="supply"
-                              type="number"
-                              value={billData.dailySupply || ''}
-                              onChange={(e) => setBillData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) || 0 }))}
-                              placeholder="e.g., 110"
-                              className="bg-white/10 border-white/20"
-                            />
-                          </div>
-                          <div>
-                            <Label>Average Rate (calculated)</Label>
-                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-lg font-semibold">
-                                {billData.quarterlyUsage > 0 
-                                  ? ((billData.quarterlyBill * 100 - billData.dailySupply * 91.25) / billData.quarterlyUsage).toFixed(1)
-                                  : '0.0'
-                                } c/kWh
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                           </div>
+                         </div>
+                         <div className="space-y-4">
+                           <div>
+                             <Label htmlFor="bill">Quarterly Bill Amount ($)</Label>
+                             <Input
+                               id="bill"
+                               type="number"
+                               value={billData.quarterlyBill || ''}
+                               onChange={(e) => setBillData(prev => ({ ...prev, quarterlyBill: parseFloat(e.target.value) || 0 }))}
+                               placeholder="e.g., 650"
+                               className="bg-white/10 border-white/20"
+                             />
+                           </div>
+                           <div>
+                             <Label htmlFor="supply">Daily Supply Charge (c/day)</Label>
+                             <Input
+                               id="supply"
+                               type="number"
+                               value={billData.dailySupply || ''}
+                               onChange={(e) => setBillData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) || 0 }))}
+                               placeholder="e.g., 110"
+                               className="bg-white/10 border-white/20"
+                             />
+                           </div>
+                           <div>
+                             <Label>Average Rate (calculated)</Label>
+                             <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                               <span className="text-lg font-semibold">
+                                 {billData.quarterlyUsage > 0 
+                                   ? ((billData.quarterlyBill * 100 - billData.dailySupply * 91.25) / billData.quarterlyUsage).toFixed(1)
+                                   : '0.0'
+                                 } c/kWh
+                               </span>
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       {/* EV Section */}
+                       <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
+                         <h4 className="font-semibold mb-4 flex items-center gap-2">
+                           <Zap className="h-5 w-5" />
+                           Electric Vehicle Details (Optional)
+                         </h4>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <div>
+                             <Label htmlFor="hasEV">Do you have an EV?</Label>
+                             <Select
+                               value={billData.hasEV ? 'yes' : 'no'}
+                               onValueChange={(value) => setBillData(prev => ({ 
+                                 ...prev, 
+                                 hasEV: value === 'yes',
+                                 evChargingKwh: value === 'no' ? 0 : prev.evChargingKwh,
+                                 evChargingCost: value === 'no' ? 0 : prev.evChargingCost
+                               }))}
+                             >
+                               <SelectTrigger className="bg-white/10 border-white/20">
+                                 <SelectValue placeholder="Select..." />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="no">No</SelectItem>
+                                 <SelectItem value="yes">Yes</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </div>
+                           
+                           {billData.hasEV && (
+                             <>
+                               <div>
+                                 <Label htmlFor="evKwh">Monthly EV Charging (kWh)</Label>
+                                 <Input
+                                   id="evKwh"
+                                   type="number"
+                                   value={billData.evChargingKwh || ''}
+                                   onChange={(e) => setBillData(prev => ({ ...prev, evChargingKwh: parseFloat(e.target.value) || 0 }))}
+                                   placeholder="e.g., 400"
+                                   className="bg-white/10 border-white/20"
+                                 />
+                               </div>
+                               
+                               <div>
+                                 <Label htmlFor="evCost">Monthly EV Charging Cost ($)</Label>
+                                 <Input
+                                   id="evCost"
+                                   type="number"
+                                   value={billData.evChargingCost || ''}
+                                   onChange={(e) => setBillData(prev => ({ ...prev, evChargingCost: parseFloat(e.target.value) || 0 }))}
+                                   placeholder="e.g., 120"
+                                   className="bg-white/10 border-white/20"
+                                 />
+                               </div>
+                             </>
+                           )}
+                         </div>
+                         {billData.hasEV && billData.evChargingKwh > 0 && (
+                           <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                             <p className="text-sm text-muted-foreground">
+                               Annual EV Usage: <span className="font-medium">{(billData.evChargingKwh * 12).toLocaleString()} kWh</span>
+                               {' • '}
+                               Annual EV Cost: <span className="font-medium">${(billData.evChargingCost * 12).toLocaleString()}</span>
+                             </p>
+                           </div>
+                         )}
                       </div>
                     </>
                   )}

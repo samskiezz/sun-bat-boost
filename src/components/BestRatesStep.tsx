@@ -68,7 +68,7 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
             ...scored.plan,
             annualCost: Math.round(scored.annual_cost_aud),
             annualSavings: Math.round(Math.max(0, currentAnnualBill - scored.annual_cost_aud)),
-            savingsPercentage: Math.round(((currentAnnualBill - scored.annual_cost_aud) / currentAnnualBill) * 100)
+            savingsPercentage: Math.round(Math.max(0, ((currentAnnualBill - scored.annual_cost_aud) / currentAnnualBill) * 100))
           })) as EnergyPlan[];
           
           setTopPlans(rankedPlans);
