@@ -47,6 +47,14 @@ interface BillData {
   hasEV?: boolean;
   evChargingKwh?: number;
   evChargingCost?: number;
+  siteAnalysis?: {
+    roofSlope?: number;
+    roofAzimuth?: number;
+    shadingFactor?: number;
+    solarAccess?: number;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 interface LocationData {
@@ -843,8 +851,12 @@ export default function HowMuchCanISave() {
                   });
                 }}
                 onSiteUpdate={(siteData) => {
-                  console.log('Site data updated:', siteData);
-                  // You can store site data in state if needed for later use
+                  console.log('📍 Site analysis updated:', siteData);
+                  // Store site data for AI sizing calculations
+                  setBillData(prev => ({
+                    ...prev,
+                    siteAnalysis: siteData
+                  }));
                 }}
               />
             )}

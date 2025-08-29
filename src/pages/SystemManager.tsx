@@ -15,6 +15,7 @@ import RefreshEnergyPlansButton from '@/components/RefreshEnergyPlansButton';
 import DnspPanel from "@/components/SystemManager/DnspPanel";
 import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
+import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -127,7 +128,10 @@ export default function SystemManager() {
         </TabsContent>
 
         <TabsContent value="training">
-          <MasterTrainingControl />
+          <div className="space-y-6">
+            <MasterTrainingControl />
+            <EnhancedTrainingSystem />
+          </div>
         </TabsContent>
 
         <TabsContent value="automation">

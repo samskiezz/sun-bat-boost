@@ -279,22 +279,24 @@ async function getAvailableProducts(supabase: any) {
   
   // Only get approved brands as specified by user
   const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
-  const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+  const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA', 'Alpha ESS'];
+  
+  console.log('🎯 Using ONLY approved brands:', { approvedPanelBrands, approvedBatteryBrands });
   
   const [panelsResult, batteriesResult] = await Promise.all([
-    // Filter for only approved panel brands
+    // Filter for only approved panel brands with exact matching
     supabase.from('pv_modules')
       .select('*')
-      .or(approvedPanelBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
-      .gte('power_rating', 350) // Include mid-range panels too
-      .order('power_rating', { ascending: false })
+      .or(approvedPanelBrands.map(brand => `manufacturer.ilike.%${brand}%`).join(','))
+      .gte('stc_power_rating', 400) // High efficiency panels only
+      .order('stc_power_rating', { ascending: false })
       .limit(20),
-    // Filter for only approved battery brands  
+    // Filter for only approved battery brands with exact matching
     supabase.from('batteries')
       .select('*')
-      .or(approvedBatteryBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
-      .gte('capacity_kwh', 5) // Include smaller batteries too
-      .order('capacity_kwh', { ascending: false })
+      .or(approvedBatteryBrands.map(brand => `manufacturer.ilike.%${brand}%`).join(','))
+      .gte('nominal_capacity', 10) // Larger batteries for better savings
+      .order('nominal_capacity', { ascending: false })
       .limit(15)
   ]);
   
