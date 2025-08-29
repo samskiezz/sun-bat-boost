@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, MapPin, Zap, TrendingDown, Upload, Calculator, ArrowLeft, ArrowRight } from "lucide-react";
+import { FileText, MapPin, Zap, TrendingDown, Upload, Calculator, ArrowLeft, ArrowRight, Camera, Satellite } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 import SystemSizingStep from "@/components/SystemSizingStep";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
 import { LocationAutoFill } from "@/components/LocationAutoFill";
-import ComprehensiveSiteAnalysis from "@/components/ComprehensiveSiteAnalysis";
+import SiteAnalysisPopup from "@/components/SiteAnalysisPopup";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
 
@@ -106,6 +106,7 @@ export default function HowMuchCanISave() {
   const [retailers, setRetailers] = useState<string[]>([]);
   const [availablePlans, setAvailablePlans] = useState<Array<{id: string; plan_name: string; retailer: string}>>([]);
   const [isProcessingBill, setIsProcessingBill] = useState(false);
+  const [showSiteAnalysis, setShowSiteAnalysis] = useState(false);
 
   // Get solar equipment count for display instead of energy plans
   useEffect(() => {
@@ -840,25 +841,46 @@ export default function HowMuchCanISave() {
             )}
 
             {currentStep === 'location' && (
-              <ComprehensiveSiteAnalysis
-                initialPostcode={locationData.postcode}
-                onLocationUpdate={(data) => {
-                  setLocationData({
-                    postcode: data.postcode,
-                    state: data.state,
-                    network: data.network,
-                    meterType: data.meterType || 'TOU'
-                  });
-                }}
-                onSiteUpdate={(siteData) => {
-                  console.log('📍 Site analysis updated:', siteData);
-                  // Store site data for AI sizing calculations
-                  setBillData(prev => ({
-                    ...prev,
-                    siteAnalysis: siteData
-                  }));
-                }}
-              />
+              <Card className="border-primary/20 bg-white/10 backdrop-blur-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Location & Site Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-lg">
+                      <Satellite className="h-6 w-6 text-primary" />
+                      <span>Ready for AI-powered site analysis</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Our AI will analyze satellite imagery, detect shading patterns, measure roof dimensions, 
+                      and determine optimal solar panel placement for your location.
+                    </p>
+                    
+                    {locationData.postcode && (
+                      <div className="p-4 bg-white/5 rounded-lg">
+                        <h4 className="font-semibold mb-2">Current Location</h4>
+                        <div className="text-sm space-y-1">
+                          <div>Postcode: <span className="font-medium">{locationData.postcode}</span></div>
+                          {locationData.state && <div>State: <span className="font-medium">{locationData.state}</span></div>}
+                          {locationData.network && <div>Network: <span className="font-medium">{locationData.network}</span></div>}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      onClick={() => setShowSiteAnalysis(true)}
+                      className="bg-primary hover:bg-primary/90 px-8 py-3"
+                      size="lg"
+                    >
+                      <Camera className="h-5 w-5 mr-2" />
+                      Start Site Analysis
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {currentStep === 'system-sizing' && (
@@ -965,6 +987,34 @@ export default function HowMuchCanISave() {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Site Analysis Popup */}
+        <SiteAnalysisPopup
+          isOpen={showSiteAnalysis}
+          onClose={() => setShowSiteAnalysis(false)}
+          initialPostcode={locationData.postcode}
+          onLocationUpdate={(data) => {
+            setLocationData({
+              postcode: data.postcode,
+              state: data.state,
+              network: data.network,
+              meterType: data.meterType || 'TOU'
+            });
+          }}
+          onSiteUpdate={(data) => {
+            setBillData(prev => ({
+              ...prev,
+              siteAnalysis: {
+                roofSlope: data.roofSlope,
+                roofAzimuth: data.roofAzimuth,
+                shadingFactor: data.shadingFactor,
+                solarAccess: data.solarAccess,
+                latitude: data.latitude,
+                longitude: data.longitude
+              }
+            }));
+          }}
+        />
       </div>
     </div>
   );
