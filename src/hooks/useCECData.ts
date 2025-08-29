@@ -89,6 +89,10 @@ export const useCECData = () => {
 
       console.log('🔄 Fetching ALL CEC data with pagination...');
 
+      // Approved brands filter
+      const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+      const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+
       // Helper functions to fetch all pages for specific tables
       const fetchAllPanels = async () => {
         let allData: any[] = [];
@@ -100,6 +104,7 @@ export const useCECData = () => {
           const { data, error } = await supabase
             .from('pv_modules')
             .select('*')
+            .or(approvedPanelBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
             .range(from, from + pageSize - 1)
             .order('brand', { ascending: true });
 
@@ -112,7 +117,7 @@ export const useCECData = () => {
             allData = [...allData, ...data];
             from += pageSize;
             hasMore = data.length === pageSize;
-            console.log(`📄 Fetched ${data.length} panels (total: ${allData.length})`);
+            console.log(`📄 Fetched ${data.length} approved panels (total: ${allData.length})`);
           } else {
             hasMore = false;
           }
@@ -131,6 +136,7 @@ export const useCECData = () => {
           const { data, error } = await supabase
             .from('batteries')
             .select('*')
+            .or(approvedBatteryBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
             .range(from, from + pageSize - 1)
             .order('brand', { ascending: true });
 
@@ -143,7 +149,7 @@ export const useCECData = () => {
             allData = [...allData, ...data];
             from += pageSize;
             hasMore = data.length === pageSize;
-            console.log(`📄 Fetched ${data.length} batteries (total: ${allData.length})`);
+            console.log(`📄 Fetched ${data.length} approved batteries (total: ${allData.length})`);
           } else {
             hasMore = false;
           }
@@ -160,7 +166,8 @@ export const useCECData = () => {
             .from('products')
             .select('*, manufacturers(name)')
             .eq('category', 'PANEL')
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .or(approvedPanelBrands.map(brand => `manufacturers.name.ilike.%${brand}%`).join(','));
           
           // Map products to panel format
           return (data || []).map(product => ({
@@ -181,7 +188,8 @@ export const useCECData = () => {
             .from('products')
             .select('*, manufacturers(name)')
             .eq('category', 'BATTERY_MODULE')
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .or(approvedBatteryBrands.map(brand => `manufacturers.name.ilike.%${brand}%`).join(','));
           
           // Map products to battery format
           return (data || []).map(product => ({
@@ -208,34 +216,35 @@ export const useCECData = () => {
         changes: allChanges.length
       });
 
-      // Immediate verification - check for key brands in paginated data
+      // Immediate verification - check for approved brands in paginated data
       if (allPanels && allPanels.length > 0) {
-        const trinaSolar = allPanels.filter((p: any) => 
-          p.brand && p.brand.toLowerCase().includes('trina')
+        const recPanels = allPanels.filter((p: any) => 
+          p.brand && p.brand.toLowerCase().includes('rec')
         );
-        console.log(`✅ TRINA SOLAR FOUND: ${trinaSolar.length} panels`);
+        console.log(`✅ REC PANELS FOUND: ${recPanels.length}`);
         
         const jinko = allPanels.filter((p: any) => 
           p.brand && p.brand.toLowerCase().includes('jinko')
         );
         console.log(`✅ JINKO FOUND: ${jinko.length} panels`);
         
-        const allBrands = [...new Set(allPanels.map((p: any) => p.brand))].sort();
-        console.log(`✅ TOTAL BRANDS: ${allBrands.length}`, allBrands.slice(0, 10));
-        
-        if (trinaSolar.length > 0) {
-          console.log('🎯 TRINA SAMPLE:', trinaSolar.slice(0, 3).map(p => ({
-            id: p.id, brand: p.brand, model: p.model
-          })));
-        }
+        const approvedBrands = [...new Set(allPanels.map((p: any) => p.brand))].sort();
+        console.log(`✅ APPROVED PANEL BRANDS: ${approvedBrands.length}`, approvedBrands);
       }
 
-      if (allVppProviders && allVppProviders.length > 0) {
-        const amber = allVppProviders.filter((v: any) => 
-          v.company && v.company.toLowerCase().includes('amber')
+      if (allBatteries && allBatteries.length > 0) {
+        const tesla = allBatteries.filter((b: any) => 
+          b.brand && b.brand.toLowerCase().includes('tesla')
         );
-        console.log(`✅ AMBER ELECTRIC FOUND: ${amber.length} VPP programs`);
-        console.log(`✅ TOTAL VPP PROVIDERS: ${allVppProviders.length}`);
+        console.log(`✅ TESLA BATTERIES FOUND: ${tesla.length}`);
+        
+        const sigenergy = allBatteries.filter((b: any) => 
+          b.brand && b.brand.toLowerCase().includes('sigenergy')
+        );
+        console.log(`✅ SIGENERGY BATTERIES FOUND: ${sigenergy.length}`);
+        
+        const approvedBatteryBrands = [...new Set(allBatteries.map((b: any) => b.brand))].sort();
+        console.log(`✅ APPROVED BATTERY BRANDS: ${approvedBatteryBrands.length}`, approvedBatteryBrands);
       }
 
       // Set the state with paginated data
@@ -244,7 +253,7 @@ export const useCECData = () => {
       setVppProviders(allVppProviders || []);
       setProductChanges(allChanges || []);
 
-      console.log(`🚀 STATE SET - Panels: ${allPanels.length}, Batteries: ${allBatteries.length}, VPPs: ${allVppProviders.length}`);
+      console.log(`🚀 STATE SET - Approved Panels: ${allPanels.length}, Approved Batteries: ${allBatteries.length}, VPPs: ${allVppProviders.length}`);
 
       // Set last updated timestamp using paginated data
       const allScrapedDates = [
@@ -259,7 +268,7 @@ export const useCECData = () => {
 
       // Always consider data complete since we now use weekly updates
       setDataComplete(true);
-      console.log('✅ PAGINATION SUCCESS! All database loaded - Panels:', allPanels.length, 'Batteries:', allBatteries.length, 'VPPs:', allVppProviders.length);
+      console.log('✅ PAGINATION SUCCESS! Approved products loaded - Panels:', allPanels.length, 'Batteries:', allBatteries.length, 'VPPs:', allVppProviders.length);
 
     } catch (err) {
       console.error('❌ Error fetching complete CEC data:', err);

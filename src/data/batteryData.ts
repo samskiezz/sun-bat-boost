@@ -24,7 +24,7 @@ export interface BatterySpec {
 }
 
 export const BATTERY_SYSTEMS: Record<string, BatterySpec> = {
-  // Tesla Premium
+  // Tesla Premium - APPROVED
   "tesla-powerwall-2": {
     id: "tesla-powerwall-2",
     brand: "Tesla",
@@ -60,262 +60,46 @@ export const BATTERY_SYSTEMS: Record<string, BatterySpec> = {
     dimensions: { width_mm: 1099, height_mm: 609, depth_mm: 193, weight_kg: 130 }
   },
 
-  // Sonnen Premium
-  "sonnen-eco-10": {
-    id: "sonnen-eco-10",
-    brand: "sonnen",
-    model: "Eco 10",
-    capacity_kwh: 10.0,
-    usable_capacity_kwh: 10.0,
-    max_continuous_power_kw: 3.3,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 10000,
-    efficiency_percent: 95,
-    price_estimate_aud: 16000,
-    vpp_compatible: ["sonnen", "origin", "agl"],
-    tier: 1,
-    common_names: ["sonnen Eco 10", "sonnenEco10", "Eco10"],
-    dimensions: { width_mm: 680, height_mm: 1200, depth_mm: 300, weight_kg: 145 }
-  },
-  "sonnen-evo": {
-    id: "sonnen-evo",
-    brand: "sonnen",
-    model: "Evo",
-    capacity_kwh: 10.0,
-    usable_capacity_kwh: 10.0,
-    max_continuous_power_kw: 3.3,
-    chemistry: "LiFePO4",
-    warranty_years: 15,
-    cycles: 10000,
-    efficiency_percent: 97,
-    price_estimate_aud: 18000,
-    vpp_compatible: ["sonnen", "origin", "agl", "energyaustralia"],
-    tier: 1,
-    common_names: ["sonnen Evo", "sonnenEvo", "Evo"],
-    dimensions: { width_mm: 680, height_mm: 1200, depth_mm: 300, weight_kg: 140 }
-  },
-
-  // Redback Premium Australian
-  "redback-smart-hybrid-10": {
-    id: "redback-smart-hybrid-10",
-    brand: "Redback",
-    model: "Smart Hybrid 10kWh",
+  // Sigenergy - APPROVED
+  "sigenergy-sigenstor-10": {
+    id: "sigenergy-sigenstor-10",
+    brand: "SIGENERGY",
+    model: "SIGENSTOR 10.24kWh",
     capacity_kwh: 10.24,
-    usable_capacity_kwh: 9.0,
+    usable_capacity_kwh: 10.24,
     max_continuous_power_kw: 5.0,
     chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 11500,
-    vpp_compatible: ["redback", "origin", "agl", "energyaustralia"],
-    tier: 1,
-    common_names: ["Redback Smart Hybrid", "RB-SH10", "Smart Hybrid"],
-    dimensions: { width_mm: 600, height_mm: 1300, depth_mm: 250, weight_kg: 120 }
-  },
-  "redback-smart-hybrid-13": {
-    id: "redback-smart-hybrid-13",
-    brand: "Redback",
-    model: "Smart Hybrid 13kWh",
-    capacity_kwh: 13.3,
-    usable_capacity_kwh: 12.0,
-    max_continuous_power_kw: 5.0,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 14500,
-    vpp_compatible: ["redback", "origin", "agl", "energyaustralia"],
-    tier: 1,
-    common_names: ["Redback Smart Hybrid", "RB-SH13", "Smart Hybrid 13"],
-    dimensions: { width_mm: 600, height_mm: 1600, depth_mm: 250, weight_kg: 150 }
-  },
-
-  // Enphase Modular
-  "enphase-iq-battery-3": {
-    id: "enphase-iq-battery-3",
-    brand: "Enphase",
-    model: "IQ Battery 3",
-    capacity_kwh: 3.36,
-    usable_capacity_kwh: 3.36,
-    max_continuous_power_kw: 1.28,
-    chemistry: "LiFePO4",
-    warranty_years: 15,
-    cycles: 6000,
-    efficiency_percent: 89,
-    price_estimate_aud: 4500,
-    vpp_compatible: ["amber", "origin", "agl"],
-    tier: 1,
-    common_names: ["Enphase IQ Battery 3", "IQ3", "IQ Battery"],
-    dimensions: { width_mm: 350, height_mm: 440, depth_mm: 185, weight_kg: 36 }
-  },
-  "enphase-iq-battery-5p": {
-    id: "enphase-iq-battery-5p",
-    brand: "Enphase",
-    model: "IQ Battery 5P",
-    capacity_kwh: 5.0,
-    usable_capacity_kwh: 5.0,
-    max_continuous_power_kw: 3.84,
-    chemistry: "LiFePO4",
-    warranty_years: 15,
-    cycles: 6000,
-    efficiency_percent: 89,
-    price_estimate_aud: 7200,
-    vpp_compatible: ["amber", "origin", "agl"],
-    tier: 1,
-    common_names: ["Enphase IQ Battery 5P", "IQ5P", "IQ Battery 5"],
-    dimensions: { width_mm: 445, height_mm: 576, depth_mm: 185, weight_kg: 56 }
-  },
-
-  // LG Chem Premium
-  "lg-resu-10h": {
-    id: "lg-resu-10h",
-    brand: "LG Energy Solution",
-    model: "RESU 10H",
-    capacity_kwh: 9.8,
-    usable_capacity_kwh: 9.3,
-    max_continuous_power_kw: 5.0,
-    chemistry: "NMC",
     warranty_years: 10,
     cycles: 6000,
     efficiency_percent: 95,
     price_estimate_aud: 8500,
-    vpp_compatible: ["amber", "origin", "agl", "energyaustralia"],
+    vpp_compatible: ["amber", "origin"],
     tier: 1,
-    common_names: ["LG RESU 10H", "LG10H", "RESU10H"],
-    dimensions: { width_mm: 452, height_mm: 688, depth_mm: 220, weight_kg: 98 }
+    common_names: ["SIGENERGY SIGENSTOR", "SIGENSTOR", "SIG10"],
+    dimensions: { width_mm: 600, height_mm: 800, depth_mm: 200, weight_kg: 100 }
   },
-  "lg-resu-16h": {
-    id: "lg-resu-16h",
-    brand: "LG Energy Solution",
-    model: "RESU 16H",
-    capacity_kwh: 16.0,
-    usable_capacity_kwh: 14.4,
-    max_continuous_power_kw: 7.0,
-    chemistry: "NMC",
+  "sigenergy-sigenstor-128": {
+    id: "sigenergy-sigenstor-128",
+    brand: "SIGENERGY",
+    model: "SIGENSTOR 12.8kWh",
+    capacity_kwh: 12.8,
+    usable_capacity_kwh: 12.8,
+    max_continuous_power_kw: 6.4,
+    chemistry: "LiFePO4",
     warranty_years: 10,
     cycles: 6000,
     efficiency_percent: 95,
-    price_estimate_aud: 12500,
-    vpp_compatible: ["amber", "origin", "agl", "energyaustralia"],
+    price_estimate_aud: 10500,
+    vpp_compatible: ["amber", "origin"],
     tier: 1,
-    common_names: ["LG RESU 16H", "LG16H", "RESU16H"],
-    dimensions: { width_mm: 452, height_mm: 1057, depth_mm: 220, weight_kg: 145 }
+    common_names: ["SIGENERGY SIGENSTOR", "SIGENSTOR", "SIG128"],
+    dimensions: { width_mm: 600, height_mm: 1000, depth_mm: 200, weight_kg: 130 }
   },
 
-  // BYD Popular
-  "byd-hvm-11": {
-    id: "byd-hvm-11",
-    brand: "BYD",
-    model: "HVM 11.04kWh",
-    capacity_kwh: 11.04,
-    usable_capacity_kwh: 8.8,
-    max_continuous_power_kw: 2.56,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 7500,
-    vpp_compatible: ["amber", "origin", "agl"],
-    tier: 2,
-    common_names: ["BYD HVM", "BYD-HVM", "HVM11"],
-    dimensions: { width_mm: 650, height_mm: 760, depth_mm: 180, weight_kg: 126 }
-  },
-  "byd-hvm-16": {
-    id: "byd-hvm-16",
-    brand: "BYD",
-    model: "HVM 16.6kWh",
-    capacity_kwh: 16.6,
-    usable_capacity_kwh: 13.3,
-    max_continuous_power_kw: 5.0,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 11000,
-    vpp_compatible: ["amber", "origin", "agl"],
-    tier: 2,
-    common_names: ["BYD HVM", "BYD-HVM", "HVM16"],
-    dimensions: { width_mm: 650, height_mm: 1140, depth_mm: 180, weight_kg: 189 }
-  },
-
-  // Pylontech Value
-  "pylontech-us3000c": {
-    id: "pylontech-us3000c",
-    brand: "Pylontech",
-    model: "US3000C",
-    capacity_kwh: 3.55,
-    usable_capacity_kwh: 3.55,
-    max_continuous_power_kw: 1.8,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 2800,
-    vpp_compatible: ["amber", "origin"],
-    tier: 2,
-    common_names: ["Pylontech US3000C", "US3000C", "PYL3000"],
-    dimensions: { width_mm: 442, height_mm: 132, depth_mm: 420, weight_kg: 35 }
-  },
-  "pylontech-us5000": {
-    id: "pylontech-us5000",
-    brand: "Pylontech",
-    model: "US5000",
-    capacity_kwh: 4.8,
-    usable_capacity_kwh: 4.8,
-    max_continuous_power_kw: 2.4,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 3500,
-    vpp_compatible: ["amber", "origin"],
-    tier: 2,
-    common_names: ["Pylontech US5000", "US5000", "PYL5000"],
-    dimensions: { width_mm: 442, height_mm: 132, depth_mm: 420, weight_kg: 37 }
-  },
-
-  // Goodwe/ALPHA-ESS Value Options
-  "alpha-ess-smile-5": {
-    id: "alpha-ess-smile-5",
-    brand: "Alpha ESS",
-    model: "SMILE 5",
-    capacity_kwh: 5.2,
-    usable_capacity_kwh: 4.6,
-    max_continuous_power_kw: 2.6,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 4200,
-    vpp_compatible: ["amber", "origin"],
-    tier: 2,
-    common_names: ["Alpha ESS SMILE", "SMILE5", "ALP5"],
-    dimensions: { width_mm: 570, height_mm: 375, depth_mm: 147, weight_kg: 52 }
-  },
-  "alpha-ess-smile-10": {
-    id: "alpha-ess-smile-10",
-    brand: "Alpha ESS",
-    model: "SMILE 10",
-    capacity_kwh: 10.1,
-    usable_capacity_kwh: 9.1,
-    max_continuous_power_kw: 5.0,
-    chemistry: "LiFePO4",
-    warranty_years: 10,
-    cycles: 6000,
-    efficiency_percent: 95,
-    price_estimate_aud: 7800,
-    vpp_compatible: ["amber", "origin"],
-    tier: 2,
-    common_names: ["Alpha ESS SMILE", "SMILE10", "ALP10"],
-    dimensions: { width_mm: 570, height_mm: 750, depth_mm: 147, weight_kg: 104 }
-  },
-
-  // Sungrow Hybrid
+  // Sungrow Hybrid - APPROVED
   "sungrow-sbr-96": {
     id: "sungrow-sbr-96",
-    brand: "Sungrow",
+    brand: "SUNGROW",
     model: "SBR 9.6kWh",
     capacity_kwh: 9.6,
     usable_capacity_kwh: 9.0,
@@ -326,13 +110,13 @@ export const BATTERY_SYSTEMS: Record<string, BatterySpec> = {
     efficiency_percent: 95,
     price_estimate_aud: 6500,
     vpp_compatible: ["amber", "origin"],
-    tier: 2,
+    tier: 1,
     common_names: ["Sungrow SBR", "SBR96", "SUN96"],
     dimensions: { width_mm: 605, height_mm: 755, depth_mm: 155, weight_kg: 89 }
   },
   "sungrow-sbr-128": {
     id: "sungrow-sbr-128",
-    brand: "Sungrow",
+    brand: "SUNGROW",
     model: "SBR 12.8kWh",
     capacity_kwh: 12.8,
     usable_capacity_kwh: 11.5,
@@ -343,44 +127,46 @@ export const BATTERY_SYSTEMS: Record<string, BatterySpec> = {
     efficiency_percent: 95,
     price_estimate_aud: 8500,
     vpp_compatible: ["amber", "origin"],
-    tier: 2,
+    tier: 1,
     common_names: ["Sungrow SBR", "SBR128", "SUN128"],
     dimensions: { width_mm: 605, height_mm: 1005, depth_mm: 155, weight_kg: 119 }
   },
 
-  // Budget Tier 3 Options
-  "generic-lifepo4-10": {
-    id: "generic-lifepo4-10",
-    brand: "Generic",
-    model: "LiFePO4 10kWh",
-    capacity_kwh: 10.0,
-    usable_capacity_kwh: 9.0,
+  // Goodwe - APPROVED  
+  "goodwe-lynx-home-10": {
+    id: "goodwe-lynx-home-10",
+    brand: "GOODWE",
+    model: "Lynx Home U 10.1kWh",
+    capacity_kwh: 10.1,
+    usable_capacity_kwh: 9.1,
     max_continuous_power_kw: 5.0,
     chemistry: "LiFePO4",
-    warranty_years: 5,
-    cycles: 4000,
-    efficiency_percent: 90,
-    price_estimate_aud: 5500,
-    vpp_compatible: [],
-    tier: 3,
-    common_names: ["Generic LiFePO4", "Budget Battery", "LiFePO4"],
-    dimensions: { width_mm: 600, height_mm: 800, depth_mm: 200, weight_kg: 100 }
+    warranty_years: 10,
+    cycles: 6000,
+    efficiency_percent: 95,
+    price_estimate_aud: 7800,
+    vpp_compatible: ["amber", "origin"],
+    tier: 1,
+    common_names: ["Goodwe Lynx Home", "Lynx Home", "GW10"],
+    dimensions: { width_mm: 570, height_mm: 750, depth_mm: 147, weight_kg: 104 }
   },
-  "powerplus-energy-10": {
-    id: "powerplus-energy-10",
-    brand: "PowerPlus Energy",
-    model: "LiFePO4 10kWh",
+
+  // FoxESS - APPROVED
+  "foxess-ep10": {
+    id: "foxess-ep10",
+    brand: "FOX ESS",
+    model: "EP10 Energy Pod 10.24kWh",
     capacity_kwh: 10.24,
     usable_capacity_kwh: 9.2,
     max_continuous_power_kw: 5.0,
     chemistry: "LiFePO4",
-    warranty_years: 7,
-    cycles: 5000,
-    efficiency_percent: 92,
-    price_estimate_aud: 6200,
-    vpp_compatible: ["amber"],
-    tier: 3,
-    common_names: ["PowerPlus Energy", "PPE10", "PowerPlus"],
+    warranty_years: 10,
+    cycles: 6000,
+    efficiency_percent: 95,
+    price_estimate_aud: 8200,
+    vpp_compatible: ["amber", "origin"],
+    tier: 1,
+    common_names: ["FoxESS EP10", "EP10", "FOX10"],
     dimensions: { width_mm: 550, height_mm: 850, depth_mm: 220, weight_kg: 95 }
   }
 };

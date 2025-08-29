@@ -277,23 +277,28 @@ function analyzeWithValidUsage(dailyUsage: number, annualUsage: number) {
 async function getAvailableProducts(supabase: any) {
   console.log('📦 Fetching available products from database...');
   
-  // Only get TIER 1 premium products
+  // Only get approved brands as specified by user
+  const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+  const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+  
   const [panelsResult, batteriesResult] = await Promise.all([
-    // Filter for only tier 1 panel brands
+    // Filter for only approved panel brands
     supabase.from('pv_modules')
       .select('*')
-      .in('brand', ['SunPower', 'Maxeon Solar', 'Panasonic', 'LG Solar', 'REC', 'Canadian Solar', 'Jinko Solar', 'LONGi Solar'])
-      .gte('power_rating', 400) // Only high wattage panels
+      .or(approvedPanelBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
+      .gte('power_rating', 350) // Include mid-range panels too
       .order('power_rating', { ascending: false })
-      .limit(15),
-    // Filter for only tier 1 battery brands  
+      .limit(20),
+    // Filter for only approved battery brands  
     supabase.from('batteries')
       .select('*')
-      .in('brand', ['Tesla', 'Enphase', 'BYD', 'Pylontech', 'Alpha ESS', 'Fronius', 'Sungrow'])
-      .gte('capacity_kwh', 10) // Only larger capacity batteries
+      .or(approvedBatteryBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
+      .gte('capacity_kwh', 5) // Include smaller batteries too
       .order('capacity_kwh', { ascending: false })
-      .limit(10)
+      .limit(15)
   ]);
+  
+  console.log(`🎯 Found ${panelsResult.data?.length || 0} approved panels, ${batteriesResult.data?.length || 0} approved batteries`);
   
   return {
     panels: panelsResult.data || [],
@@ -417,16 +422,34 @@ async function getAIRecommendations(params: any): Promise<ProductRecommendation>
 }
 
 function validateAndEnhanceRecommendation(rec: any, products: any, usage: any): ProductRecommendation {
-  // Find matching products from database
-  const selectedPanel = products.panels.find((p: any) => 
+  // Find matching products from approved brands only
+  const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+  const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+  
+  // Filter products to only approved brands
+  const approvedPanels = products.panels.filter((p: any) => 
+    approvedPanelBrands.some(brand => 
+      p.brand.toLowerCase().includes(brand.toLowerCase()) || 
+      brand.toLowerCase().includes(p.brand.toLowerCase())
+    )
+  );
+  
+  const approvedBatteries = products.batteries.filter((b: any) => 
+    approvedBatteryBrands.some(brand => 
+      b.brand.toLowerCase().includes(brand.toLowerCase()) || 
+      brand.toLowerCase().includes(b.brand.toLowerCase())
+    )
+  );
+
+  const selectedPanel = approvedPanels.find((p: any) => 
     p.model.toLowerCase().includes(rec.panels.model.toLowerCase()) ||
     p.brand.toLowerCase().includes(rec.panels.brand.toLowerCase())
-  ) || products.panels[0];
+  ) || approvedPanels[0] || products.panels[0];
 
-  const selectedBattery = rec.battery?.model ? products.batteries.find((b: any) => 
+  const selectedBattery = rec.battery?.model ? approvedBatteries.find((b: any) => 
     b.model.toLowerCase().includes(rec.battery.model.toLowerCase()) ||
     b.brand.toLowerCase().includes(rec.battery.brand.toLowerCase())
-  ) || products.batteries[0] : null;
+  ) || approvedBatteries[0] : null;
 
   return {
     panels: {
@@ -460,10 +483,31 @@ function getFallbackRecommendation(usage: any, products: any): ProductRecommenda
   const panelWattage = 400;
   const panelCount = Math.ceil((systemKw * 1000) / panelWattage);
   
+  // Filter for approved brands only
+  const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+  const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+  
+  const approvedPanels = products.panels.filter((p: any) => 
+    approvedPanelBrands.some(brand => 
+      p.brand.toLowerCase().includes(brand.toLowerCase()) || 
+      brand.toLowerCase().includes(p.brand.toLowerCase())
+    )
+  );
+  
+  const approvedBatteries = products.batteries.filter((b: any) => 
+    approvedBatteryBrands.some(brand => 
+      b.brand.toLowerCase().includes(brand.toLowerCase()) || 
+      brand.toLowerCase().includes(b.brand.toLowerCase())
+    )
+  );
+  
+  const fallbackPanel = approvedPanels[0] || { model: "JKM440N-54HL4R-V", brand: "JINKO" };
+  const fallbackBattery = approvedBatteries[0] || { model: "Powerwall 2", brand: "TESLA" };
+  
   return {
     panels: {
-      model: products.panels[0]?.model || "Trina Solar Vertex",
-      brand: products.panels[0]?.brand || "Trina Solar", 
+      model: fallbackPanel.model,
+      brand: fallbackPanel.brand, 
       wattage: panelWattage,
       count: panelCount,
       totalKw: systemKw,
@@ -471,8 +515,8 @@ function getFallbackRecommendation(usage: any, products: any): ProductRecommenda
       cost_estimate: systemKw * 1200
     },
     battery: usage.battery_suitable ? {
-      model: products.batteries[0]?.model || "Tesla Powerwall",
-      brand: products.batteries[0]?.brand || "Tesla",
+      model: fallbackBattery.model,
+      brand: fallbackBattery.brand,
       capacity_kwh: 13.5,
       usable_capacity: 12.2,
       cost_estimate: 13500,

@@ -126,9 +126,17 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
 
       const fields: ExtractedField[] = [];
 
-      // Process detected panels
-      if (ocrResult.panels.length > 0) {
-        const bestPanel = ocrResult.panels[0];
+      // Process detected panels - filter for approved brands only
+      const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+      const approvedPanels = ocrResult.panels.filter(panel => 
+        approvedPanelBrands.some(brand => 
+          panel.brand.toLowerCase().includes(brand.toLowerCase()) || 
+          brand.toLowerCase().includes(panel.brand.toLowerCase())
+        )
+      );
+      
+      if (approvedPanels.length > 0) {
+        const bestPanel = approvedPanels[0];
         fields.push({
           label: "Solar Panel Brand",
           value: bestPanel.brand,
@@ -162,9 +170,17 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
         }
       }
 
-      // Process detected batteries
-      if (ocrResult.batteries.length > 0) {
-        const bestBattery = ocrResult.batteries[0];
+      // Process detected batteries - filter for approved brands only  
+      const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+      const approvedBatteries = ocrResult.batteries.filter(battery => 
+        approvedBatteryBrands.some(brand => 
+          battery.brand.toLowerCase().includes(brand.toLowerCase()) || 
+          brand.toLowerCase().includes(battery.brand.toLowerCase())
+        )
+      );
+      
+      if (approvedBatteries.length > 0) {
+        const bestBattery = approvedBatteries[0];
         fields.push({
           label: "Battery Brand",
           value: bestBattery.brand,
@@ -504,9 +520,17 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                       // Set extracted data for display
                       const fields = [];
                       
-                      // Add detected products as extracted fields
-                      if (data.panels && data.panels.length > 0) {
-                        const bestPanel = data.panels[0];
+                      // Add detected products as extracted fields - filter for approved brands
+                      const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
+                      const approvedPanels = data.panels?.filter(panel => 
+                        approvedPanelBrands.some(brand => 
+                          panel.brand.toLowerCase().includes(brand.toLowerCase()) || 
+                          brand.toLowerCase().includes(panel.brand.toLowerCase())
+                        )
+                      ) || [];
+                      
+                      if (approvedPanels.length > 0) {
+                        const bestPanel = approvedPanels[0];
                         fields.push({
                           label: "Solar Panel",
                           value: `${bestPanel.brand} ${bestPanel.model}`,
@@ -524,8 +548,16 @@ export const RebatesCalculator: React.FC<RebatesCalculatorProps> = ({
                         }
                       }
                       
-                      if (data.batteries && data.batteries.length > 0) {
-                        const bestBattery = data.batteries[0];
+                      const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+                      const approvedBatteries = data.batteries?.filter(battery => 
+                        approvedBatteryBrands.some(brand => 
+                          battery.brand.toLowerCase().includes(brand.toLowerCase()) || 
+                          brand.toLowerCase().includes(battery.brand.toLowerCase())
+                        )
+                      ) || [];
+                      
+                      if (approvedBatteries.length > 0) {
+                        const bestBattery = approvedBatteries[0];
                         fields.push({
                           label: "Battery",
                           value: `${bestBattery.brand} ${bestBattery.model}`,

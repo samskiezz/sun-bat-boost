@@ -27,8 +27,8 @@ export const QuickSizesForm = ({ onSubmit }: QuickSizesFormProps) => {
   const solarPresets = [6.6, 10, 13, 20, 30];
   const vppProviders_static = ["AGL", "Origin", "EnergyAustralia", "Simply Energy", "None"];
 
-  // Get recommended VPP based on battery selection
-  const recommendedVPP = formData.batteryKwh > 0 ? getBestVPPForBattery("tesla-powerwall-2") : null;
+  // Get recommended VPP based on battery selection - use approved brand
+  const recommendedVPP = formData.batteryKwh > 0 ? getBestVPPForBattery("TESLA") : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
