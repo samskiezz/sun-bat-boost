@@ -189,6 +189,13 @@ export default function HowMuchCanISave() {
   const nextStep = () => {
     const stepOrder: Step[] = ['method', 'current-bill', 'location', 'system-sizing', 'best-rates', 'savings-analysis'];
     const currentIndex = stepOrder.indexOf(currentStep);
+    
+    // Auto-skip location step if data is already populated from OCR
+    if (currentStep === 'current-bill' && locationData.postcode && locationData.state && locationData.network) {
+      setCurrentStep('system-sizing'); // Skip directly to system sizing
+      return;
+    }
+    
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
     }
@@ -500,7 +507,7 @@ export default function HowMuchCanISave() {
                   {inputMethod === 'upload' ? (
                     <EnhancedOCRScanner
                       mode="bill"
-                      onExtraction={(data) => {
+                      onExtraction={async (data) => {
                         setBillData({
                           currentRetailer: data.retailer || '',
                           currentPlan: data.plan || '',
@@ -515,6 +522,38 @@ export default function HowMuchCanISave() {
                           offPeakRate: data.offPeakRate,
                           shoulderRate: data.shoulderRate
                         });
+                        
+                        // Auto-detect location from OCR extracted data
+                        if (data.postcode || data.address) {
+                          const postcode = data.postcode;
+                          if (postcode) {
+                            try {
+                              // Import the DNSP resolver function
+                              const { getDnspByPostcode } = await import('@/utils/dnspResolver');
+                              const dnspDetails = await getDnspByPostcode(postcode);
+                              
+                              // Auto-populate location data
+                              setLocationData({
+                                postcode: postcode,
+                                state: dnspDetails.state,
+                                network: dnspDetails.network,
+                                meterType: 'TOU' // Default for most areas
+                              });
+                              
+                              console.log(`Auto-detected DNSP: ${dnspDetails.network}, ${dnspDetails.state}`);
+                            } catch (error) {
+                              console.error('DNSP auto-detection failed:', error);
+                              // Still set postcode if DNSP lookup fails
+                              if (data.postcode) {
+                                setLocationData(prev => ({
+                                  ...prev,
+                                  postcode: data.postcode
+                                }));
+                              }
+                            }
+                          }
+                        }
+                        
                         setIsProcessingBill(false);
                       }}
                       onProcessing={setIsProcessingBill}
