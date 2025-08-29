@@ -19,6 +19,7 @@ import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 import SystemSizingStep from "@/components/SystemSizingStep";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
 import { LocationAutoFill } from "@/components/LocationAutoFill";
+import ComprehensiveSiteAnalysis from "@/components/ComprehensiveSiteAnalysis";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
 
@@ -831,51 +832,21 @@ export default function HowMuchCanISave() {
             )}
 
             {currentStep === 'location' && (
-              <Card className="border-white/20 bg-white/10 backdrop-blur-xl">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <MapPin className="h-5 w-5" />
-                    Location & Network Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <LocationAutoFill
-                    initialPostcode={locationData.postcode}
-                    onLocationUpdate={(data) => {
-                      setLocationData({
-                        postcode: data.postcode,
-                        state: data.state,
-                        network: data.network,
-                        meterType: data.meterType || 'TOU'
-                      });
-                    }}
-                  />
-                  
-                  {locationData.postcode && (
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
-                      <h4 className="font-semibold mb-2">Location Summary</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Postcode: </span>
-                          <span className="font-medium">{locationData.postcode}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">State: </span>
-                          <span className="font-medium">{locationData.state}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Network: </span>
-                          <span className="font-medium">{locationData.network}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Meter Type: </span>
-                          <span className="font-medium">{locationData.meterType}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <ComprehensiveSiteAnalysis
+                initialPostcode={locationData.postcode}
+                onLocationUpdate={(data) => {
+                  setLocationData({
+                    postcode: data.postcode,
+                    state: data.state,
+                    network: data.network,
+                    meterType: data.meterType || 'TOU'
+                  });
+                }}
+                onSiteUpdate={(siteData) => {
+                  console.log('Site data updated:', siteData);
+                  // You can store site data in state if needed for later use
+                }}
+              />
             )}
 
             {currentStep === 'system-sizing' && (
