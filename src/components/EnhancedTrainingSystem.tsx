@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Brain, Database, Cpu, Activity, GitBranch, BarChart3, Zap, Target, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,44 +7,27 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-interface TrainingMetrics {
-  totalEpisodes: number;
-  accuracy: number;
-  efficiency: number;
-  learningRate: number;
-  loss: number;
-  convergence: number;
-}
-
-interface ModelPerformance {
-  solarSizing: number;
-  batterySizing: number;
-  costOptimization: number;
-  rebateOptimization: number;
-  overallScore: number;
-}
+import { useTrainingState } from "@/hooks/useTrainingState";
 
 export default function EnhancedTrainingSystem() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingProgress, setTrainingProgress] = useState(0);
-  const [metrics, setMetrics] = useState<TrainingMetrics>({
-    totalEpisodes: 0,
-    accuracy: 0,
-    efficiency: 0,
-    learningRate: 0.001,
-    loss: 1.0,
-    convergence: 0
-  });
-  const [performance, setPerformance] = useState<ModelPerformance>({
-    solarSizing: 0,
-    batterySizing: 0,
-    costOptimization: 0,
-    rebateOptimization: 0,
-    overallScore: 0
-  });
+  const { state, isLoading, updateMetrics, updatePerformance, resetState } = useTrainingState();
   const { toast } = useToast();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
+          <CardContent className="pt-6">
+            <div className="text-center">Loading training system...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const { metrics, performance } = state;
 
   const trainingFunctions = [
     {
@@ -172,24 +155,26 @@ export default function EnhancedTrainingSystem() {
             clearInterval(progressInterval);
             setIsTraining(false);
             
-            // Update metrics
-            setMetrics(prev => ({
-              ...prev,
-              totalEpisodes: prev.totalEpisodes + 1000,
-              accuracy: Math.min(prev.accuracy + Math.random() * 5, 98),
-              efficiency: Math.min(prev.efficiency + Math.random() * 3, 95),
-              loss: Math.max(prev.loss - Math.random() * 0.1, 0.01),
-              convergence: Math.min(prev.convergence + Math.random() * 10, 95)
-            }));
+            // Update metrics with persistence
+            const newMetrics = {
+              totalEpisodes: metrics.totalEpisodes + 1000,
+              accuracy: Math.min(metrics.accuracy + Math.random() * 5, 98),
+              efficiency: Math.min(metrics.efficiency + Math.random() * 3, 95),
+              loss: Math.max(metrics.loss - Math.random() * 0.1, 0.01),
+              convergence: Math.min(metrics.convergence + Math.random() * 10, 95),
+              learningRate: metrics.learningRate
+            };
+            updateMetrics(newMetrics);
             
-            // Update performance
-            setPerformance(prev => ({
-              solarSizing: Math.min(prev.solarSizing + Math.random() * 8, 95),
-              batterySizing: Math.min(prev.batterySizing + Math.random() * 6, 93),
-              costOptimization: Math.min(prev.costOptimization + Math.random() * 7, 91),
-              rebateOptimization: Math.min(prev.rebateOptimization + Math.random() * 5, 89),
-              overallScore: Math.min((prev.solarSizing + prev.batterySizing + prev.costOptimization + prev.rebateOptimization) / 4 + Math.random() * 5, 92)
-            }));
+            // Update performance with persistence
+            const newPerformance = {
+              solarSizing: Math.min(performance.solarSizing + Math.random() * 8, 95),
+              batterySizing: Math.min(performance.batterySizing + Math.random() * 6, 93),
+              costOptimization: Math.min(performance.costOptimization + Math.random() * 7, 91),
+              rebateOptimization: Math.min(performance.rebateOptimization + Math.random() * 5, 89),
+              overallScore: Math.min((performance.solarSizing + performance.batterySizing + performance.costOptimization + performance.rebateOptimization) / 4 + Math.random() * 5, 92)
+            };
+            updatePerformance(newPerformance);
             
             toast({
               title: "Training Complete!",
@@ -278,9 +263,26 @@ export default function EnhancedTrainingSystem() {
         <TabsContent value="functions" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Available ML Functions</h3>
-            <Button onClick={runFullTrainingPipeline} disabled={isTraining}>
-              Run Full Pipeline
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={runFullTrainingPipeline} disabled={isTraining}>
+                Run Full Pipeline
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  if (confirm('Are you sure you want to reset all training progress?')) {
+                    resetState();
+                    toast({
+                      title: "Training Progress Reset",
+                      description: "All training metrics and performance data has been cleared."
+                    });
+                  }
+                }}
+                className="text-red-600"
+              >
+                Reset Progress
+              </Button>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
