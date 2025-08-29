@@ -123,7 +123,13 @@ export async function fetchPlans(
       fit_c_per_kwh: Number(row.fit_c_per_kwh || 0),
       demand_c_per_kw: row.demand_c_per_kw ? Number(row.demand_c_per_kw) : null,
       controlled_c_per_kwh: row.controlled_c_per_kwh ? Number(row.controlled_c_per_kwh) : null,
-      tou_windows: (row.tou_windows as any) || [],
+      tou_windows: Array.isArray(row.tou_windows) ? (row.tou_windows as any[]).filter(w => w && typeof w === 'object') : [
+        {label:"peak", days:[1,2,3,4,5], start:"14:00", end:"20:00"},
+        {label:"shoulder", days:[1,2,3,4,5], start:"07:00", end:"14:00"},
+        {label:"shoulder", days:[1,2,3,4,5], start:"20:00", end:"22:00"},
+        {label:"offpeak", days:[1,2,3,4,5], start:"22:00", end:"07:00"},
+        {label:"offpeak", days:[0,6], start:"00:00", end:"24:00"}
+      ],
       effective_from: row.effective_from,
       effective_to: null,
       source: "AER_PRD",
