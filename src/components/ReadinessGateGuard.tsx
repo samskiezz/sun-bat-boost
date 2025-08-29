@@ -173,7 +173,7 @@ export default function ReadinessGateGuard({ children }: ReadinessGateGuardProps
     );
   }
 
-  // ALWAYS ALLOW ACCESS - Force bypass for calculator availability
+  // ALWAYS ALLOW ACCESS - Force bypass for calculator availability  
   // With 3014 products and 1149 PDFs, system should be accessible
   if (import.meta.env.DEV || window.location.hostname === 'localhost' || 
       window.location.hostname.includes('lovable') || true) {

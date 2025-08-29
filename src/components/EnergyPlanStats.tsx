@@ -23,68 +23,68 @@ export default function EnergyPlanStats() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const fetchStats = async () => {
+    try {
+      // Get total count
+      const { count: totalCount } = await supabase
+        .from('energy_plans')
+        .select('*', { count: 'exact', head: true });
+
+      // Get plans by state
+      const { data: stateData } = await supabase
+        .from('energy_plans')
+        .select('state')
+        .order('state');
+
+      // Get plans by retailer (top 10)
+      const { data: retailerData } = await supabase
+        .from('energy_plans')
+        .select('retailer')
+        .order('retailer');
+
+      // Get last updated
+      const { data: lastUpdatedData } = await supabase
+        .from('energy_plans')
+        .select('last_refreshed')
+        .order('last_refreshed', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Process state counts
+      const stateCounts: Record<string, number> = {};
+      stateData?.forEach(plan => {
+        stateCounts[plan.state] = (stateCounts[plan.state] || 0) + 1;
+      });
+
+      // Process retailer counts (top 6)
+      const retailerCounts: Record<string, number> = {};
+      retailerData?.forEach(plan => {
+        retailerCounts[plan.retailer] = (retailerCounts[plan.retailer] || 0) + 1;
+      });
+
+      // Get top 6 retailers
+      const topRetailers = Object.entries(retailerCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 6)
+        .reduce((acc, [retailer, count]) => {
+          acc[retailer] = count;
+          return acc;
+        }, {} as Record<string, number>);
+
+      setStats({
+        totalPlans: totalCount || 0,
+        byState: stateCounts,
+        byRetailer: topRetailers,
+        lastUpdated: lastUpdatedData?.last_refreshed || null
+      });
+    } catch (error) {
+      console.error('Error fetching energy plan stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Get total count
-        const { count: totalCount } = await supabase
-          .from('energy_plans')
-          .select('*', { count: 'exact', head: true });
-
-        // Get plans by state
-        const { data: stateData } = await supabase
-          .from('energy_plans')
-          .select('state')
-          .order('state');
-
-        // Get plans by retailer (top 10)
-        const { data: retailerData } = await supabase
-          .from('energy_plans')
-          .select('retailer')
-          .order('retailer');
-
-        // Get last updated
-        const { data: lastUpdatedData } = await supabase
-          .from('energy_plans')
-          .select('last_refreshed')
-          .order('last_refreshed', { ascending: false })
-          .limit(1)
-          .single();
-
-        // Process state counts
-        const stateCounts: Record<string, number> = {};
-        stateData?.forEach(plan => {
-          stateCounts[plan.state] = (stateCounts[plan.state] || 0) + 1;
-        });
-
-        // Process retailer counts (top 6)
-        const retailerCounts: Record<string, number> = {};
-        retailerData?.forEach(plan => {
-          retailerCounts[plan.retailer] = (retailerCounts[plan.retailer] || 0) + 1;
-        });
-
-        // Get top 6 retailers
-        const topRetailers = Object.entries(retailerCounts)
-          .sort(([,a], [,b]) => b - a)
-          .slice(0, 6)
-          .reduce((acc, [retailer, count]) => {
-            acc[retailer] = count;
-            return acc;
-          }, {} as Record<string, number>);
-
-        setStats({
-          totalPlans: totalCount || 0,
-          byState: stateCounts,
-          byRetailer: topRetailers,
-          lastUpdated: lastUpdatedData?.last_refreshed || null
-        });
-      } catch (error) {
-        console.error('Error fetching energy plan stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
   }, []);
 
@@ -97,9 +97,9 @@ export default function EnergyPlanStats() {
       
       toast.success(`Successfully scraped ${data.stats.plans_inserted} energy plans from ${data.stats.retailers_count} retailers`);
       
-      // Refresh the stats after successful update
+      // Refresh the stats after successful update by re-fetching
       setTimeout(() => {
-        window.location.reload();
+        fetchStats();
       }, 1000);
     } catch (error) {
       console.error('Error scraping plans:', error);
