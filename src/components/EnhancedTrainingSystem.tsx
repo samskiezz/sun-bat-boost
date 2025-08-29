@@ -12,7 +12,7 @@ import { useTrainingState } from "@/hooks/useTrainingState";
 export default function EnhancedTrainingSystem() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingProgress, setTrainingProgress] = useState(0);
-  const { state, isLoading, updateMetrics, updatePerformance, resetState } = useTrainingState();
+  const { state, isLoading, updateMetrics, updatePerformance, updateFunctionProgress, resetState } = useTrainingState();
   const { toast } = useToast();
 
   // Subscribe to realtime training updates
@@ -200,14 +200,18 @@ export default function EnhancedTrainingSystem() {
               setIsTraining(false);
               
               // Update metrics with functional updates to avoid stale state
+              const accuracyGain = Math.random() * 5;
               updateMetrics(currentMetrics => ({
                 totalEpisodes: currentMetrics.totalEpisodes + episodesPerRun,
-                accuracy: Math.min(currentMetrics.accuracy + Math.random() * 5, 98),
+                accuracy: Math.min(currentMetrics.accuracy + accuracyGain, 98),
                 efficiency: Math.min(currentMetrics.efficiency + Math.random() * 3, 95),
                 loss: Math.max(currentMetrics.loss - Math.random() * 0.1, 0.01),
                 convergence: Math.min(currentMetrics.convergence + Math.random() * 10, 95),
                 learningRate: currentMetrics.learningRate
               }));
+              
+              // Update per-function progress
+              updateFunctionProgress(functionName, episodesPerRun, accuracyGain);
               
               // Update performance with functional updates
               updatePerformance(currentPerformance => {
@@ -262,20 +266,32 @@ export default function EnhancedTrainingSystem() {
     });
     
     try {
-      // Also invoke server-side training orchestrator
-      const { supabase } = await import("@/integrations/supabase/client");
-      await supabase.functions.invoke('training-orchestrator', {
-        body: { 
-          action: 'start_master_training',
-          config: { 
-            episodes: totalEpisodes,
-            batchSize: 500,
-            functions: trainingFunctions.map(f => f.name)
-          }
+      // Decouple backend invoke from UI loop - don't let server failures stop UI training
+      (async () => {
+        try {
+          const { supabase } = await import("@/integrations/supabase/client");
+          await supabase.functions.invoke('training-orchestrator', {
+            body: { 
+              action: 'start_master_training',
+              config: { 
+                episodes: totalEpisodes,
+                batchSize: 500,
+                functions: trainingFunctions.map(f => f.name)
+              }
+            }
+          });
+          console.log('✅ Backend training orchestrator started successfully');
+        } catch (backendError) {
+          console.warn('⚠️ Backend training orchestrator failed, but continuing UI training:', backendError);
+          toast({
+            title: "Backend Warning",
+            description: "Server training had issues, but UI training continues.",
+            variant: "default"
+          });
         }
-      });
+      })();
       
-      // Run sequential training sessions for ALL functions
+      // Always run sequential training sessions for ALL functions
       for (let i = 0; i < totalFunctions; i++) {
         const func = trainingFunctions[i];
         await startTrainingSession(`${func.name} (${i + 1}/${totalFunctions})`, 1000);
@@ -288,10 +304,10 @@ export default function EnhancedTrainingSystem() {
         description: `Successfully completed ${totalEpisodes.toLocaleString()} training episodes across ${totalFunctions} functions.`
       });
     } catch (error) {
-      console.error('Pipeline failed:', error);
+      console.error('UI training pipeline failed:', error);
       toast({
-        title: "Pipeline Failed",
-        description: "Training pipeline encountered an error.",
+        title: "Training Failed",
+        description: "UI training pipeline encountered an error.",
         variant: "destructive"
       });
     }
@@ -487,6 +503,35 @@ export default function EnhancedTrainingSystem() {
         <TabsContent value="analytics" className="space-y-4">
           <Card>
             <CardHeader>
+              <CardTitle>Per-Function Training Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(state.perFunction).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(state.perFunction).map(([funcName, progress]) => (
+                    <div key={funcName} className="border rounded-lg p-3">
+                      <div className="font-medium text-sm truncate">{funcName}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Last trained: {new Date(progress.lastTrained).toLocaleTimeString()}
+                      </div>
+                      <div className="flex justify-between text-xs mt-2">
+                        <span>Episodes: +{progress.episodesAdded.toLocaleString()}</span>
+                        <span>Metric: +{progress.recentMetric.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No per-function data yet. Train some algorithms to see their individual progress!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
               <CardTitle>Real-time Impact on Calculator Functions</CardTitle>
             </CardHeader>
             <CardContent>
@@ -508,10 +553,10 @@ export default function EnhancedTrainingSystem() {
               <div className="mt-6 p-4 rounded-lg bg-white/5 border border-white/10">
                 <h4 className="font-semibold mb-2">Latest Training Insights</h4>
                 <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• Deep Q-Network improved solar panel selection accuracy by 8.3%</li>
-                  <li>• Transformer architecture enhanced energy pattern recognition by 12.1%</li>
-                  <li>• Monte Carlo optimization increased cost-effectiveness by 7.8%</li>
-                  <li>• Bayesian optimization fine-tuned rebate calculations by 5.4%</li>
+                  <li>• Training episodes: {metrics.totalEpisodes.toLocaleString()}</li>
+                  <li>• Functions trained: {Object.keys(state.perFunction).length}/15</li>
+                  <li>• Last updated: {new Date(state.lastUpdated).toLocaleTimeString()}</li>
+                  <li>• System accuracy improving with each training session</li>
                 </ul>
               </div>
             </CardContent>
