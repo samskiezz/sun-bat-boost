@@ -35,20 +35,21 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
     const fetchTopPlans = async () => {
       setLoading(true);
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        
         console.log('📊 Fetching energy plans for analysis...');
-        // Get plans for the user's location - using cached database data
-        // Get plans for the user's location - handle both TOU and Smart meter types
-        const { data: plans } = await supabase
-          .from('energy_plans')
-          .select('*')
-          .eq('state', locationData.state)
-          .in('meter_type', ['TOU', 'Smart', 'Single']) // Include all meter types
-          .order('usage_c_per_kwh_peak', { ascending: true })
-          .limit(50);
+        
+        // Use the proper fetchPlans function that handles tou_windows parsing
+        const { fetchPlans } = await import("@/energy/db");
+        const meterType: "Single"|"TOU"|"Demand" = locationData.meterType === 'TOU' ? 'TOU' : 
+                         locationData.meterType === 'Demand' ? 'Demand' : 'Single';
+        
+        const plans = await fetchPlans(
+          locationData.state, 
+          locationData.network, 
+          meterType,
+          locationData.postcode
+        );
           
-        if (plans) {
+        if (plans && plans.length > 0) {
           const annualUsage = billData.quarterlyUsage * 4;
           const currentAnnualBill = billData.quarterlyBill * 4;
           
@@ -58,13 +59,12 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
             postcode: parseInt(locationData.postcode) || 2000,
             state: locationData.state,
             network: locationData.network,
-            meter_type: locationData.meterType === 'TOU' ? 'TOU' as const : 
-                       locationData.meterType === 'Demand' ? 'Demand' as const : 'Single' as const,
+            meter_type: meterType,
             baseline_cost_aud: currentAnnualBill,
             load: Array(8760).fill(annualUsage / 8760) // Simple hourly load profile
           };
 
-          const rankedPlans = rankPlans(plans as any, rankingContext).map(scored => ({
+          const rankedPlans = rankPlans(plans, rankingContext).map(scored => ({
             ...scored.plan,
             annualCost: Math.round(scored.annual_cost_aud),
             annualSavings: Math.round(Math.max(0, currentAnnualBill - scored.annual_cost_aud)),
