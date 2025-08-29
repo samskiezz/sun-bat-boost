@@ -136,7 +136,14 @@ export default function BestRatesStep({ locationData, billData, systemSize, onNe
       </CardHeader>
       <CardContent className="space-y-4">
         
-        {topPlans.map((plan, index) => (
+        {topPlans.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No energy plans found for your location.</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Location: {locationData.postcode}, {locationData.state} - {locationData.network}
+            </p>
+          </div>
+        ) : topPlans.map((plan, index) => (
           <motion.div
             key={plan.id}
             initial={{ opacity: 0, y: 20 }}

@@ -13,7 +13,7 @@ export type RankContext = {
 };
 
 export function calcAnnualCost(plan: RetailPlan, ctx: RankContext) {
-  // CORRECTED: Fixed daily supply calculation and rate application
+  // CORRECTED: Proper annual cost calculation
   const supply = (plan.supply_c_per_day / 100) * 365; // Convert cents to dollars
   let usage = 0, exportRev = 0;
   
@@ -34,9 +34,25 @@ export function calcAnnualCost(plan: RetailPlan, ctx: RankContext) {
       usage += (ctx.load[h] || 0) * (rate_c / 100); 
     }
   } else {
-    // Fallback: use annual baseline with average rate estimation
-    const avgRate = plan.usage_c_per_kwh_peak; // Use peak as conservative estimate
-    usage = (ctx.baseline_cost_aud - supply); // Remove supply charge to get usage cost
+    // FIXED: Proper fallback calculation using baseline usage data
+    // Estimate annual usage from baseline cost and current plan's estimated rate
+    const baselineSupply = supply; // Use same supply charge
+    const estimatedUsage = Math.max(0, ctx.baseline_cost_aud - baselineSupply); // Usage portion
+    
+    // Convert usage cost back to kWh using estimated rate, then apply this plan's rates
+    const estimatedRate = 30; // cents per kWh - conservative average
+    const annualUsageKWh = (estimatedUsage * 100) / estimatedRate; // Convert to kWh
+    
+    // Apply this plan's rate structure to the estimated usage
+    if (plan.meter_type === 'TOU' && plan.usage_c_per_kwh_shoulder && plan.usage_c_per_kwh_offpeak) {
+      // TOU distribution: 30% peak, 40% shoulder, 30% off-peak
+      usage = (annualUsageKWh * 0.30 * plan.usage_c_per_kwh_peak / 100) +
+              (annualUsageKWh * 0.40 * plan.usage_c_per_kwh_shoulder / 100) +
+              (annualUsageKWh * 0.30 * plan.usage_c_per_kwh_offpeak / 100);
+    } else {
+      // Single rate
+      usage = annualUsageKWh * plan.usage_c_per_kwh_peak / 100;
+    }
   }
   
   const totalCost = supply + usage - exportRev;

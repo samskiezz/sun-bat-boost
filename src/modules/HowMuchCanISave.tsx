@@ -19,6 +19,7 @@ import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 import SystemSizingStep from "@/components/SystemSizingStep";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
 import { AutoSiteAnalysis } from "@/components/AutoSiteAnalysis";
+import { LocationAutoFill } from "@/components/LocationAutoFill";
 import { publish } from "@/ai/orchestrator/bus";
 import type { RankContext } from "@/energy/rankPlans";
 
@@ -875,6 +876,7 @@ export default function HowMuchCanISave() {
                     
                     <AutoSiteAnalysis
                       onLocationUpdate={async (data) => {
+                        console.log('🏠 Auto site analysis location update:', data);
                         const newLocationData = {
                           postcode: data.postcode,
                           state: data.state,
@@ -893,6 +895,19 @@ export default function HowMuchCanISave() {
                         setBillData(prev => ({ ...prev, ...data }));
                       }}
                       billData={billData}
+                    />
+                    
+                    <LocationAutoFill 
+                      onLocationUpdate={(data) => {
+                        console.log('🔍 DNSP lookup completed:', data);
+                        setLocationData({
+                          postcode: data.postcode,
+                          state: data.state,
+                          network: data.network,
+                          meterType: data.meterType
+                        });
+                      }}
+                      initialPostcode={locationData.postcode}
                     />
                     
                     {/* Manual Location Override */}
