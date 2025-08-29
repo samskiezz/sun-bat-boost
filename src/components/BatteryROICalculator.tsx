@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTrainingImpact } from '@/hooks/useTrainingImpact';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Upload, 
@@ -97,6 +98,7 @@ interface BatteryROICalculatorProps {
 }
 
 export const BatteryROICalculator: React.FC<BatteryROICalculatorProps> = ({ preExtractedData }) => {
+  const trainingImpact = useTrainingImpact();
   const [currentStep, setCurrentStep] = useState<Step>('method');
   const [started, setStarted] = useState(false);
   const [inputMethod, setInputMethod] = useState<'bills' | 'manual'>('bills');

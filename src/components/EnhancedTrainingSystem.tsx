@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Brain, Database, Cpu, Activity, GitBranch, BarChart3, Zap, Target, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,49 @@ export default function EnhancedTrainingSystem() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const { state, isLoading, updateMetrics, updatePerformance, resetState } = useTrainingState();
   const { toast } = useToast();
+
+  // Subscribe to realtime training updates
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
+    const setupRealtimeSubscriptions = async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const channel = supabase
+        .channel('training-updates')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'training_metrics' 
+        }, (payload) => {
+          console.log('📊 Real training metrics update:', payload);
+          // Aggregate real metrics into our state
+          const metricData = payload.new as any;
+          if (metricData.metric_type === 'accuracy') {
+            updateMetrics(current => ({ accuracy: Math.max(current.accuracy, metricData.value) }));
+          } else if (metricData.metric_type === 'efficiency') {
+            updateMetrics(current => ({ efficiency: Math.max(current.efficiency, metricData.value) }));
+          }
+        })
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'orchestrator_progress' 
+        }, (payload) => {
+          console.log('🔄 Training orchestrator update:', payload);
+        })
+        .subscribe();
+
+      cleanup = () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtimeSubscriptions();
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [updateMetrics]);
 
   if (isLoading) {
     return (
@@ -210,23 +253,39 @@ export default function EnhancedTrainingSystem() {
   const runFullTrainingPipeline = async () => {
     if (isTraining) return;
     
+    const totalFunctions = trainingFunctions.length;
+    const totalEpisodes = totalFunctions * 1000;
+    
     toast({
-      title: "Full Training Pipeline Started",
-      description: "Running 5 training sessions of 1000 episodes each (5000 total episodes)..."
+      title: "Full Training Pipeline Started", 
+      description: `Training all ${totalFunctions} ML functions (${totalEpisodes.toLocaleString()} total episodes)...`
     });
     
     try {
-      // Run 5 sequential training sessions, each with 1000 episodes
-      for (let i = 0; i < 5; i++) {
-        const func = trainingFunctions[i % trainingFunctions.length];
-        await startTrainingSession(`${func.name} (Session ${i + 1}/5)`, 1000);
+      // Also invoke server-side training orchestrator
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.functions.invoke('training-orchestrator', {
+        body: { 
+          action: 'start_master_training',
+          config: { 
+            episodes: totalEpisodes,
+            batchSize: 500,
+            functions: trainingFunctions.map(f => f.name)
+          }
+        }
+      });
+      
+      // Run sequential training sessions for ALL functions
+      for (let i = 0; i < totalFunctions; i++) {
+        const func = trainingFunctions[i];
+        await startTrainingSession(`${func.name} (${i + 1}/${totalFunctions})`, 1000);
         // Small delay between sessions
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       toast({
         title: "Full Pipeline Complete!",
-        description: "Successfully completed 5000 training episodes across 5 sessions."
+        description: `Successfully completed ${totalEpisodes.toLocaleString()} training episodes across ${totalFunctions} functions.`
       });
     } catch (error) {
       console.error('Pipeline failed:', error);

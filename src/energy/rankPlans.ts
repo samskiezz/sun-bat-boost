@@ -61,12 +61,13 @@ export function calcAnnualCost(plan: RetailPlan, ctx: RankContext) {
   return totalCost;
 }
 
-export function rankPlans(plans: RetailPlan[], ctx: RankContext) {
+export function rankPlans(plans: RetailPlan[], ctx: RankContext, trainingConfidence?: number) {
+  const baseConfidence = trainingConfidence || 0.85;
   const scored = plans.map(p => ({ 
     plan: p, 
     annual_cost_aud: calcAnnualCost(p, ctx), 
     delta_vs_baseline_aud: 0, 
-    confidence: 0.85 
+    confidence: baseConfidence 
   }));
   
   scored.forEach(s => 

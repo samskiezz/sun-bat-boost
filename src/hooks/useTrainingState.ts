@@ -104,7 +104,7 @@ export function useTrainingState() {
     // Save to localStorage immediately for fast access
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
 
-    // Save to Supabase in background
+    // Save to Supabase in background with onConflict to avoid duplicate key errors
     try {
       await supabase
         .from(SUPABASE_TABLE)
@@ -113,6 +113,8 @@ export function useTrainingState() {
           version: 'v1.0',
           performance_score: newState.performance.overallScore,
           weights: newState as any
+        }, { 
+          onConflict: 'model_type' 
         });
     } catch (error) {
       console.warn('Failed to save training state to Supabase:', error);
