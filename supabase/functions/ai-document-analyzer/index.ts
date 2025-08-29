@@ -124,18 +124,59 @@ serve(async (req) => {
     
     let extractedData: ExtractedData;
     try {
-      extractedData = JSON.parse(data.choices[0].message.content) as ExtractedData;
+      let content = data.choices[0].message.content;
+      
+      // Clean the response - remove markdown code blocks if present
+      if (content.startsWith('```json')) {
+        content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (content.startsWith('```')) {
+        content = content.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      console.log('Raw OpenAI response:', data.choices[0].message.content);
+      console.log('Cleaned content for parsing:', content);
+      
+      extractedData = JSON.parse(content) as ExtractedData;
     } catch (parseError) {
       console.error('❌ JSON parsing error:', parseError);
       console.log('Raw OpenAI response:', data.choices[0].message.content);
       
-      // Fallback: try to extract what we can from the raw content
+      // Enhanced fallback: try to extract what we can from the raw content
       const content = data.choices[0].message.content;
-      extractedData = {
+      let fallbackData = {
         confidence: 50,
         extractedFields: ['fallback_parsing'],
-        // Add basic extraction fallback here if needed
-      };
+      } as any;
+      
+      // Try to extract basic info even if JSON parsing fails
+      try {
+        // Look for key patterns in the response
+        const postcodeMatch = content.match(/["']?postcode["']?\s*:\s*["']?(\d{4})["']?/i);
+        const stateMatch = content.match(/["']?state["']?\s*:\s*["']?(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)["']?/i);
+        const usageMatch = content.match(/["']?usage["']?\s*:\s*["']?(\d+\.?\d*)["']?/i);
+        const billAmountMatch = content.match(/["']?billAmount["']?\s*:\s*["']?(\d+\.?\d*)["']?/i);
+        
+        if (postcodeMatch) {
+          fallbackData.postcode = postcodeMatch[1];
+          fallbackData.extractedFields.push('postcode');
+        }
+        if (stateMatch) {
+          fallbackData.state = stateMatch[1];
+          fallbackData.extractedFields.push('state');
+        }
+        if (usageMatch) {
+          fallbackData.usage = parseFloat(usageMatch[1]);
+          fallbackData.extractedFields.push('usage');
+        }
+        if (billAmountMatch) {
+          fallbackData.billAmount = parseFloat(billAmountMatch[1]);
+          fallbackData.extractedFields.push('billAmount');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback parsing also failed:', fallbackError);
+      }
+      
+      extractedData = fallbackData as ExtractedData;
     }
 
     console.log(`✅ Successfully extracted ${extractedData.extractedFields?.length || 0} fields`);

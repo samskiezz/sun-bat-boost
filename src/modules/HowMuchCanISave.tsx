@@ -209,22 +209,89 @@ export default function HowMuchCanISave() {
     }
   };
 
-  const calculateSystemSize = () => {
-    const annualUsage = billData.quarterlyUsage * 4;
-    const recommendedKw = Math.ceil(annualUsage / 1200); // Rough sizing
-    const panels = Math.ceil(recommendedKw / 0.4); // 400W panels
-    const battery = Math.ceil(recommendedKw * 1.5); // 1.5x battery sizing
-    const estimatedGeneration = recommendedKw * 1400; // Annual generation estimate
+  const calculateSystemSize = async () => {
+    console.log('🔧 Starting AI system sizing calculation...');
+    console.log('📊 Input data:', { billData, locationData });
     
-    setSystemSize({
-      recommendedKw,
-      panels,
-      battery,
-      estimatedGeneration,
-      confidence: 0.65,
-      aiReasoning: 'Basic calculation - AI sizing will provide more accurate results',
-      products: undefined
-    });
+    try {
+      // Use the AI system sizing edge function for more accurate calculations
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.functions.invoke('ai-system-sizing', {
+        body: {
+          billData: {
+            quarterlyUsage: billData.quarterlyUsage,
+            quarterlyBill: billData.quarterlyBill,
+            dailySupply: billData.dailySupply,
+            averageRate: billData.averageRate,
+            currentRetailer: billData.currentRetailer,
+            currentPlan: billData.currentPlan
+          },
+          locationData: {
+            postcode: locationData.postcode,
+            state: locationData.state,
+            network: locationData.network
+          },
+          preferences: {
+            includeBattery: true,
+            budgetRange: 'mid'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ AI sizing error:', error);
+        // Fall back to basic calculation
+        throw new Error('AI sizing failed');
+      }
+
+      console.log('✅ AI sizing result:', data);
+      
+      setSystemSize({
+        recommendedKw: data.panels.totalKw,
+        panels: data.panels.count,
+        battery: data.battery ? data.battery.capacity_kwh : 0,
+        estimatedGeneration: data.estimatedAnnualGeneration,
+        confidence: data.confidence,
+        aiReasoning: data.reasoning,
+        products: {
+          panels: data.panels,
+          battery: data.battery,
+          inverter: data.inverter
+        }
+      });
+      
+    } catch (error) {
+      console.warn('⚠️ AI sizing failed, using basic calculation:', error);
+      
+      // Enhanced basic calculation as fallback
+      const annualUsage = billData.quarterlyUsage * 4;
+      const dailyUsage = annualUsage / 365;
+      
+      // More sophisticated basic sizing based on Australian standards
+      const peakSunHours = locationData.state === 'QLD' ? 5.2 : locationData.state === 'WA' ? 5.0 : 4.5;
+      const systemEfficiency = 0.8; // Account for losses
+      
+      // Size system to cover 100-120% of usage
+      const recommendedKw = Math.ceil((annualUsage * 1.1) / (peakSunHours * 365 * systemEfficiency));
+      const panels = Math.ceil(recommendedKw * 1000 / 400); // Assume 400W panels
+      
+      // Battery sizing based on evening consumption (30-40% of daily usage)
+      const eveningUsage = dailyUsage * 0.35;
+      const battery = Math.ceil(eveningUsage * 1.2); // 20% buffer
+      
+      const estimatedGeneration = recommendedKw * peakSunHours * 365 * systemEfficiency;
+      
+      setSystemSize({
+        recommendedKw,
+        panels,
+        battery: Math.min(battery, 15), // Cap at 15kWh for rebate eligibility
+        estimatedGeneration,
+        confidence: 0.65,
+        aiReasoning: `Basic calculation for ${locationData.state}: ${recommendedKw}kW system should generate ${Math.round(estimatedGeneration).toLocaleString()}kWh/year vs ${annualUsage.toLocaleString()}kWh usage`,
+        products: undefined
+      });
+    }
+    
     setCurrentStep('system-sizing');
   };
 
@@ -762,8 +829,10 @@ export default function HowMuchCanISave() {
                     else if (currentStep === 'best-rates') nextStep();
                   }}
                   disabled={
+                    (currentStep === 'method' && !inputMethod) ||
                     (currentStep === 'current-bill' && (!billData.quarterlyBill || !billData.quarterlyUsage)) ||
-                    (currentStep === 'location' && (!locationData.postcode || !locationData.state))
+                    (currentStep === 'location' && (!locationData.postcode || !locationData.state)) ||
+                    (currentStep === 'system-sizing' && (!systemSize || systemSize.confidence < 0.3))
                   }
                   className="bg-primary hover:bg-primary/90"
                 >
