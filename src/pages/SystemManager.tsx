@@ -101,14 +101,14 @@ export default function SystemManager() {
       </Card>
 
       <Tabs defaultValue="catalog" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="catalog" className="flex items-center gap-2">
             <Database className="w-4 h-4" />
-            Catalog Management
+            Catalog
           </TabsTrigger>
           <TabsTrigger value="training" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
-            Training System
+            Training
           </TabsTrigger>
           <TabsTrigger value="automation" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
@@ -120,7 +120,23 @@ export default function SystemManager() {
           </TabsTrigger>
           <TabsTrigger value="monitoring" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
-            Monitoring
+            Legacy Monitor
+          </TabsTrigger>
+          <TabsTrigger value="twin" className="flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Twin & Uncertainty
+          </TabsTrigger>
+          <TabsTrigger value="optimizer" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Tariff/VPP Optimizer
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Compliance
+          </TabsTrigger>
+          <TabsTrigger value="drift" className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Drift Monitoring
           </TabsTrigger>
         </TabsList>
 
@@ -166,19 +182,79 @@ export default function SystemManager() {
             <DnspPanel />
             <DnspBuilderPanel />
             <DnspChecker />
-            <Card>
-              <CardHeader>
-                <CardTitle>System Monitoring</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  System monitoring and health checks will be displayed here.
-                  This includes real-time performance metrics, error tracking, 
-                  and system resource utilization.
-                </p>
-              </CardContent>
-            </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="twin">
+          <Card>
+            <CardHeader>
+              <CardTitle>Physics PV Digital Twin & Uncertainty</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Physics-informed PV simulation with P10/P50/P90 confidence bands.
+                This will integrate with pvlib-python for accurate irradiance modeling,
+                soiling factors, albedo effects, and bifacial gains.
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="optimizer">
+          <Card>
+            <CardHeader>
+              <CardTitle>Real-time Tariff/VPP Optimizer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Multi-objective optimization for cost, emissions, and grid services.
+                Includes dynamic tariff optimization, VPP dispatch scheduling,
+                and real-time savings projections with uncertainty bands.
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="compliance">
+          <Card>
+            <CardHeader>
+              <CardTitle>Compliance Guardrails</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Automated AS/NZS 3000, 4777.1, 5139 compliance checking.
+                Auto-generates evidence packages, compliance checklists,
+                and integrates with CEC product validation.
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="drift">
+          <Card>
+            <CardHeader>
+              <CardTitle>Drift & Quality Monitoring</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Real-time model performance and data quality monitoring.
+                Detects data drift, concept drift, and performance degradation
+                with automated alerts and remediation workflows.
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
