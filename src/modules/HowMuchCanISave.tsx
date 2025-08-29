@@ -874,17 +874,17 @@ export default function HowMuchCanISave() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     
-                    <AutoSiteAnalysis
-                      onLocationUpdate={async (data) => {
-                        console.log('🏠 Auto site analysis location update:', data);
-                        const newLocationData = {
-                          postcode: data.postcode,
-                          state: data.state,
-                          network: data.network || locationData.network,
-                          meterType: data.meterType || locationData.meterType
-                        };
-                        setLocationData(newLocationData);
-                      }}
+                     <AutoSiteAnalysis
+                       onLocationUpdate={(data) => {
+                         console.log('🏠 Auto site analysis location update:', data);
+                         const newLocationData = {
+                           postcode: data.postcode,
+                           state: data.state,
+                           network: data.network || locationData.network,
+                           meterType: data.meterType || locationData.meterType
+                         };
+                         setLocationData(newLocationData);
+                       }}
                       onSiteUpdate={(siteData) => {
                         setBillData(prev => ({
                           ...prev,
