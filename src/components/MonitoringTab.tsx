@@ -281,8 +281,8 @@ export function MonitoringTab() {
     }
   };
 
-  const recentAlerts = detections.filter(d => d.severity !== 'green').slice(0, 5);
-  const criticalAlerts = detections.filter(d => d.severity === 'red' && !d.remediated).length;
+  const recentAlerts = Array.isArray(detections) ? detections.filter(d => d.severity !== 'green').slice(0, 5) : [];
+  const criticalAlerts = Array.isArray(detections) ? detections.filter(d => d.severity === 'red' && !d.remediated).length : 0;
 
   return (
     <div className="space-y-6">
@@ -513,9 +513,9 @@ export function MonitoringTab() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {monitors.map((monitor) => {
-                const recentDetection = detections
+                const recentDetection = Array.isArray(detections) ? detections
                   .filter(d => d.monitor_id === monitor.id)
-                  .sort((a, b) => new Date(b.detection_timestamp).getTime() - new Date(a.detection_timestamp).getTime())[0];
+                  .sort((a, b) => new Date(b.detection_timestamp).getTime() - new Date(a.detection_timestamp).getTime())[0] : null;
                 
                 return (
                   <div
