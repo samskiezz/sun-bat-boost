@@ -295,6 +295,24 @@ export type Database = {
         }
         Relationships: []
       }
+      cv_roof_segments: {
+        Row: {
+          mask_ref: string
+          meta: Json
+          site_id: string
+        }
+        Insert: {
+          mask_ref: string
+          meta?: Json
+          site_id: string
+        }
+        Update: {
+          mask_ref?: string
+          meta?: Json
+          site_id?: string
+        }
+        Relationships: []
+      }
       data_update_tracking: {
         Row: {
           created_at: string
@@ -663,6 +681,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ml_matches: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          meta: Json
+          score: number
+          source_id: string
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          meta?: Json
+          score: number
+          source_id: string
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          meta?: Json
+          score?: number
+          source_id?: string
+          target_id?: string
+        }
+        Relationships: []
+      }
+      ml_vectors: {
+        Row: {
+          created_at: string
+          dim: number
+          embedding: string
+          embedding_format: string
+          id: string
+          kind: string
+          meta: Json
+        }
+        Insert: {
+          created_at?: string
+          dim: number
+          embedding: string
+          embedding_format?: string
+          id?: string
+          kind: string
+          meta?: Json
+        }
+        Update: {
+          created_at?: string
+          dim?: number
+          embedding?: string
+          embedding_format?: string
+          id?: string
+          kind?: string
+          meta?: Json
+        }
+        Relationships: []
+      }
       model_configs: {
         Row: {
           config_data: Json
@@ -687,6 +765,30 @@ export type Database = {
           created_at?: string
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      model_registry: {
+        Row: {
+          created_at: string
+          metrics: Json
+          name: string
+          uri: string
+          ver: string
+        }
+        Insert: {
+          created_at?: string
+          metrics?: Json
+          name: string
+          uri: string
+          ver: string
+        }
+        Update: {
+          created_at?: string
+          metrics?: Json
+          name?: string
+          uri?: string
+          ver?: string
         }
         Relationships: []
       }
@@ -846,6 +948,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      poly_features: {
+        Row: {
+          features: Json
+          signature: string
+          site_id: string
+          updated_at: string
+        }
+        Insert: {
+          features?: Json
+          signature: string
+          site_id: string
+          updated_at?: string
+        }
+        Update: {
+          features?: Json
+          signature?: string
+          site_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       postcode_zones: {
         Row: {
@@ -1353,6 +1476,24 @@ export type Database = {
         }
         Relationships: []
       }
+      tile_cache: {
+        Row: {
+          blob_ref: string
+          key: string
+          ttl: string
+        }
+        Insert: {
+          blob_ref: string
+          key: string
+          ttl: string
+        }
+        Update: {
+          blob_ref?: string
+          key?: string
+          ttl?: string
+        }
+        Relationships: []
+      }
       train_episodes: {
         Row: {
           context: Json
@@ -1380,6 +1521,27 @@ export type Database = {
           mode?: string
           result?: Json
           reward?: number
+        }
+        Relationships: []
+      }
+      training_datasets: {
+        Row: {
+          name: string
+          spec: Json
+          stats: Json
+          updated_at: string
+        }
+        Insert: {
+          name: string
+          spec?: Json
+          stats?: Json
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          spec?: Json
+          stats?: Json
+          updated_at?: string
         }
         Relationships: []
       }
