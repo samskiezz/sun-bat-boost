@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RebatesCalculator } from "@/components/RebatesCalculator";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Eye, EyeOff } from "lucide-react";
+import { Settings, Eye, EyeOff, DollarSign } from "lucide-react";
 import { Glass } from "@/components/Glass";
+import { Banner } from "@/features/shared/Banner";
+import { MetricTile } from "@/features/shared/MetricTile";
+import { StatusStrip } from "@/features/shared/StatusStrip";
+import { useSolarROI } from "@/hooks/useModels";
+import { useModelStore } from "@/state/modelStore";
+import { tokens } from "@/theme/tokens";
 
 interface RebatesCalculatorModuleProps {
   // Optional props to match original interface if needed
@@ -77,129 +84,94 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
     console.log("Request call");
   };
 
+  const { lastGoodResults } = useModelStore();
+  
+  // Mock ROI input for ML service
+  const roiInput = React.useMemo(() => ({
+    usage_30min: Array.from({ length: 48 }, () => Math.random() * 2),
+    tariff: {
+      import: [{ price: 0.35, start: "00:00", end: "24:00" }],
+      export: [{ price: 0.08, start: "00:00", end: "24:00" }]
+    },
+    system_size_kw: 6.5,
+    shading_index: 0.1,
+    rebates_enabled: true,
+    location: { postcode: "2000", state: "NSW" }
+  }), []);
+
+  const { data: roiData, isLoading: isCalculating, error: roiError } = useSolarROI(roiInput);
+
   if (!started) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        {/* Main Content */}
-        <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="glass-card p-8 md:p-12">
-            {/* Header */}
-            <motion.div 
-              className="flex flex-col items-center gap-4 mb-8"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-            >
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 backdrop-blur-sm">
-                <motion.div
-                  animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  💰
-                </motion.div>
-              </div>
-              <div>
-                <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
-                  Government Rebates
-                </h1>
-                <p className="text-lg text-foreground/80 mt-2">
-                  Calculate with <motion.span 
-                    className="font-semibold text-primary"
-                    animate={{ color: ["hsl(270 91% 65%)", "hsl(280 100% 75%)", "hsl(270 91% 65%)"] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    {planCount.toLocaleString()}
-                  </motion.span> live rebate schemes
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Description */}
-            <motion.p 
-              className="text-xl text-foreground/70 mb-12 leading-relaxed max-w-3xl mx-auto"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-            >
-              Get comprehensive analysis of your government rebate eligibility with our AI-powered calculator
-            </motion.p>
-
-            {/* Feature Cards */}
-            <motion.div 
-              className="grid md:grid-cols-3 gap-6 mb-12"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.6 }}
-            >
-              <motion.div 
-                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
-                whileHover={{ scale: 1.02, y: -2 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-400/30 w-fit mx-auto mb-4">
-                  📊
-                </div>
-                <h3 className="text-lg font-semibold mb-3 text-foreground">Smart Analysis</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  AI-powered analysis of STC certificates, VPP incentives, and state rebates based on your location
-                </p>
-              </motion.div>
-
-              <motion.div 
-                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
-                whileHover={{ scale: 1.02, y: -2 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 w-fit mx-auto mb-4">
-                  ⚡
-                </div>
-                <h3 className="text-lg font-semibold mb-3 text-foreground">Auto Calculations</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Automatic calculation of rebate amounts based on system size, location, and installation date
-                </p>
-              </motion.div>
-
-              <motion.div 
-                className="group p-6 rounded-2xl bg-card border border-border hover:bg-card/80 transition-all duration-300"
-                whileHover={{ scale: 1.02, y: -2 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 border border-purple-400/30 w-fit mx-auto mb-4">
-                  📈
-                </div>
-                <h3 className="text-lg font-semibold mb-3 text-foreground">Maximum Rebates</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Find all applicable rebates and incentives to maximize your solar and battery investment returns
-                </p>
-              </motion.div>
-            </motion.div>
-
-            {/* CTA Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0, duration: 0.6 }}
-            >
-              <Button
-                onClick={() => setStarted(true)}
-                size="lg"
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-lg px-12 py-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
-              >
-                Calculate My Rebates
-              </Button>
-            </motion.div>
-          </motion.div>
+      <Banner
+        title="Government Rebates Calculator"
+        subtitle={`Calculate with ${planCount.toLocaleString()} live rebate schemes`}
+        icon={DollarSign}
+        variant="glassHolo"
+      >
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <MetricTile
+            title="Smart Analysis"
+            value="AI-Powered"
+            subtitle="STC certificates, VPP incentives, state rebates analysis"
+            variant="glass"
+          />
+          <MetricTile
+            title="Auto Calculations"
+            value="Instant"
+            subtitle="Automatic rebate calculations based on system size & location"
+            variant="glass"
+          />
+          <MetricTile
+            title="Maximum Rebates"
+            value="Optimized"
+            subtitle="Find all applicable rebates to maximize your ROI"
+            variant="glass"
+          />
         </div>
-      </div>
+        
+        <Button
+          onClick={() => setStarted(true)}
+          size="lg"
+          className={cn(tokens.buttonPrimary, "text-lg px-12 py-6 font-semibold")}
+        >
+          Calculate My Rebates
+        </Button>
+      </Banner>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Status Strip */}
+      <StatusStrip
+        model={roiData?.sourceModel || lastGoodResults?.solar_roi?.sourceModel || "solar_roi_v1"}
+        version={roiData?.version || lastGoodResults?.solar_roi?.version || "1.0"}
+        p95={roiData?.telemetry?.p95 || 85}
+        delta={roiData?.telemetry?.delta || 2.3}
+        error={roiError ? "Service unavailable" : undefined}
+      />
+
+      {/* ROI Results */}
+      {roiData && (
+        <div className="grid md:grid-cols-3 gap-6">
+          <MetricTile
+            title="Annual Savings"
+            value={roiData.value?.annual_savings_AUD ? `$${roiData.value.annual_savings_AUD.toLocaleString()}` : "N/A"}
+            subtitle="Including rebates & incentives"
+          />
+          <MetricTile
+            title="Government Rebates"
+            value={roiData.value?.total_rebates_AUD ? `$${roiData.value.total_rebates_AUD.toLocaleString()}` : "N/A"}
+            subtitle="STC + State incentives"
+          />
+          <MetricTile
+            title="Payback Period"
+            value={roiData.value?.payback_years ? `${roiData.value.payback_years} years` : "N/A"}
+            subtitle="Total investment recovery"
+          />
+        </div>
+      )}
 
       {/* Main Calculator */}
       <RebatesCalculator
