@@ -24,6 +24,68 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
   
   // CORRECTED CALCULATIONS - All formulas validated for accuracy
   const calculations = useMemo(() => {
+    function calculateWithData(currentBill: number, newBill: number, baseSavings: number, financialData: any) {
+      // EV charging calculations (CORRECTED FORMULAS)
+      const evAnnualChargingCost = includeEV ? 
+        (evChargingKwh * 12 * (billData.averageRate / 100) * evChargingAtHome) : 0;
+      
+      // EV solar charging potential: assume 60% of home charging can be solar during daylight hours
+      const evSolarOffsetPotential = includeEV ? 
+        (evChargingKwh * 12 * evChargingAtHome * 0.6) : 0;
+      
+      // EV savings = solar offset * (grid rate - solar self-consumption cost ~$0)
+      const evSolarSavings = evSolarOffsetPotential * (billData.averageRate / 100);
+      
+      // Total bill calculations including EV
+      const totalCurrentAnnualBill = currentBill + evAnnualChargingCost;
+      const totalSavings = baseSavings + evSolarSavings;
+      const totalNewAnnualBill = newBill + evAnnualChargingCost - evSolarSavings;
+      
+      // System performance metrics
+      const solarGeneration = financialData.annual_generation || 0;
+      const solarSelfConsumption = financialData.self_consumption || 0;
+      const solarExport = financialData.export_generation || 0;
+      const exportIncome = financialData.export_income || 0;
+      
+      // System specifications
+      const systemKw = systemSize?.recommendedKw || systemSize?.recommendations?.panels?.totalKw || 0;
+      const batteryKwh = systemSize?.battery || systemSize?.recommendations?.battery?.capacity_kwh || 0;
+      const annualUsage = billData.quarterlyUsage * 4;
+      
+      // Energy independence calculation (CORRECTED)
+      const energyIndependence = solarGeneration > 0 && annualUsage > 0 ? 
+        Math.min(100, Math.round((solarSelfConsumption / annualUsage) * 100)) : 0;
+      
+      // Savings breakdown (CORRECTED FORMULAS)
+      const gridOffsetSavings = solarSelfConsumption * (billData.averageRate / 100);
+      const batteryTimeshiftSavings = batteryKwh > 0 ? 
+        Math.max(0, totalSavings - gridOffsetSavings - exportIncome - evSolarSavings) : 0;
+      
+      // CO2 savings (CORRECTED - Australian grid emission factor 0.82 kg CO2/kWh)
+      const co2Avoided = Math.round((solarGeneration * 0.82) / 1000); // tonnes per year
+      
+      return {
+        currentAnnualBill: totalCurrentAnnualBill,
+        newAnnualBill: totalNewAnnualBill,
+        totalSavings,
+        monthlySavings: Math.round(totalSavings / 12),
+        billReductionPercent: totalCurrentAnnualBill > 0 ? Math.round((totalSavings / totalCurrentAnnualBill) * 100) : 0,
+        solarGeneration,
+        solarSelfConsumption,
+        solarExport,
+        exportIncome,
+        systemKw,
+        batteryKwh,
+        annualUsage,
+        energyIndependence,
+        gridOffsetSavings,
+        batteryTimeshiftSavings,
+        evSolarSavings,
+        evAnnualChargingCost,
+        co2Avoided
+      };
+    }
+
     // CRITICAL: Use AI sizing financial data if available, otherwise calculate
     const financialData = systemSize?.financial || {};
     
@@ -78,69 +140,6 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
       export_generation: exportGeneration,
       export_income: exportIncome
     });
-  }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome]);
-  
-  const {
-    // EV charging calculations (CORRECTED FORMULAS)
-    const evAnnualChargingCost = includeEV ? 
-      (evChargingKwh * 12 * (billData.averageRate / 100) * evChargingAtHome) : 0;
-    
-    // EV solar charging potential: assume 60% of home charging can be solar during daylight hours
-    const evSolarOffsetPotential = includeEV ? 
-      (evChargingKwh * 12 * evChargingAtHome * 0.6) : 0;
-    
-    // EV savings = solar offset * (grid rate - solar self-consumption cost ~$0)
-    const evSolarSavings = evSolarOffsetPotential * (billData.averageRate / 100);
-    
-    // Total bill calculations including EV
-    const totalCurrentAnnualBill = currentBill + evAnnualChargingCost;
-    const totalSavings = baseSavings + evSolarSavings;
-    const totalNewAnnualBill = newBill + evAnnualChargingCost - evSolarSavings;
-    
-    // System performance metrics
-    const solarGeneration = financialData.annual_generation || 0;
-    const solarSelfConsumption = financialData.self_consumption || 0;
-    const solarExport = financialData.export_generation || 0;
-    const exportIncome = financialData.export_income || 0;
-    
-    // System specifications
-    const systemKw = systemSize?.recommendedKw || systemSize?.recommendations?.panels?.totalKw || 0;
-    const batteryKwh = systemSize?.battery || systemSize?.recommendations?.battery?.capacity_kwh || 0;
-    const annualUsage = billData.quarterlyUsage * 4;
-    
-    // Energy independence calculation (CORRECTED)
-    const energyIndependence = solarGeneration > 0 && annualUsage > 0 ? 
-      Math.min(100, Math.round((solarSelfConsumption / annualUsage) * 100)) : 0;
-    
-    // Savings breakdown (CORRECTED FORMULAS)
-    const gridOffsetSavings = solarSelfConsumption * (billData.averageRate / 100);
-    const batteryTimeshiftSavings = batteryKwh > 0 ? 
-      Math.max(0, totalSavings - gridOffsetSavings - exportIncome - evSolarSavings) : 0;
-    
-    // CO2 savings (CORRECTED - Australian grid emission factor 0.82 kg CO2/kWh)
-    const co2Avoided = Math.round((solarGeneration * 0.82) / 1000); // tonnes per year
-    
-    return {
-      currentAnnualBill: totalCurrentAnnualBill,
-      newAnnualBill: totalNewAnnualBill,
-      totalSavings,
-      monthlySavings: Math.round(totalSavings / 12),
-      billReductionPercent: totalCurrentAnnualBill > 0 ? Math.round((totalSavings / totalCurrentAnnualBill) * 100) : 0,
-      solarGeneration,
-      solarSelfConsumption,
-      solarExport,
-      exportIncome,
-      systemKw,
-      batteryKwh,
-      annualUsage,
-      energyIndependence,
-      gridOffsetSavings,
-      batteryTimeshiftSavings,
-      evSolarSavings,
-      evAnnualChargingCost,
-      co2Avoided
-    };
-  };
   }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome]);
   
   const {

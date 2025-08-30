@@ -281,13 +281,14 @@ export default function ComprehensiveShadeAnalyzer({
 
             {/* OpenStreetMap Integration */}
             <SiteShadingAnalyzer
-              siteData={finalData}
-              onSiteDataUpdate={(mapsData) => {
+              onLocationUpdate={(data) => {
+                addMapsAnalysis(data);
+                setFinalData(prev => ({ ...prev, ...data }));
+              }}
+              onSiteUpdate={(mapsData) => {
                 addMapsAnalysis(mapsData);
                 setFinalData(prev => ({ ...prev, ...mapsData }));
               }}
-              autoAddress={billData?.address}
-              autoPostcode={billData?.postcode}
             />
 
             {dataSources.length > 0 && (

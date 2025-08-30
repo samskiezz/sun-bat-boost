@@ -187,10 +187,8 @@ export default function OCRToMapDemo() {
         </div>
         
         <SiteShadingAnalyzer
-          siteData={state.siteData}
-          onSiteDataUpdate={handleSiteDataUpdate}
-          autoAddress={state.extractedData?.address}
-          autoPostcode={state.extractedData?.postcode}
+          onLocationUpdate={handleSiteDataUpdate}
+          onSiteUpdate={handleSiteDataUpdate}
         />
       </div>
     </motion.div>

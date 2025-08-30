@@ -73,10 +73,24 @@ export function ComplianceTabResilient() {
           description: "Created sample compliance rules and checks",
         });
       } else {
-        setRules(existingRules);
+        setRules(existingRules.map(rule => ({
+          id: rule.id,
+          rule_name: rule.rule_code,
+          category: 'REGULATORY' as const,
+          description: rule.rule_description,
+          check_function: rule.rule_code || 'generic_check',
+          severity: (rule.severity as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') || 'MEDIUM',
+          is_active: rule.auto_fixable !== false,
+          created_at: rule.created_at
+        })));
         setChecks(existingChecks.map(check => ({
-          ...check,
-          rule: check.compliance_rules
+          id: check.id,
+          site_id: check.site_id || 'unknown_site',
+          rule_id: check.id,
+          status: (check.overall_status?.toUpperCase() as 'PASS' | 'FAIL' | 'WARNING' | 'PENDING') || 'PENDING',
+          result_data: check.check_results,
+          checked_at: check.checked_at,
+          rule: undefined
         })));
       }
 
