@@ -343,6 +343,46 @@
 
 ---
 
+## Geo/ML (Polygons) — System Manager Tab
+
+**Interactive Roof Polygon Analysis & Machine Learning Matching**
+
+### Core Components
+- `PolygonMonitorTab` - Interactive map interface for drawing and analyzing roof polygons (src/components/SystemManager/PolygonMonitorTab.tsx)
+
+### Services & API Integration  
+- `embedPolygon(payload)` - Generate vector embeddings for polygon features (src/services/geoml-client.ts)
+- `matchPolygon(payload)` - Find similar roof polygons using ML matching (src/services/geoml-client.ts)
+
+### Geospatial Math Library
+- `polyAreaSqm(polygon)` - Calculate polygon area in square meters (src/lib/geo/polygon-core.ts)
+- `polyBounds(polygon)` - Get polygon bounding box coordinates (src/lib/geo/polygon-core.ts)  
+- `polyCentroid(polygon)` - Calculate polygon geometric centroid (src/lib/geo/polygon-core.ts)
+- `polyCreate()`, `polyNormalize()`, `polySimplify()` - Polygon creation and manipulation utilities
+- `polyContains()`, `polyIntersects()` - Geometric analysis functions
+- `polyWKT()`, `polyFromWKT()` - Well-Known Text format conversion
+
+### API Endpoints (Supabase Edge Functions)
+- `POST /ml-poly-embed` - Polygon embedding generation with feature extraction
+- `POST /ml-poly-match` - Vector similarity search for polygon matching
+
+### UI Features
+- **Interactive Map Drawing**: Click to add polygon vertices, real-time polygon preview
+- **Feature Computation**: Live calculation of area, perimeter, centroid, bounds
+- **ML Integration**: Embed polygons and find similar roof structures  
+- **Match Results**: Display similarity scores and metadata for matching roofs
+- **Responsive Design**: Optimized for desktop and mobile interaction
+
+### Usage Flow
+1. Click "Start Drawing" to begin polygon creation
+2. Click on map to add vertices (minimum 3 required)
+3. Click "Finish Polygon" to complete the shape
+4. Click "Embed" to generate ML features 
+5. Click "Match" to find similar roof polygons
+6. Review match results with confidence scores
+
+---
+
 # Auto-Discovered Additions (from codebase)
 
 ## AI Adapters & Integrations (src/ai/adapters)

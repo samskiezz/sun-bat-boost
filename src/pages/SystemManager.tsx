@@ -26,6 +26,7 @@ import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTabNew";
 import { ComplianceTab } from "@/components/ComplianceTab";
 import { MonitoringTab } from "@/components/MonitoringTab";
 import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
+import { PolygonMonitorTab } from "@/components/SystemManager/PolygonMonitorTab";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -174,7 +175,12 @@ export default function SystemManager() {
 
           {/* Tertiary Navigation - Advanced Features */}
           <div className="border rounded-lg bg-muted/20 p-1">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1 bg-transparent h-10">
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-1 bg-transparent h-10">
+              <TabsTrigger value="geoml" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <Brain className="w-3 h-3" />
+                <span className="hidden lg:inline">Geo/ML</span>
+                <span className="inline lg:hidden">Geo</span>
+              </TabsTrigger>
               <TabsTrigger value="twin" className="flex items-center gap-1 text-xs font-medium bg-background">
                 <Brain className="w-3 h-3" />
                 <span className="hidden lg:inline">Twin & Uncertainty</span>
@@ -256,6 +262,12 @@ export default function SystemManager() {
         <TabsContent value="analytics">
           <TabContentWrapper tabName="Analytics">
             <TrainingImprovementsDashboard />
+          </TabContentWrapper>
+        </TabsContent>
+
+        <TabsContent value="geoml">
+          <TabContentWrapper tabName="Geo/ML Polygons">
+            <PolygonMonitorTab />
           </TabContentWrapper>
         </TabsContent>
 
