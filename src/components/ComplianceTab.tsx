@@ -94,7 +94,13 @@ export function ComplianceTab() {
       return;
     }
     
-    setRules(data || []);
+    // Cast DB data to match interface types
+    const mappedRules: ComplianceRule[] = (data || []).map(rule => ({
+      ...rule,
+      severity: rule.severity as 'info' | 'warning' | 'error',
+      validation_logic: rule.validation_logic as any
+    }));
+    setRules(mappedRules);
   };
 
   const loadChecks = async () => {
@@ -109,9 +115,17 @@ export function ComplianceTab() {
       return;
     }
     
-    setChecks(data || []);
-    if (data && data.length > 0) {
-      setSelectedCheck(data[0]);
+    // Cast DB data to match interface types
+    const mappedChecks: ComplianceCheck[] = (data || []).map(check => ({
+      ...check,
+      overall_status: check.overall_status as 'compliant' | 'non_compliant' | 'warning',
+      system_design: check.system_design as any,
+      check_results: check.check_results as any,
+      evidence_package: check.evidence_package as any
+    }));
+    setChecks(mappedChecks);
+    if (mappedChecks.length > 0) {
+      setSelectedCheck(mappedChecks[0]);
     }
   };
 

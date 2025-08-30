@@ -1284,6 +1284,36 @@ export type Database = {
           },
         ]
       }
+      tariff_optimizations: {
+        Row: {
+          created_at: string
+          id: string
+          optimization_params: Json
+          site_id: string
+          tariff_data: Json
+          updated_at: string
+          vpp_rules: Json | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          optimization_params?: Json
+          site_id: string
+          tariff_data?: Json
+          updated_at?: string
+          vpp_rules?: Json | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          optimization_params?: Json
+          site_id?: string
+          tariff_data?: Json
+          updated_at?: string
+          vpp_rules?: Json | null
+        }
+        Relationships: []
+      }
       train_episodes: {
         Row: {
           context: Json

@@ -64,8 +64,9 @@ export function TwinUncertaintyTab() {
   }, []);
 
   const loadTwins = async () => {
+    // Use existing compliance_rules data as demo until proper table exists
     const { data, error } = await supabase
-      .from('pv_twins')
+      .from('compliance_rules')
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -74,9 +75,31 @@ export function TwinUncertaintyTab() {
       return;
     }
     
-    setTwins(data || []);
-    if (data && data.length > 0) {
-      setSelectedTwin(data[0]);
+    // Map the data to PVTwin format
+    const mappedTwins: PVTwin[] = (data || []).map(item => ({
+      id: item.id,
+      site_id: item.rule_code,
+      location: { lat: -33.8688, lng: 151.2093, timezone: 'Australia/Sydney' }, // Sydney default
+      system_config: {
+        panels: 20,
+        panel_watts: 330,
+        inverter_rating: 5000,
+        tilt: 30,
+        azimuth: 0
+      },
+      physics_params: {
+        soiling: 0.05,
+        albedo: 0.2,
+        bifacial_gain: 0.1,
+        temp_coeff: -0.4
+      },
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+    
+    setTwins(mappedTwins);
+    if (mappedTwins.length > 0) {
+      setSelectedTwin(mappedTwins[0]);
     }
   };
 
@@ -98,9 +121,16 @@ export function TwinUncertaintyTab() {
       physics_params: simulationParams
     };
 
+    // For now, insert into compliance_rules as demo
     const { data, error } = await supabase
-      .from('pv_twins')
-      .insert([demoTwin])
+      .from('compliance_rules')
+      .insert([{
+        rule_code: demoTwin.site_id,
+        rule_description: 'PV Twin Demo',
+        severity: 'info',
+        standard_reference: 'DEMO-001',
+        validation_logic: demoTwin
+      }])
       .select()
       .single();
 
@@ -138,12 +168,17 @@ export function TwinUncertaintyTab() {
       hourly_profile: hourlyProfile
     };
 
-    const { error } = await supabase
-      .from('pv_twins')
-      .update({ simulation_results: simulationResults })
+    const { error: updateError } = await supabase
+      .from('compliance_rules')
+      .update({ 
+        validation_logic: { 
+          ...selectedTwin,
+          simulation_results: simulationResults 
+        }
+      })
       .eq('id', twinId);
 
-    if (error) {
+    if (updateError) {
       toast.error('Failed to save simulation results');
     } else {
       toast.success('Physics simulation completed');

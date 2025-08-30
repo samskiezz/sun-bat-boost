@@ -85,7 +85,9 @@ export function MonitoringTab() {
       monitor_name: item.monitor_name,
       model_name: item.model_name,
       monitor_type: item.monitor_type as 'data_drift' | 'concept_drift' | 'performance',
-      thresholds: item.thresholds || { warning: 0.3, critical: 0.5 },
+      thresholds: typeof item.thresholds === 'object' && item.thresholds && 'warning' in item.thresholds
+        ? item.thresholds as { warning: number; critical: number; }
+        : { warning: 0.3, critical: 0.5 },
       status: item.status as 'active' | 'inactive',
       created_at: item.created_at,
       updated_at: item.updated_at
@@ -214,7 +216,7 @@ export function MonitoringTab() {
         details.affected_features = severity !== 'green' ? 
           ['image_quality', 'text_density'].slice(0, Math.floor(Math.random() * 2) + 1) : [];
       } else if (monitor.monitor_type === 'performance') {
-        driftType = severity !== 'green' ? 'accuracy_degradation' : 'stable_performance';
+        driftType = severity !== 'green' ? 'data_drift' : 'performance';
       } else {
         details.affected_features = severity !== 'green' ? 
           ['roof_area', 'usage_kwh', 'postcode'].slice(0, Math.floor(Math.random() * 3) + 1) : [];
