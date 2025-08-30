@@ -16,7 +16,7 @@ import {
   Zap
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { deterministicRandom } from '@/utils/deterministicRandom';
+import { deterministicRandom, createSeededRandom } from '@/utils/deterministicRandom';
 
 interface DemoDataDashboardProps {
   type: 'monitoring' | 'health' | 'training';
@@ -35,12 +35,12 @@ export const DemoDataDashboard: React.FC<DemoDataDashboardProps> = ({
   // Generate deterministic demo data based on dashboard type
   const demoData = useMemo(() => {
     const seed = `${type}-${dataTimestamp}`;
-    const rng = deterministicRandom(seed);
+    const rng = createSeededRandom(seed);
     
     const generateTimeSeriesData = (points: number, baseValue: number, variance: number) => {
       return Array.from({ length: points }, (_, i) => ({
         time: new Date(Date.now() - (points - i) * 3600000).toLocaleTimeString(),
-        value: baseValue + (Math.random() - 0.5) * variance,
+        value: baseValue + (rng.next() - 0.5) * variance,
         timestamp: Date.now() - (points - i) * 3600000
       }));
     };
