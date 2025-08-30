@@ -226,6 +226,75 @@ export type Database = {
           },
         ]
       }
+      compliance_checks: {
+        Row: {
+          check_results: Json
+          checked_at: string
+          created_at: string
+          evidence_package: Json
+          id: string
+          overall_status: string
+          site_id: string
+          system_design: Json
+        }
+        Insert: {
+          check_results: Json
+          checked_at?: string
+          created_at?: string
+          evidence_package?: Json
+          id?: string
+          overall_status: string
+          site_id: string
+          system_design: Json
+        }
+        Update: {
+          check_results?: Json
+          checked_at?: string
+          created_at?: string
+          evidence_package?: Json
+          id?: string
+          overall_status?: string
+          site_id?: string
+          system_design?: Json
+        }
+        Relationships: []
+      }
+      compliance_rules: {
+        Row: {
+          auto_fixable: boolean
+          created_at: string
+          id: string
+          rule_code: string
+          rule_description: string
+          severity: string
+          standard_reference: string
+          updated_at: string
+          validation_logic: Json
+        }
+        Insert: {
+          auto_fixable?: boolean
+          created_at?: string
+          id?: string
+          rule_code: string
+          rule_description: string
+          severity: string
+          standard_reference: string
+          updated_at?: string
+          validation_logic?: Json
+        }
+        Update: {
+          auto_fixable?: boolean
+          created_at?: string
+          id?: string
+          rule_code?: string
+          rule_description?: string
+          severity?: string
+          standard_reference?: string
+          updated_at?: string
+          validation_logic?: Json
+        }
+        Relationships: []
+      }
       data_update_tracking: {
         Row: {
           created_at: string
@@ -418,6 +487,83 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
+        }
+        Relationships: []
+      }
+      drift_detections: {
+        Row: {
+          created_at: string
+          details: Json
+          detection_timestamp: string
+          drift_score: number
+          drift_type: string
+          id: string
+          monitor_id: string
+          remediated: boolean
+          severity: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          detection_timestamp?: string
+          drift_score: number
+          drift_type: string
+          id?: string
+          monitor_id: string
+          remediated?: boolean
+          severity: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          detection_timestamp?: string
+          drift_score?: number
+          drift_type?: string
+          id?: string
+          monitor_id?: string
+          remediated?: boolean
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drift_detections_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "drift_monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drift_monitors: {
+        Row: {
+          created_at: string
+          id: string
+          model_name: string
+          monitor_name: string
+          monitor_type: string
+          status: string
+          thresholds: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_name: string
+          monitor_name: string
+          monitor_type: string
+          status?: string
+          thresholds?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_name?: string
+          monitor_name?: string
+          monitor_type?: string
+          status?: string
+          thresholds?: Json
+          updated_at?: string
         }
         Relationships: []
       }

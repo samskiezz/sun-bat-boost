@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +16,13 @@ interface DriftMonitor {
   monitor_name: string;
   model_name: string;
   monitor_type: 'data_drift' | 'concept_drift' | 'performance';
-  reference_data: any;
-  alert_thresholds: {
+  thresholds: {
     warning: number;
     critical: number;
   };
-  last_check: string;
   status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
 }
 
 interface DriftDetection {
@@ -30,10 +31,10 @@ interface DriftDetection {
   detection_timestamp: string;
   drift_score: number;
   drift_type: string;
-  affected_features: string[];
   severity: 'green' | 'yellow' | 'red';
-  alert_sent: boolean;
-  remediation_status: 'pending' | 'in_progress' | 'resolved';
+  details: any;
+  remediated: boolean;
+  created_at: string;
 }
 
 interface QualityMetric {
@@ -74,13 +75,25 @@ export function MonitoringTab() {
       .order('created_at', { ascending: false });
     
     if (error) {
+      console.error('Error loading drift monitors:', error);
       toast.error('Failed to load drift monitors');
       return;
     }
     
-    setMonitors(data || []);
-    if (data && data.length > 0) {
-      setSelectedMonitor(data[0]);
+    const mappedData: DriftMonitor[] = (data || []).map(item => ({
+      id: item.id,
+      monitor_name: item.monitor_name,
+      model_name: item.model_name,
+      monitor_type: item.monitor_type as 'data_drift' | 'concept_drift' | 'performance',
+      thresholds: item.thresholds || { warning: 0.3, critical: 0.5 },
+      status: item.status as 'active' | 'inactive',
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+    
+    setMonitors(mappedData);
+    if (mappedData.length > 0) {
+      setSelectedMonitor(mappedData[0]);
     }
   };
 
@@ -92,11 +105,24 @@ export function MonitoringTab() {
       .limit(100);
     
     if (error) {
+      console.error('Error loading drift detections:', error);
       toast.error('Failed to load drift detections');
       return;
     }
     
-    setDetections(data || []);
+    const mappedData: DriftDetection[] = (data || []).map(item => ({
+      id: item.id,
+      monitor_id: item.monitor_id,
+      detection_timestamp: item.detection_timestamp,
+      drift_score: item.drift_score,
+      drift_type: item.drift_type,
+      severity: item.severity as 'green' | 'yellow' | 'red',
+      details: item.details || {},
+      remediated: item.remediated,
+      created_at: item.created_at
+    }));
+    
+    setDetections(mappedData);
   };
 
   const generateQualityMetrics = () => {
@@ -119,40 +145,21 @@ export function MonitoringTab() {
         monitor_name: 'OCR Model Data Drift',
         model_name: 'ocr_ensemble_v2',
         monitor_type: 'data_drift',
-        reference_data: {
-          feature_stats: {
-            image_quality: { mean: 0.85, std: 0.12 },
-            text_density: { mean: 0.65, std: 0.18 },
-            contrast_ratio: { mean: 4.2, std: 0.8 }
-          }
-        },
-        alert_thresholds: { warning: 0.3, critical: 0.5 },
+        thresholds: { warning: 0.3, critical: 0.5 },
         status: 'active'
       },
       {
         monitor_name: 'ROI Model Performance',
         model_name: 'roi_predictor_v3',
         monitor_type: 'performance',
-        reference_data: {
-          baseline_accuracy: 0.89,
-          baseline_mae: 245.0
-        },
-        alert_thresholds: { warning: 0.05, critical: 0.15 },
+        thresholds: { warning: 0.05, critical: 0.15 },
         status: 'active'
       },
       {
         monitor_name: 'Sizing Model Concept Drift',
         model_name: 'system_sizer_v1',
         monitor_type: 'concept_drift',
-        reference_data: {
-          feature_importance: {
-            roof_area: 0.35,
-            usage_kwh: 0.28,
-            postcode: 0.15,
-            tariff_type: 0.22
-          }
-        },
-        alert_thresholds: { warning: 0.2, critical: 0.4 },
+        thresholds: { warning: 0.2, critical: 0.4 },
         status: 'active'
       }
     ];
@@ -165,6 +172,7 @@ export function MonitoringTab() {
       .insert(demoMonitors);
 
     if (error) {
+      console.error('Error initializing demo monitors:', error);
       toast.error('Failed to initialize demo monitors');
       return;
     }
@@ -199,16 +207,16 @@ export function MonitoringTab() {
         }
       }
 
-      let affectedFeatures: string[] = [];
+      let details: any = {};
       let driftType = monitor.monitor_type;
 
       if (monitor.monitor_type === 'data_drift') {
-        affectedFeatures = severity !== 'green' ? 
+        details.affected_features = severity !== 'green' ? 
           ['image_quality', 'text_density'].slice(0, Math.floor(Math.random() * 2) + 1) : [];
       } else if (monitor.monitor_type === 'performance') {
         driftType = severity !== 'green' ? 'accuracy_degradation' : 'stable_performance';
       } else {
-        affectedFeatures = severity !== 'green' ? 
+        details.affected_features = severity !== 'green' ? 
           ['roof_area', 'usage_kwh', 'postcode'].slice(0, Math.floor(Math.random() * 3) + 1) : [];
       }
 
@@ -217,10 +225,9 @@ export function MonitoringTab() {
           monitor_id: monitor.id,
           drift_score: driftScore,
           drift_type: driftType,
-          affected_features: affectedFeatures,
           severity,
-          alert_sent: severity === 'red',
-          remediation_status: 'pending'
+          details,
+          remediated: false
         });
       }
     }
@@ -231,6 +238,7 @@ export function MonitoringTab() {
         .insert(newDetections);
 
       if (error) {
+        console.error('Error saving drift detections:', error);
         toast.error('Failed to save drift detections');
       } else {
         const redAlerts = newDetections.filter(d => d.severity === 'red').length;
@@ -272,7 +280,7 @@ export function MonitoringTab() {
   };
 
   const recentAlerts = detections.filter(d => d.severity !== 'green').slice(0, 5);
-  const criticalAlerts = detections.filter(d => d.severity === 'red' && d.remediation_status === 'pending').length;
+  const criticalAlerts = detections.filter(d => d.severity === 'red' && !d.remediated).length;
 
   return (
     <div className="space-y-6">
@@ -446,20 +454,6 @@ export function MonitoringTab() {
                     fillOpacity={0.3}
                     name="Drift Score"
                   />
-                  {/* Warning threshold line */}
-                  <Line
-                    y={0.3}
-                    stroke="hsl(var(--warning))"
-                    strokeDasharray="5 5"
-                    strokeWidth={1}
-                  />
-                  {/* Critical threshold line */}
-                  <Line
-                    y={0.5}
-                    stroke="hsl(var(--destructive))"
-                    strokeDasharray="5 5"
-                    strokeWidth={1}
-                  />
                 </AreaChart>
               </ResponsiveContainer>
             </TabsContent>
@@ -484,9 +478,9 @@ export function MonitoringTab() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {alert.affected_features.length > 0 && (
+                          {alert.details?.affected_features && alert.details.affected_features.length > 0 && (
                             <div className="text-xs text-muted-foreground">
-                              Affected: {alert.affected_features.join(', ')}
+                              Affected: {alert.details.affected_features.join(', ')}
                             </div>
                           )}
                           <Badge variant={getSeverityBadge(alert.severity)}>
@@ -552,8 +546,8 @@ export function MonitoringTab() {
                     <div className="mt-2">
                       <div className="text-xs text-muted-foreground mb-1">Thresholds</div>
                       <div className="flex gap-2 text-xs">
-                        <span>Warning: {(monitor.alert_thresholds.warning * 100).toFixed(0)}%</span>
-                        <span>Critical: {(monitor.alert_thresholds.critical * 100).toFixed(0)}%</span>
+                        <span>Warning: {(monitor.thresholds.warning * 100).toFixed(0)}%</span>
+                        <span>Critical: {(monitor.thresholds.critical * 100).toFixed(0)}%</span>
                       </div>
                     </div>
                   </div>

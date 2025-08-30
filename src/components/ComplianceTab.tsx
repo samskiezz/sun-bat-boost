@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,27 +18,19 @@ interface ComplianceRule {
   validation_logic: any;
   severity: 'info' | 'warning' | 'error';
   auto_fixable: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ComplianceCheck {
   id: string;
   site_id: string;
   system_design: any;
-  check_results: {
-    [rule_code: string]: {
-      status: 'pass' | 'fail' | 'warning';
-      message: string;
-      evidence?: string[];
-      auto_fix_applied?: boolean;
-    };
-  };
+  check_results: any;
   overall_status: 'compliant' | 'non_compliant' | 'warning';
-  evidence_package: {
-    certificates: string[];
-    calculations: any[];
-    diagrams: string[];
-  };
+  evidence_package: any;
   checked_at: string;
+  created_at: string;
 }
 
 const DEMO_RULES: Partial<ComplianceRule>[] = [
@@ -96,6 +89,7 @@ export function ComplianceTab() {
       .order('rule_code');
     
     if (error) {
+      console.error('Error loading compliance rules:', error);
       toast.error('Failed to load compliance rules');
       return;
     }
@@ -110,6 +104,7 @@ export function ComplianceTab() {
       .order('checked_at', { ascending: false });
     
     if (error) {
+      console.error('Error loading compliance checks:', error);
       toast.error('Failed to load compliance checks');
       return;
     }
@@ -142,6 +137,7 @@ export function ComplianceTab() {
       .insert(rulesToInsert);
 
     if (error) {
+      console.error('Error initializing demo rules:', error);
       toast.error('Failed to initialize demo rules');
       return;
     }
@@ -246,6 +242,7 @@ export function ComplianceTab() {
       .single();
 
     if (error) {
+      console.error('Error saving compliance check:', error);
       toast.error('Failed to save compliance check');
     } else {
       toast.success(`Compliance check completed: ${passCount} pass, ${warningCount} warnings, ${failCount} failures`);
@@ -314,7 +311,9 @@ export function ComplianceTab() {
   };
 
   const calculateComplianceScore = (checkResults: any) => {
+    if (!checkResults || typeof checkResults !== 'object') return 0;
     const results = Object.values(checkResults);
+    if (results.length === 0) return 0;
     const passCount = results.filter((r: any) => r.status === 'pass').length;
     return (passCount / results.length) * 100;
   };
@@ -378,7 +377,8 @@ export function ComplianceTab() {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold">
-                {Object.values(selectedCheck.check_results).filter((r: any) => r.status === 'pass').length}
+                {selectedCheck.check_results ? 
+                  Object.values(selectedCheck.check_results).filter((r: any) => r.status === 'pass').length : 0}
               </div>
               <div className="text-sm text-muted-foreground">Rules Passed</div>
             </CardContent>
@@ -387,7 +387,8 @@ export function ComplianceTab() {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold">
-                {Object.values(selectedCheck.check_results).filter((r: any) => r.auto_fix_applied).length}
+                {selectedCheck.check_results ? 
+                  Object.values(selectedCheck.check_results).filter((r: any) => r.auto_fix_applied).length : 0}
               </div>
               <div className="text-sm text-muted-foreground">Auto-Fixed</div>
             </CardContent>
@@ -414,7 +415,7 @@ export function ComplianceTab() {
               
               <TabsContent value="results" className="mt-4">
                 <Accordion type="single" collapsible className="w-full">
-                  {Object.entries(selectedCheck.check_results).map(([ruleCode, result]: [string, any]) => {
+                  {selectedCheck.check_results && Object.entries(selectedCheck.check_results).map(([ruleCode, result]: [string, any]) => {
                     const rule = rules.find(r => r.rule_code === ruleCode);
                     return (
                       <AccordionItem key={ruleCode} value={ruleCode}>
@@ -482,90 +483,101 @@ export function ComplianceTab() {
                     </Button>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <h5 className="font-medium mb-2">Certificates</h5>
-                      <ul className="space-y-1 text-sm">
-                        {selectedCheck.evidence_package.certificates.map((cert, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            {cert}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h5 className="font-medium mb-2">Calculations</h5>
-                      <div className="space-y-2">
-                        {selectedCheck.evidence_package.calculations.map((calc, i) => (
-                          <div key={i} className="flex items-center justify-between text-sm">
-                            <span>{calc.type.replace('_', ' ')}</span>
-                            <Badge variant={calc.status === 'pass' ? 'default' : 'destructive'}>
-                              {calc.result}
-                            </Badge>
+                  {selectedCheck.evidence_package && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {selectedCheck.evidence_package.certificates && (
+                        <div>
+                          <h5 className="font-medium mb-2">Certificates</h5>
+                          <ul className="space-y-1 text-sm">
+                            {selectedCheck.evidence_package.certificates.map((cert: string, i: number) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                {cert}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {selectedCheck.evidence_package.calculations && (
+                        <div>
+                          <h5 className="font-medium mb-2">Calculations</h5>
+                          <div className="space-y-2">
+                            {selectedCheck.evidence_package.calculations.map((calc: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between text-sm">
+                                <span>{calc.type.replace('_', ' ')}</span>
+                                <Badge variant={calc.status === 'pass' ? 'default' : 'destructive'}>
+                                  {calc.result}
+                                </Badge>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
+                      
+                      {selectedCheck.evidence_package.diagrams && (
+                        <div>
+                          <h5 className="font-medium mb-2">Diagrams</h5>
+                          <ul className="space-y-1 text-sm">
+                            {selectedCheck.evidence_package.diagrams.map((diagram: string, i: number) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                {diagram}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                    
-                    <div>
-                      <h5 className="font-medium mb-2">Diagrams</h5>
-                      <ul className="space-y-1 text-sm">
-                        {selectedCheck.evidence_package.diagrams.map((diagram, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            {diagram}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </TabsContent>
               
               <TabsContent value="system" className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h5 className="font-medium mb-3">Solar System</h5>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Panel Count:</span>
-                        <span>{selectedCheck.system_design.panels.count}</span>
+                {selectedCheck.system_design && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 className="font-medium mb-3">Solar System</h5>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Panel Count:</span>
+                          <span>{selectedCheck.system_design.panels?.count}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Panel Model:</span>
+                          <span>{selectedCheck.system_design.panels?.model}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>System Size:</span>
+                          <span>{selectedCheck.system_design.panels ? 
+                            (selectedCheck.system_design.panels.count * selectedCheck.system_design.panels.power_rating / 1000).toFixed(1) : 0} kW</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Inverter:</span>
+                          <span>{selectedCheck.system_design.inverter?.model}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Panel Model:</span>
-                        <span>{selectedCheck.system_design.panels.model}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>System Size:</span>
-                        <span>{(selectedCheck.system_design.panels.count * selectedCheck.system_design.panels.power_rating / 1000).toFixed(1)} kW</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Inverter:</span>
-                        <span>{selectedCheck.system_design.inverter.model}</span>
+                    </div>
+                    
+                    <div>
+                      <h5 className="font-medium mb-3">Location & Network</h5>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Postcode:</span>
+                          <span>{selectedCheck.system_design.location?.postcode}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>DNSP:</span>
+                          <span>{selectedCheck.system_design.location?.dnsp}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Export Limit:</span>
+                          <span>{selectedCheck.system_design.location?.export_limit} kW</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  
-                  <div>
-                    <h5 className="font-medium mb-3">Location & Network</h5>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Postcode:</span>
-                        <span>{selectedCheck.system_design.location.postcode}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>DNSP:</span>
-                        <span>{selectedCheck.system_design.location.dnsp}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Export Limit:</span>
-                        <span>{selectedCheck.system_design.location.export_limit} kW</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </TabsContent>
             </Tabs>
           ) : (
