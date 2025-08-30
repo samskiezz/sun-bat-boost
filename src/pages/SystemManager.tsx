@@ -6,6 +6,8 @@ import { Database, Brain, Shield, BarChart3, StopCircle, Pause, AlertTriangle } 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+
+// Import components with error boundaries
 import MasterTrainingControl from '@/components/MasterTrainingControl';
 import OneCatalogManager from '@/components/OneCatalogManager';
 import TrainingImprovementsDashboard from '@/components/TrainingImprovementsDashboard';
@@ -17,7 +19,8 @@ import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
 import NetworkMapVisualization from "@/components/SystemManager/NetworkMapVisualization";
 import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
-// Tab component imports
+
+// Tab component imports with fallbacks
 import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTabNew";
 import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTabNew";
 import { ComplianceTab } from "@/components/ComplianceTab";
@@ -28,9 +31,12 @@ export default function SystemManager() {
   const { toast } = useToast();
   const [emergencyLoading, setEmergencyLoading] = useState(false);
 
+  console.log('SystemManager rendering...');
+
   const handleEmergencyStop = async () => {
     setEmergencyLoading(true);
     try {
+      console.log('Emergency stop initiated');
       // Pause the current job gracefully
       const { error: pauseError } = await supabase.functions.invoke('cec-comprehensive-scraper', {
         body: { action: 'pause' }
@@ -56,6 +62,27 @@ export default function SystemManager() {
       });
     } finally {
       setEmergencyLoading(false);
+    }
+  };
+
+  // Error boundary wrapper for individual tab content
+  const TabContentWrapper = ({ children, tabName }: { children: React.ReactNode; tabName: string }) => {
+    try {
+      console.log(`Rendering tab: ${tabName}`);
+      return <>{children}</>;
+    } catch (error) {
+      console.error(`Error in tab ${tabName}:`, error);
+      return (
+        <Card className="border-red-200">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading {tabName}</h3>
+              <p className="text-muted-foreground">Please refresh the page or try again later.</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
     }
   };
 
@@ -171,69 +198,89 @@ export default function SystemManager() {
           </div>
         </div>
 
+        <TabsContent value="monitoring">
+          <TabContentWrapper tabName="System Monitor">
+            <div className="space-y-6">
+              <EnergyPlanStats />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    Energy Plans Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground">
+                      Manage and refresh the energy plans database with live data from energy retailers.
+                    </p>
+                    <RefreshEnergyPlansButton />
+                  </div>
+                </CardContent>
+              </Card>
+              <NetworkMapVisualization />
+              <DnspPanel />
+              <DnspBuilderPanel />
+              <DnspChecker />
+            </div>
+          </TabContentWrapper>
+        </TabsContent>
+
         <TabsContent value="health">
-          <SystemHealthDashboard />
+          <TabContentWrapper tabName="System Health">
+            <SystemHealthDashboard />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="catalog">
-          <OneCatalogManager />
+          <TabContentWrapper tabName="Catalog">
+            <OneCatalogManager />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="training">
-          <div className="space-y-6">
-            <MasterTrainingControl />
-            <EnhancedTrainingSystem />
-          </div>
+          <TabContentWrapper tabName="Training">
+            <div className="space-y-6">
+              <MasterTrainingControl />
+              <EnhancedTrainingSystem />
+            </div>
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="automation">
-          <TrainingAutomation />
+          <TabContentWrapper tabName="Automation">
+            <TrainingAutomation />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="analytics">
-          <TrainingImprovementsDashboard />
-        </TabsContent>
-
-        <TabsContent value="monitoring">
-          <div className="space-y-6">
-            <EnergyPlanStats />
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5" />
-                  Energy Plans Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">
-                    Manage and refresh the energy plans database with live data from energy retailers.
-                  </p>
-                  <RefreshEnergyPlansButton />
-                </div>
-              </CardContent>
-            </Card>
-            <NetworkMapVisualization />
-            <DnspPanel />
-            <DnspBuilderPanel />
-            <DnspChecker />
-          </div>
+          <TabContentWrapper tabName="Analytics">
+            <TrainingImprovementsDashboard />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="twin">
-          <TwinUncertaintyTab />
+          <TabContentWrapper tabName="Twin & Uncertainty">
+            <TwinUncertaintyTab />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="optimizer">
-          <TariffVPPOptimizerTab />
+          <TabContentWrapper tabName="Tariff/VPP Optimizer">
+            <TariffVPPOptimizerTab />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="compliance">
-          <ComplianceTab />
+          <TabContentWrapper tabName="Compliance">
+            <ComplianceTab />
+          </TabContentWrapper>
         </TabsContent>
 
         <TabsContent value="drift">
-          <MonitoringTab />
+          <TabContentWrapper tabName="Drift Monitoring">
+            <MonitoringTab />
+          </TabContentWrapper>
         </TabsContent>
       </Tabs>
     </div>
