@@ -1,0 +1,19 @@
+# ML Service Dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+numpy==1.24.3
+scikit-learn==1.3.2
+xgboost==2.0.2
+onnxruntime==1.16.3
+skl2onnx==1.16.0
+joblib==1.3.2
+prometheus-client==0.19.0
+
+# Optional dependencies
+tensorflow>=2.13.0,<3.0; python_version>="3.9"
+ortools>=9.7.2996
+
+# Development
+pytest==7.4.3
+black==23.11.0
