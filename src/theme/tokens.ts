@@ -17,8 +17,8 @@ export const tokens = {
   glowSubtle: "ring-1 ring-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]",
   
   // Text styles
-  textGlass: "text-white drop-shadow-sm",
-  textMuted: "text-white/70",
+  textGlass: "text-foreground drop-shadow-sm",
+  textMuted: "text-muted-foreground",
   
   // Backgrounds
   backgroundGradient: "bg-gradient-to-br from-primary/10 via-background to-secondary/5",
