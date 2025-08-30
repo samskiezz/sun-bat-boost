@@ -1,19 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import * as React from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
+import type * as L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Zap, Network } from 'lucide-react';
+import { Network, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-// Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png',
-});
 
 interface DNSPData {
   id: number;
@@ -41,12 +33,46 @@ const STATE_CENTERS: Record<string, StateCenter> = {
   'ACT': { lat: -35.3, lng: 149.1, zoom: 10 }
 };
 
-export default function NetworkMapVisualization() {
-  const [dnspData, setDnspData] = useState<DNSPData[]>([]);
-  const [selectedState, setSelectedState] = useState<string>('NSW');
-  const [loading, setLoading] = useState(true);
+function MapEffects({
+  bounds,
+  whenVisibleKey,
+}: {
+  bounds?: L.LatLngBoundsExpression;
+  whenVisibleKey?: string | number | boolean;
+}) {
+  const map = useMap();
 
-  useEffect(() => {
+  // Ensure Leaflet sizes correctly on first mount
+  React.useEffect(() => {
+    setTimeout(() => map.invalidateSize(), 0);
+  }, [map]);
+
+  // Fit to bounds if provided
+  React.useEffect(() => {
+    if (bounds) map.fitBounds(bounds, { padding: [24, 24] });
+  }, [map, bounds]);
+
+  // Re-invalidate on visibility changes (Radix Tabs / Framer Motion)
+  React.useEffect(() => {
+    if (whenVisibleKey !== undefined) map.invalidateSize();
+  }, [map, whenVisibleKey]);
+
+  return null;
+}
+
+export default function NetworkMapVisualization({
+  visibleKey
+}: {
+  visibleKey?: string | number | boolean;
+}) {
+  const [dnspData, setDnspData] = React.useState<DNSPData[]>([]);
+  const [selectedState, setSelectedState] = React.useState<string>('NSW');
+  const [loading, setLoading] = React.useState(true);
+
+  // Guard for SSR or pre-hydration
+  if (typeof window === "undefined") return null;
+
+  React.useEffect(() => {
     const fetchDNSPData = async () => {
       try {
         const { data, error } = await supabase
@@ -118,13 +144,15 @@ export default function NetworkMapVisualization() {
           <MapContainer
             center={[center.lat, center.lng]}
             zoom={center.zoom}
-            style={{ height: '100%', width: '100%' }}
-            key={selectedState} // Force re-render on state change
+            className="h-full w-full"
+            scrollWheelZoom
+            key={selectedState}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              attribution="&copy; OpenStreetMap contributors"
             />
+            <MapEffects whenVisibleKey={visibleKey} />
             
             {stateData.map((dnsp, index) => {
               const coords = getPostcodeCoords(dnsp.postcode_start, dnsp.state);
@@ -134,7 +162,7 @@ export default function NetworkMapVisualization() {
                 <Circle
                   key={`${dnsp.id}-${index}`}
                   center={coords}
-                  radius={20000} // 20km radius
+                  radius={20000}
                   fillColor={color}
                   fillOpacity={0.3}
                   color={color}

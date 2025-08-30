@@ -218,7 +218,7 @@ export default function SystemManager() {
                   </div>
                 </CardContent>
               </Card>
-              {/* NetworkMapVisualization temporarily disabled due to React context issue */}
+              <NetworkMapVisualization visibleKey="monitoring" />
               <DnspPanel />
               <DnspBuilderPanel />
               <DnspChecker />
