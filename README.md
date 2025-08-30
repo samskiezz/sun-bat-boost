@@ -383,6 +383,58 @@
 
 ---
 
+## Data Polygon Mapping (Non-Geo)
+
+**Embedding Space Polygon Analysis & ML Model Coordination**
+
+### Core Geometry Engine
+- `centroid(points)` - Calculate polygon centroid (src/lib/data-polygons/core.ts)
+- `area(poly)` - Compute polygon area (src/lib/data-polygons/core.ts)
+- `convexHull(pts)` - Monotone chain convex hull algorithm (src/lib/data-polygons/core.ts)
+- `clip(subject, clipper)` - Sutherland–Hodgman polygon clipping (src/lib/data-polygons/core.ts)
+- `intersectArea(a, b)` - Calculate intersection area between polygons (src/lib/data-polygons/core.ts)
+- `unionArea(a, b)` - Calculate union area between polygons (src/lib/data-polygons/core.ts)
+- `iou(a, b)` - Intersection over Union metric (src/lib/data-polygons/core.ts)
+- `jaccard(a, b)` - Jaccard similarity metric (src/lib/data-polygons/core.ts)
+
+### Projection & Dimensionality Reduction
+- `pca2d(X)` - Principal Component Analysis for 2D projection (src/lib/data-polygons/projection.ts)
+
+### Services & Orchestration
+- `fetchEmbeddings(sources)` - Retrieve embeddings from multiple data sources (src/services/data-polygons.ts)
+- `buildDataPolygons(sources)` - Build convex hulls from embedding clusters (src/services/data-polygons.ts)
+- `comparePolygons(hulls)` - Compute overlap metrics between data polygons (src/services/data-polygons.ts)
+
+### Event Bus & Messaging
+- `publish(event)` - Emit data polygon events (src/lib/orch/data-bus.ts)
+- `subscribe(handler)` - Listen for data polygon events (src/lib/orch/data-bus.ts)
+- `recordEdge(from, to, summary, data)` - Record inter-model interactions (src/lib/orch/trace.ts)
+- `recordMsg(msg)` - Log model-to-model messages (src/lib/orch/trace.ts)
+- `getEdges()` - Retrieve interaction history (src/lib/orch/trace.ts)
+- `getMsgs()` - Get model message log (src/lib/orch/trace.ts)
+
+### API Endpoints
+- `POST /api/datapoly/embeddings` - Returns embeddings per source for polygon building
+
+### UI Components
+- `DataPolygonTab` - SVG polygon visualization with overlap metrics and proof of interconnections (src/components/SystemManager/DataPolygonTab.tsx)
+
+### Features
+- **Embedding Space Visualization**: Projects high-dimensional model embeddings to 2D using PCA
+- **Convex Hull Generation**: Builds polygons around data clusters for each model/database
+- **Overlap Metrics**: Computes IoU (Intersection over Union) and Jaccard similarity between model spaces
+- **Inter-Model Coordination**: Sequences data sharing between models with event tracking
+- **Proof of Interconnections**: Visual proof via SVG rendering, edge traces, and message logs
+- **Real-time Updates**: Live timeline showing model interactions and data flow
+
+### Event Types Supported
+- `POLY.DATA.BUILT` - Data polygons constructed from embeddings
+- `MATCH.DONE` - Overlap analysis completed
+- `ERROR` - Error in polygon processing pipeline
+- `MSG` - Inter-model message exchange
+
+---
+
 ## Inter-Model Orchestration & Proof-of-Interconnections
 
 **Comprehensive ML Model Coordination & Data Flow Visualization**
