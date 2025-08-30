@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.ml-poly-match]
 verify_jwt = false
+
+[functions.mapbox-token]
+verify_jwt = false

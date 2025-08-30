@@ -1,7 +1,4 @@
 import * as React from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap } from "react-leaflet";
-import type * as L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { polyAreaSqm, polyBounds, polyCentroid } from "@/lib/geo/polygon-core";
 import { embedPolygon, matchPolygon } from "@/services/geoml-client";
 import { setLastPolygon } from "@/lib/orch/event-bus";
@@ -10,17 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, MapPin, Zap, Search } from "lucide-react";
-import { MapClickHandler } from "./MapClickHandler";
+import { MapboxPolygonMap } from "./MapboxPolygonMap";
 
 type LatLng = [number, number];
-
-function MapEffects({ whenVisibleKey, bounds }: { whenVisibleKey?: string | number | boolean; bounds?: L.LatLngBoundsExpression }) {
-  const map = useMap();
-  React.useEffect(() => { setTimeout(() => map.invalidateSize(), 0); }, [map]);
-  React.useEffect(() => { if (bounds) map.fitBounds(bounds, { padding: [24, 24] }); }, [map, bounds]);
-  React.useEffect(() => { if (whenVisibleKey !== undefined) map.invalidateSize(); }, [map, whenVisibleKey]);
-  return null;
-}
 
 export function PolygonMonitorTab() {
   const [drawing, setDrawing] = React.useState<boolean>(false);
@@ -32,7 +21,7 @@ export function PolygonMonitorTab() {
   const [features, setFeatures] = React.useState<{ 
     areaSqm?: number; 
     centroid?: LatLng; 
-    bounds?: L.LatLngBoundsLiteral;
+    bounds?: any;
   } | null>(null);
   
   const [matches, setMatches] = React.useState<Array<{ 
@@ -45,18 +34,12 @@ export function PolygonMonitorTab() {
   const [busy, setBusy] = React.useState<boolean>(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  const polyAsL = React.useMemo<L.LatLngExpression[] | null>(() => {
-    if (!points.length) return null;
-    return points.map(p => ({ lat: p[0], lng: p[1] }));
-  }, [points]);
-
   const canFinish = drawing && points.length >= 3 && !closed;
   const polygonReady = closed && points.length >= 3;
 
-  const onMapClick = (e: any) => {
+  const onMapClick = (latlng: LatLng) => {
     if (!drawing) return;
-    const { lat, lng } = e.latlng as L.LatLng;
-    setPoints(prev => [...prev, [lat, lng]]);
+    setPoints(prev => [...prev, latlng]);
   };
 
   const onStart = () => { 
@@ -131,42 +114,64 @@ export function PolygonMonitorTab() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="col-span-2">
         <div className="h-[460px] w-full rounded-2xl overflow-hidden shadow">
-          <MapContainer 
-            center={center} 
-            zoom={zoom} 
-            className="h-full w-full" 
-            scrollWheelZoom
-          >
-            <TileLayer 
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-              attribution="&copy; OpenStreetMap contributors" 
-            />
-            <MapEffects whenVisibleKey="geoml" bounds={features?.bounds} />
-            <MapClickHandler onMapClick={onMapClick} />
-            
-            {/* live sketch line */}
-            {drawing && points.length > 0 && !closed && <Polyline positions={polyAsL as any} />}
-            
-            {/* final polygon */}
-            {polygonReady && <Polygon positions={polyAsL as any} />}
-
-            {/* vertices markers */}
-            {points.map((p, idx) => (
-              <Marker key={idx} position={p}>
-                <Popup>Vertex {idx + 1}</Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+          <MapboxPolygonMap
+            center={center}
+            zoom={zoom}
+            onMapClick={onMapClick}
+            polygonPoints={points}
+            isDrawing={drawing}
+            isPolygonClosed={polygonReady}
+            className="h-full w-full rounded-2xl"
+          />
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          {!drawing && !polygonReady && <button onClick={onStart} className="px-3 py-2 rounded-lg bg-black/80 text-white">Start drawing</button>}
-          {drawing && <button onClick={onUndo} className="px-3 py-2 rounded-lg bg-gray-200">Undo</button>}
-          {drawing && canFinish && <button onClick={onFinish} className="px-3 py-2 rounded-lg bg-emerald-600 text-white">Finish polygon</button>}
-          {(drawing || polygonReady) && <button onClick={onClear} className="px-3 py-2 rounded-lg bg-rose-600 text-white">Clear</button>}
-          {polygonReady && <button disabled={busy} onClick={onEmbed} className="px-3 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50">Embed</button>}
-          {polygonReady && <button disabled={busy} onClick={onMatch} className="px-3 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">Match</button>}
-          {err && <span className="text-rose-600 ml-2">{err}</span>}
+          {!drawing && !polygonReady && (
+            <Button onClick={onStart} className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Start Drawing
+            </Button>
+          )}
+          {drawing && (
+            <Button onClick={onUndo} variant="outline">
+              Undo Point
+            </Button>
+          )}
+          {drawing && canFinish && (
+            <Button onClick={onFinish} className="bg-emerald-600 hover:bg-emerald-700">
+              Finish Polygon
+            </Button>
+          )}
+          {(drawing || polygonReady) && (
+            <Button onClick={onClear} variant="destructive">
+              Clear All
+            </Button>
+          )}
+          {polygonReady && (
+            <>
+              <Button 
+                disabled={busy} 
+                onClick={onEmbed} 
+                className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Embed
+              </Button>
+              <Button 
+                disabled={busy} 
+                onClick={onMatch} 
+                className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                Match
+              </Button>
+            </>
+          )}
+          {err && (
+            <Alert className="mt-3" variant="destructive">
+              <AlertDescription>{err}</AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
 
@@ -175,21 +180,30 @@ export function PolygonMonitorTab() {
           <h3 className="font-semibold mb-2">Polygon Features</h3>
           <ul className="text-sm space-y-1">
             <li>Vertices: {points.length}</li>
-            <li>Closed: {String(polygonReady)}</li>
+            <li>Status: <Badge variant={polygonReady ? "default" : drawing ? "secondary" : "outline"}>
+              {polygonReady ? "Complete" : drawing ? "Drawing" : "Ready"}
+            </Badge></li>
             <li>Area: {features?.areaSqm ? `${features.areaSqm.toFixed(1)} m²` : "-"}</li>
             <li>Centroid: {features?.centroid ? `${features.centroid[0].toFixed(5)}, ${features.centroid[1].toFixed(5)}` : "-"}</li>
-            <li>Bounds: {features?.bounds ? JSON.stringify(features.bounds) : "-"}</li>
           </ul>
         </div>
 
         <div className="rounded-2xl border p-3 mt-3">
-          <h3 className="font-semibold mb-2">Matches</h3>
+          <h3 className="font-semibold mb-2">Similar Roofs</h3>
           <div className="space-y-2">
-            {matches.length === 0 && <div className="text-sm text-gray-500">No matches yet.</div>}
+            {matches.length === 0 && <div className="text-sm text-gray-500">No matches yet. Draw a polygon and click "Match" to find similar roofs.</div>}
             {matches.map((m) => (
               <div key={m.id} className="border rounded-lg p-2">
-                <div className="text-sm font-medium">{m.label || m.id}</div>
-                <div className="text-xs text-gray-500">score: {m.score.toFixed(3)}</div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-sm font-medium">{m.label || m.id}</div>
+                  <Badge variant="secondary">{(m.score * 100).toFixed(1)}%</Badge>
+                </div>
+                {m.metadata && (
+                  <div className="text-xs text-gray-500 space-y-1">
+                    {m.metadata.area && <div>Area: {m.metadata.area}m²</div>}
+                    {m.metadata.location && <div>Location: {m.metadata.location}</div>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

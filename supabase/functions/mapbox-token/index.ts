@@ -1,9 +1,11 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -14,26 +16,38 @@ Deno.serve(async (req) => {
     
     if (!mapboxToken) {
       return new Response(
-        JSON.stringify({ error: 'Mapbox token not configured' }),
+        JSON.stringify({ error: 'Mapbox token not configured' }), 
         { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: 500,
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          } 
         }
       );
     }
 
-    return new Response(JSON.stringify({ token: mapboxToken }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ token: mapboxToken }), 
+      { 
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
+      }
+    );
 
   } catch (error) {
-    console.error('Error fetching Mapbox token:', error);
+    console.error('Error in mapbox-token:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to fetch token' }),
+      JSON.stringify({ error: error.message }), 
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 500,
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
       }
     );
   }
