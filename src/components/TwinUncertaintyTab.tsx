@@ -76,7 +76,7 @@ export function TwinUncertaintyTab() {
     }
     
     // Map the data to PVTwin format
-    const mappedTwins: PVTwin[] = (data || []).map(item => ({
+  const mappedTwins: PVTwin[] = (data || []).map(item => ({
       id: item.id,
       site_id: item.rule_code,
       location: { lat: -33.8688, lng: 151.2093, timezone: 'Australia/Sydney' }, // Sydney default
@@ -92,9 +92,7 @@ export function TwinUncertaintyTab() {
         albedo: 0.2,
         bifacial_gain: 0.1,
         temp_coeff: -0.4
-      },
-      created_at: item.created_at,
-      updated_at: item.updated_at
+      }
     }));
     
     setTwins(mappedTwins);
@@ -172,7 +170,6 @@ export function TwinUncertaintyTab() {
       .from('compliance_rules')
       .update({ 
         validation_logic: { 
-          ...selectedTwin,
           simulation_results: simulationResults 
         }
       })
@@ -308,8 +305,8 @@ export function TwinUncertaintyTab() {
 
             {selectedTwin && (
               <Button 
-                onClick={() => simulateTwin(selectedTwin.id)}
-                disabled={isSimulating}
+                onClick={() => selectedTwin && simulateTwin(selectedTwin.id)}
+                disabled={isSimulating || !selectedTwin}
                 className="w-full"
               >
                 {isSimulating ? 'Simulating...' : 'Run Physics Simulation'}
