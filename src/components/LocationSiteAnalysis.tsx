@@ -30,7 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { getDnspByPostcode, getDefaultMeterType, type DnspDetails } from '@/utils/dnspResolver';
 import { Glass } from './Glass';
-import { SiteMapView } from './SiteMapView';
+import InteractiveMap from './InteractiveMap';
 
 interface LocationData {
   address: string;
@@ -602,17 +602,22 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
         </motion.div>
       )}
 
-      {/* Site Map View */}
+      {/* Interactive Map */}
       {locationData && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <SiteMapView 
+          <InteractiveMap 
             lat={locationData.lat}
             lng={locationData.lng}
             address={locationData.address}
+            onLocationSelect={(lat, lng, addr) => {
+              const updated = { ...locationData, lat, lng, address: addr };
+              setLocationData(updated);
+              onLocationUpdate?.(updated);
+            }}
           />
         </motion.div>
       )}

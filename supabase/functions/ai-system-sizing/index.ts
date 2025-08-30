@@ -80,11 +80,18 @@ Deno.serve(async (req) => {
     // Calculate base solar sizing with advanced factors
     let sizingMultiplier = 1.0;
 
+    // Safely access siteData properties
+    const siteData = request.siteData || {};
+    const shadingFactor = siteData.shadingFactor || 0.15;
+    const solarIrradiance = siteData.solarIrradiance || 5.2;
+    const roofArea = siteData.roofArea || 100;
+    const maxPanels = siteData.maxPanels || 20;
+
     // Shading adjustment
-    sizingMultiplier += request.siteData.shadingFactor * 0.3;
+    sizingMultiplier += shadingFactor * 0.3;
 
     // Irradiance adjustment
-    if (request.siteData.solarIrradiance < 5) {
+    if (solarIrradiance < 5) {
       sizingMultiplier += 0.15;
     }
 
@@ -112,7 +119,7 @@ Deno.serve(async (req) => {
     const baseSolarKw = (annualUsage * sizingMultiplier) / (1400 * stateFactor);
     const recommendedKw = Math.min(
       Math.round(baseSolarKw * 2) / 2, // Round to nearest 0.5kW
-      Math.floor(request.siteData.maxPanels * 0.55) // Respect roof limits
+      Math.floor(maxPanels * 0.55) // Respect roof limits
     );
 
     // Smart panel selection
@@ -125,7 +132,7 @@ Deno.serve(async (req) => {
     let selectedPanel = suitablePanels[0];
     if (suitablePanels.length > 0) {
       // Prefer higher wattage for smaller roofs, Tier 1 brands for larger systems
-      if (request.siteData.roofArea > 120) {
+      if (roofArea > 120) {
         selectedPanel = suitablePanels.find(p => 
           p.brand?.toLowerCase().includes('sunpower') || 
           p.brand?.toLowerCase().includes('lg') ||
@@ -221,15 +228,15 @@ Deno.serve(async (req) => {
         confidence: 0.94,
         ai_reasoning: `Recommended ${recommendedKw}kW solar system with ${panelCount} × ${panelWattage}W ${selectedPanel?.brand || 'Tier1'} panels sized using advanced methodology: ${Math.round(selfConsumptionRate * 100)}% self-consumption rate${
           batteryCapacity > 0 ? ` with ${batteryCapacity}kWh ${selectedBattery?.brand || 'premium'} battery` : ''
-        }. System accounts for ${Math.round(request.siteData.shadingFactor * 100)}% shading, ${request.siteData.solarIrradiance}kWh/m²/day irradiance${
+        }. System accounts for ${Math.round(shadingFactor * 100)}% shading, ${solarIrradiance}kWh/m²/day irradiance${
           request.evData?.estimatedDailyKwh ? `, and ${request.evData.estimatedDailyKwh}kWh daily EV charging` : ''
         }. Sized for ${Math.round(((annualBill - newAnnualBill) / annualBill) * 100)}% bill reduction and ${paybackYears.toFixed(1)} year payback.`,
         sizing_factors: {
           base_usage: annualUsage,
-          shading_adjustment: request.siteData.shadingFactor,
+          shading_adjustment: shadingFactor,
           irradiance_factor: stateFactor,
           ev_adjustment: request.evData?.estimatedDailyKwh || 0,
-          roof_constraint: request.siteData.maxPanels
+          roof_constraint: maxPanels
         }
       }
     };
