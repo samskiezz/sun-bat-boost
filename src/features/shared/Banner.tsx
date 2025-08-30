@@ -73,7 +73,7 @@ export function Banner({
               <h1 className={cn(
                 "text-3xl md:text-4xl lg:text-5xl font-bold leading-tight",
                 variant === "glassHolo" || variant === "primary" || variant === "gradient"
-                  ? "bg-gradient-to-r from-white via-primary-glow to-white bg-clip-text text-transparent"
+                  ? "bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent"
                   : "bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent"
               )}>
                 {title}
@@ -87,7 +87,7 @@ export function Banner({
                   className={cn(
                     "text-base md:text-lg",
                     variant === "glassHolo" || variant === "primary" || variant === "gradient"
-                      ? tokens.textMuted
+                      ? "text-muted-foreground"
                       : "text-muted-foreground"
                   )}
                 >

@@ -1,20 +1,20 @@
 // Glassmorphic design system tokens
 export const tokens = {
   // Glass panel styles
-  panel: "bg-white/20 backdrop-blur-xl border border-white/30 shadow-[0_8px_40px_rgba(0,0,0,0.12)] rounded-2xl",
-  panelDark: "bg-black/30 border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+  panel: "bg-card/80 backdrop-blur-xl border border-border shadow-[0_8px_40px_rgba(0,0,0,0.12)] rounded-2xl",
+  panelDark: "dark:bg-card/60 dark:border-border/40 dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
   
   // Interactive glass elements
-  button: "bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-sm rounded-xl transition-all duration-300",
-  buttonPrimary: "bg-gradient-to-r from-primary to-primary-glow text-white border-0 shadow-glow hover:shadow-lg",
+  button: "bg-muted/50 hover:bg-muted/80 border border-border backdrop-blur-sm rounded-xl transition-all duration-300 text-foreground",
+  buttonPrimary: "bg-gradient-to-r from-primary to-primary-glow text-primary-foreground border-0 shadow-glow hover:shadow-lg",
   
   // Card variants
-  card: "bg-white/15 backdrop-blur-lg border border-white/25 rounded-2xl shadow-glass",
-  cardHover: "hover:bg-white/25 hover:border-white/40 hover:shadow-elegant hover:-translate-y-1",
+  card: "bg-card/70 backdrop-blur-lg border border-border rounded-2xl shadow-glass",
+  cardHover: "hover:bg-card/90 hover:border-border/60 hover:shadow-elegant hover:-translate-y-1",
   
   // Glow effects
   glow: "ring-1 ring-primary/40 shadow-glow",
-  glowSubtle: "ring-1 ring-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]",
+  glowSubtle: "ring-1 ring-border shadow-[0_0_20px_rgba(0,0,0,0.1)]",
   
   // Text styles
   textGlass: "text-foreground drop-shadow-sm",
@@ -22,7 +22,7 @@ export const tokens = {
   
   // Backgrounds
   backgroundGradient: "bg-gradient-to-br from-primary/10 via-background to-secondary/5",
-  backgroundOverlay: "bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.2),rgba(255,255,255,0))]",
+  backgroundOverlay: "bg-[radial-gradient(circle_at_50%_120%,hsl(var(--primary)/0.2),transparent)]",
   
   // Animation classes
   transition: "transition-all duration-300 ease-out",
@@ -36,12 +36,12 @@ export const tokens = {
   hologram: "relative before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent before:translate-x-[-100%] hover:before:animate-[shimmer_2s_ease-in-out] before:transition-transform",
   
   // Status indicators
-  statusSuccess: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
-  statusWarning: "bg-amber-500/20 text-amber-300 border border-amber-500/30",
-  statusError: "bg-red-500/20 text-red-300 border border-red-500/30",
+  statusSuccess: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30",
+  statusWarning: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30",
+  statusError: "bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30",
   
   // Metrics and badges
-  metric: "bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 text-sm font-medium",
+  metric: "bg-muted/50 backdrop-blur-sm border border-border rounded-lg px-3 py-1.5 text-sm font-medium text-foreground",
   badge: "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/20 text-primary border border-primary/30",
 };
 
