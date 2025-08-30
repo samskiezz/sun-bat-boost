@@ -28,6 +28,7 @@ export function MapboxPolygonMap({
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Fetch Mapbox token
   useEffect(() => {
@@ -53,12 +54,19 @@ export function MapboxPolygonMap({
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
 
+    setMapLoaded(false);
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12', // High-res satellite imagery
       center: [center[1], center[0]], // Mapbox uses [lng, lat]
       zoom: zoom,
       pitch: 0, // Top-down view for polygon drawing
+    });
+
+    // Wait for map to fully load before enabling interactions
+    map.current.on('load', () => {
+      setMapLoaded(true);
     });
 
     // Add navigation controls
@@ -72,7 +80,7 @@ export function MapboxPolygonMap({
     // Handle map clicks for polygon drawing
     if (onMapClick) {
       map.current.on('click', (e) => {
-        if (isDrawing) {
+        if (isDrawing && mapLoaded) {
           const { lng, lat } = e.lngLat;
           onMapClick([lat, lng]);
         }
@@ -82,12 +90,13 @@ export function MapboxPolygonMap({
     // Cleanup
     return () => {
       map.current?.remove();
+      setMapLoaded(false);
     };
   }, [mapboxToken, center, zoom, onMapClick, isDrawing]);
 
   // Update polygon visualization
   useEffect(() => {
-    if (!map.current || polygonPoints.length === 0) return;
+    if (!map.current || !mapLoaded || polygonPoints.length === 0) return;
 
     // Remove existing sources and layers
     if (map.current.getSource('polygon')) {
@@ -199,11 +208,11 @@ export function MapboxPolygonMap({
       });
     }
 
-  }, [polygonPoints, isPolygonClosed]);
+  }, [polygonPoints, isPolygonClosed, mapLoaded]);
 
   // Fit map to polygon bounds when polygon is completed
   useEffect(() => {
-    if (!map.current || !isPolygonClosed || polygonPoints.length < 3) return;
+    if (!map.current || !mapLoaded || !isPolygonClosed || polygonPoints.length < 3) return;
 
     const coordinates = polygonPoints.map(point => [point[1], point[0]]);
     const bounds = coordinates.reduce((bounds, coord) => {
