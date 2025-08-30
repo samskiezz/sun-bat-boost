@@ -24,6 +24,32 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      
+      // Ban local math calculations in tabs - enforce using format utils and ML hooks
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "CallExpression[callee.property.name='toLocaleString']",
+          "message": "Use formatNumber, formatCurrency, or other utils from @/utils/format instead of direct .toLocaleString()"
+        },
+        {
+          "selector": "BinaryExpression[operator='*'][left.type='Literal'][right.type='Literal']",
+          "message": "Avoid hardcoded math calculations in components - use ML predictions or utilities"
+        },
+        {
+          "selector": "VariableDeclarator[id.name=/.*[Cc]alculation.*|.*[Ss]avings.*|.*[Rr]oi.*/][init.type='BinaryExpression']",
+          "message": "Use ML hooks (useSolarROI, useBatteryROI) instead of local calculations"
+        }
+      ],
+      
+      // Encourage consistent styling
+      "no-restricted-globals": [
+        "error",
+        {
+          "name": "className",
+          "message": "Use design system tokens from @/theme/tokens instead of arbitrary classes"
+        }
+      ]
     },
   }
 );

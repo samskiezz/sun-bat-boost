@@ -93,7 +93,6 @@ export function Banner({
                 >
                   {subtitle}
                 </motion.p>
-                </p>
               )}
             </div>
           </motion.div>
