@@ -1044,6 +1044,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pv_twins: {
+        Row: {
+          created_at: string
+          id: string
+          location: string
+          orientation_degrees: number
+          physics_params: Json
+          simulation_results: Json | null
+          site_name: string
+          system_kw: number
+          tilt_degrees: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location: string
+          orientation_degrees?: number
+          physics_params?: Json
+          simulation_results?: Json | null
+          site_name: string
+          system_kw?: number
+          tilt_degrees?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string
+          orientation_degrees?: number
+          physics_params?: Json
+          simulation_results?: Json | null
+          site_name?: string
+          system_kw?: number
+          tilt_degrees?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       readiness_gates: {
         Row: {
           created_at: string

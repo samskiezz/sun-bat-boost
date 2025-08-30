@@ -18,10 +18,11 @@ import DnspChecker from "@/components/SystemManager/DnspChecker";
 import NetworkMapVisualization from "@/components/SystemManager/NetworkMapVisualization";
 import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
 // Tab component imports
-import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTab";
-import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTab";
+import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTabNew";
+import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTabNew";
 import { ComplianceTab } from "@/components/ComplianceTab";
 import { MonitoringTab } from "@/components/MonitoringTab";
+import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -105,8 +106,12 @@ export default function SystemManager() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="catalog" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+      <Tabs defaultValue="health" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-10">
+          <TabsTrigger value="health" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Health
+          </TabsTrigger>
           <TabsTrigger value="catalog" className="flex items-center gap-2">
             <Database className="w-4 h-4" />
             Catalog
@@ -144,6 +149,10 @@ export default function SystemManager() {
             Drift Monitoring
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="health">
+          <SystemHealthDashboard />
+        </TabsContent>
 
         <TabsContent value="catalog">
           <OneCatalogManager />
