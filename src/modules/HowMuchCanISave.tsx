@@ -20,6 +20,7 @@ import { StatusStrip } from "@/features/shared/StatusStrip";
 import { useSolarROI } from "@/hooks/useModels";
 import { formatCurrency, formatNumber } from "@/utils/format";
 import type { RankContext } from "@/energy/rankPlans";
+import { cn } from "@/lib/utils";
 
 type Step = 'method' | 'current-bill' | 'location' | 'system-sizing' | 'best-rates' | 'savings-analysis';
 
@@ -279,14 +280,12 @@ export default function HowMuchCanISave() {
               title="Smart Bill Analysis"
               value="AI-Powered"
               subtitle="Upload your electricity bill for automated pattern recognition"
-              icon={Upload}
               variant="glass"
             />
             <MetricTile
               title="Real-Time Sizing"
               value={formatNumber(systemSize.recommendedKw)}
               subtitle="AI calculates optimal system size based on your usage"
-              icon={Zap}
               variant="glass"
               format="custom"
             />
@@ -295,18 +294,17 @@ export default function HowMuchCanISave() {
               value={solarROIQuery.data?.value?.annual_savings_AUD || 0}
               format="currency"
               subtitle="Annual savings projection with confidence bands"
-              icon={TrendingDown}
               variant="glass"
             />
           </div>
         </Banner>
 
         {/* Progress Steps */}
-        <Card className="glass-card">
+        <Card className={cn("glass-card")}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">Solar Savings Calculator</h2>
-              <Badge variant="outline" className="text-white border-white/20">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Solar Savings Calculator</h2>
+              <Badge variant="outline" className="text-gray-800 dark:text-gray-200 border-border">
                 {currentStepIndex + 1} of {steps.length}
               </Badge>
             </div>
@@ -319,9 +317,10 @@ export default function HowMuchCanISave() {
                 return (
                   <div 
                     key={step.id}
-                    className={`flex items-center gap-2 ${
-                      index <= currentStepIndex ? 'text-primary' : 'text-white/50'
-                    }`}
+                    className={cn(
+                      "flex items-center gap-2",
+                      index <= currentStepIndex ? 'text-primary' : 'text-gray-500'
+                    )}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="hidden sm:inline">{step.title}</span>
@@ -344,7 +343,7 @@ export default function HowMuchCanISave() {
             {currentStep === 'method' && (
               <Card className="glass-card">
                 <CardHeader>
-                  <CardTitle className="text-white">Choose Input Method</CardTitle>
+                  <CardTitle className="text-gray-900 dark:text-gray-100">Choose Input Method</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
@@ -354,12 +353,12 @@ export default function HowMuchCanISave() {
                         nextStep();
                       }}
                       variant="outline"
-                      className="h-24 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="h-24 bg-muted/50 hover:bg-muted/80 text-foreground"
                     >
                       <div className="text-center">
                         <FileText className="h-6 w-6 mx-auto mb-2" />
                         <div>Manual Entry</div>
-                        <div className="text-sm text-white/70">Enter bill details manually</div>
+                        <div className="text-sm text-muted-foreground">Enter bill details manually</div>
                       </div>
                     </Button>
                     
@@ -369,12 +368,12 @@ export default function HowMuchCanISave() {
                         nextStep();
                       }}
                       variant="outline"
-                      className="h-24 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="h-24 bg-muted/50 hover:bg-muted/80 text-foreground"
                     >
                       <div className="text-center">
                         <Upload className="h-6 w-6 mx-auto mb-2" />
                         <div>Upload Bill</div>
-                        <div className="text-sm text-white/70">AI-powered bill analysis</div>
+                        <div className="text-sm text-muted-foreground">AI-powered bill analysis</div>
                       </div>
                     </Button>
                   </div>
@@ -385,7 +384,7 @@ export default function HowMuchCanISave() {
             {currentStep === 'current-bill' && (
               <Card className="glass-card">
                 <CardHeader>
-                  <CardTitle className="text-white">Energy Bill Analysis</CardTitle>
+                  <CardTitle className="text-gray-900 dark:text-gray-100">Energy Bill Analysis</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {inputMethod === 'upload' ? (
@@ -398,7 +397,7 @@ export default function HowMuchCanISave() {
                     <div className="space-y-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="usage" className="text-white">Quarterly Usage (kWh)</Label>
+                          <Label htmlFor="usage" className="text-foreground">Quarterly Usage (kWh)</Label>
                           <Input
                             id="usage"
                             type="number"
@@ -407,12 +406,12 @@ export default function HowMuchCanISave() {
                               ...prev,
                               quarterlyUsage: Number(e.target.value)
                             }))}
-                            className="bg-white/10 border-white/20 text-white"
+                            className="mt-1"
                             placeholder="e.g. 2500"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="bill" className="text-white">Quarterly Bill ($)</Label>
+                          <Label htmlFor="bill" className="text-foreground">Quarterly Bill ($)</Label>
                           <Input
                             id="bill"
                             type="number"
@@ -421,7 +420,7 @@ export default function HowMuchCanISave() {
                               ...prev,
                               quarterlyBill: Number(e.target.value)
                             }))}
-                            className="bg-white/10 border-white/20 text-white"
+                            className="mt-1"
                             placeholder="e.g. 750"
                           />
                         </div>
@@ -438,7 +437,7 @@ export default function HowMuchCanISave() {
             {currentStep === 'location' && (
               <Card className="glass-card">
                 <CardHeader>
-                  <CardTitle className="text-white">Location & Network</CardTitle>
+                  <CardTitle className="text-gray-900 dark:text-gray-100">Location & Network</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <LocationAutoFill
@@ -456,59 +455,38 @@ export default function HowMuchCanISave() {
             )}
 
             {currentStep === 'system-sizing' && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="text-white">System Sizing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <MetricTile
-                      title="Recommended System Size"
-                      value={`${formatNumber(systemSize.recommendedKw)}kW`}
-                      subtitle="Based on your usage and ML analysis"
-                      icon={Zap}
-                      variant="glass"
-                    />
-                    <Button onClick={() => { calculateSystemSize(); }} className="w-full">
-                      Calculate Optimal Size
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <SystemSizingStep
+                billData={billData}
+                locationData={locationData}
+                systemSize={systemSize}
+                onSystemUpdate={(system) => setSystemSize({
+                  recommendedKw: system.recommendedKw,
+                  panels: system.panels,
+                  battery: system.battery,
+                  estimatedGeneration: system.estimatedGeneration,
+                  confidence: system.confidence || 0,
+                  aiReasoning: system.aiReasoning || ''
+                })}
+                onNext={nextStep}
+              />
             )}
 
             {currentStep === 'best-rates' && (
-              <BestRatesStep 
+              <BestRatesStep
                 locationData={locationData}
                 billData={billData}
                 systemSize={systemSize}
-                onNext={() => setCurrentStep('savings-analysis')} 
+                onNext={nextStep}
               />
             )}
 
             {currentStep === 'savings-analysis' && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="text-white">Savings Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <MetricTile
-                      title="Annual Savings"
-                      value={solarROIQuery.data?.value?.annual_savings_AUD || 0}
-                      format="currency"
-                      subtitle="ML-predicted savings"
-                      variant="glass"
-                    />
-                    <MetricTile
-                      title="System Size"
-                      value={`${formatNumber(systemSize.recommendedKw)}kW`}
-                      subtitle="Optimized for your usage"
-                      variant="glass"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <SavingsAnalysisStep
+                billData={billData}
+                locationData={locationData}
+                systemSize={systemSize}
+                selectedPlan={null}
+              />
             )}
           </motion.div>
         </AnimatePresence>
@@ -519,7 +497,7 @@ export default function HowMuchCanISave() {
             onClick={prevStep}
             disabled={currentStepIndex === 0}
             variant="outline"
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            className="bg-muted/50 hover:bg-muted/80 text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Previous
@@ -529,7 +507,7 @@ export default function HowMuchCanISave() {
             onClick={nextStep}
             disabled={currentStepIndex === steps.length - 1}
             variant="outline"
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            className="bg-muted/50 hover:bg-muted/80 text-foreground"
           >
             Next
             <ArrowRight className="w-4 h-4 ml-2" />
