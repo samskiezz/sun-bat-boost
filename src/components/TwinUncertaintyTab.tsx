@@ -6,9 +6,10 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { Zap, Sun, Cloud, TreePine, MapPin, Activity } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { GlassChart, GlassLine, GlassArea } from "@/features/shared/GlassChart";
+import { createSeededRandom } from "@/utils/deterministicRandom";
 
 interface PVTwin {
   id: string;
@@ -107,6 +108,10 @@ export function TwinUncertaintyTab() {
   };
 
   const createDemoTwin = async () => {
+    // Use deterministic seed for consistent demo creation
+    const seed = `twin_${Date.now()}`;
+    const random = createSeededRandom(seed);
+    
     const demoTwin = {
       site_id: `site_${Date.now()}`,
       location: {
@@ -157,18 +162,21 @@ export function TwinUncertaintyTab() {
   const simulateTwin = async (twinId: string) => {
     setIsSimulating(true);
     
+    // Use seeded random for consistent simulation results
+    const random = createSeededRandom(`simulation_${twinId}`);
+    
     // Simulate physics-informed PV performance
     const monthlyData = Array.from({ length: 12 }, (_, i) => ({
       month: new Date(2024, i, 1).toLocaleString('default', { month: 'short' }),
-      p10: Math.max(0, 800 + Math.sin(i * Math.PI / 6) * 400 + Math.random() * 100 - 200),
-      p50: 1000 + Math.sin(i * Math.PI / 6) * 500 + Math.random() * 50,
-      p90: 1200 + Math.sin(i * Math.PI / 6) * 600 + Math.random() * 100 + 200
+      p10: Math.max(0, 800 + Math.sin(i * Math.PI / 6) * 400 + random.range(-100, 100)),
+      p50: 1000 + Math.sin(i * Math.PI / 6) * 500 + random.range(-25, 25),
+      p90: 1200 + Math.sin(i * Math.PI / 6) * 600 + random.range(0, 200)
     }));
 
     const hourlyProfile = Array.from({ length: 24 }, (_, hour) => ({
       hour,
       p50_kw: Math.max(0, Math.sin((hour - 6) * Math.PI / 12) * 6 * (hour >= 6 && hour <= 18 ? 1 : 0)),
-      uncertainty_band: 0.5 + Math.random() * 0.3
+      uncertainty_band: 0.5 + random.range(0, 0.3)
     }));
 
     const simulationResults = {
@@ -207,42 +215,26 @@ export function TwinUncertaintyTab() {
     if (!selectedTwin?.simulation_results) return null;
 
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={selectedTwin.simulation_results.monthly_data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Area
-            type="monotone"
-            dataKey="p90"
-            stackId="1"
-            stroke="hsl(var(--primary))"
-            fill="hsl(var(--primary))"
-            fillOpacity={0.1}
-            name="P90 (Optimistic)"
-          />
-          <Area
-            type="monotone"
-            dataKey="p50"
-            stackId="2"
-            stroke="hsl(var(--primary))"
-            fill="hsl(var(--primary))"
-            fillOpacity={0.3}
-            name="P50 (Expected)"
-          />
-          <Area
-            type="monotone"
-            dataKey="p10"
-            stackId="3"
-            stroke="hsl(var(--destructive))"
-            fill="hsl(var(--destructive))"
-            fillOpacity={0.1}
-            name="P10 (Conservative)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+      <GlassChart type="area" data={selectedTwin.simulation_results.monthly_data} height={300}>
+        <GlassArea
+          dataKey="p90"
+          name="P90 (Optimistic)"
+          fill="hsl(var(--primary))"
+          fillOpacity={0.1}
+        />
+        <GlassArea
+          dataKey="p50"
+          name="P50 (Expected)"
+          fill="hsl(var(--primary))"
+          fillOpacity={0.3}
+        />
+        <GlassArea
+          dataKey="p10"
+          name="P10 (Conservative)"
+          fill="hsl(var(--destructive))"
+          fillOpacity={0.1}
+        />
+      </GlassChart>
     );
   };
 
@@ -356,22 +348,14 @@ export function TwinUncertaintyTab() {
                 </TabsContent>
                 
                 <TabsContent value="daily" className="mt-4">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={selectedTwin.simulation_results.hourly_profile}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="hour" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="p50_kw"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        name="Expected Power (kW)"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <GlassChart type="line" data={selectedTwin.simulation_results.hourly_profile} height={300}>
+                    {[<GlassLine
+                      key="p50_kw"
+                      dataKey="p50_kw"
+                      name="Expected Power (kW)"
+                      strokeWidth={2}
+                    />]}
+                  </GlassChart>
                 </TabsContent>
                 
                 <TabsContent value="stats" className="mt-4">

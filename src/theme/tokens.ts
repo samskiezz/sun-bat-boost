@@ -16,9 +16,11 @@ export const tokens = {
   glow: "ring-1 ring-primary/40 shadow-glow",
   glowSubtle: "ring-1 ring-border shadow-[0_0_20px_rgba(0,0,0,0.1)]",
   
-  // Text styles
-  textGlass: "text-gray-900 dark:text-gray-100 drop-shadow-sm",
-  textMuted: "text-gray-700 dark:text-gray-300",
+  // Text styles - semantic colors for proper contrast
+  textPrimary: "text-foreground", 
+  textSecondary: "text-muted-foreground",
+  textGlass: "text-foreground drop-shadow-sm",
+  textMuted: "text-muted-foreground",
   
   // Backgrounds
   backgroundGradient: "bg-gradient-to-br from-primary/10 via-background to-secondary/5",

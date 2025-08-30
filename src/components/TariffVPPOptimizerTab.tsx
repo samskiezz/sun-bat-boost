@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Zap, Battery, DollarSign, TrendingUp, Clock, Calendar } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { GlassChart, GlassLine, GlassBar } from "@/features/shared/GlassChart";
+import { createSeededRandom } from "@/utils/deterministicRandom";
 
 interface TariffOptimization {
   id: string;
@@ -112,6 +113,9 @@ export function TariffVPPOptimizerTab() {
   };
 
   const createDemoOptimization = async () => {
+    const seed = `demo_opt_${Date.now()}`;
+    const random = createSeededRandom(seed);
+    
     const demoOpt = {
       site_id: `site_${Date.now()}`,
       tariff_data: {
@@ -170,6 +174,9 @@ export function TariffVPPOptimizerTab() {
   const runOptimization = async (optId: string) => {
     setIsOptimizing(true);
     
+    // Use seeded random for deterministic results
+    const random = createSeededRandom(`opt_${optId}`);
+    
     // Simulate multi-objective optimization
     const hourlyPlan = Array.from({ length: 24 }, (_, hour) => {
       const isPeak = hour >= 17 && hour <= 21;
@@ -179,10 +186,10 @@ export function TariffVPPOptimizerTab() {
       let charge_kw = 0, discharge_kw = 0, grid_export_kw = 0;
       
       if (isOffPeak) {
-        charge_kw = 3 + Math.random() * 2; // Charge during cheap times
+        charge_kw = 3 + random.range(0, 2); // Charge during cheap times
       } else if (isPeak && isVppDispatch) {
-        discharge_kw = 4 + Math.random() * 1; // Discharge during expensive/VPP times
-        grid_export_kw = 2 + Math.random() * 3;
+        discharge_kw = 4 + random.range(0, 1); // Discharge during expensive/VPP times
+        grid_export_kw = 2 + random.range(0, 3);
       }
       
       const savings_aud = isPeak ? (discharge_kw * 0.45 + grid_export_kw * 0.85) : 
@@ -249,18 +256,11 @@ export function TariffVPPOptimizerTab() {
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="hour" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="discharge" fill="hsl(var(--primary))" name="Battery Discharge (kW)" />
-          <Bar dataKey="charge" fill="hsl(var(--destructive))" name="Battery Charge (kW)" />
-          <Bar dataKey="export" fill="hsl(var(--secondary))" name="Grid Export (kW)" />
-        </BarChart>
-      </ResponsiveContainer>
+      <GlassChart type="bar" data={chartData} height={300}>
+        <GlassBar dataKey="discharge" name="Battery Discharge (kW)" />
+        <GlassBar dataKey="charge" name="Battery Charge (kW)" fill="hsl(var(--destructive))" />
+        <GlassBar dataKey="export" name="Grid Export (kW)" fill="hsl(var(--secondary))" />
+      </GlassChart>
     );
   };
 
@@ -278,29 +278,10 @@ export function TariffVPPOptimizerTab() {
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={savingsData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="hour" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey="savings"
-            stroke="hsl(var(--primary))"
-            strokeWidth={2}
-            name="Hourly Savings ($)"
-          />
-          <Line
-            type="monotone"
-            dataKey="cumulative"
-            stroke="hsl(var(--secondary))"
-            strokeWidth={2}
-            name="Cumulative Savings ($)"
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <GlassChart type="line" data={savingsData} height={300}>
+        <GlassLine dataKey="savings" name="Hourly Savings ($)" />
+        <GlassLine dataKey="cumulative" name="Cumulative Savings ($)" stroke="hsl(var(--secondary))" />
+      </GlassChart>
     );
   };
 
