@@ -111,9 +111,9 @@ export function IntercoordinationTab() {
           <button
             className="text-xs underline mb-2"
             onClick={async () => {
-              const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/orch-traces`, {
+              const res = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/orch-traces", {
                 headers: {
-                  "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                  "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`
                 }
               });
               const json = await res.json();
