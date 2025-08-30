@@ -201,7 +201,7 @@ export function TariffVPPOptimizerTab() {
       .update({ 
         system_design: { 
           ...selectedOpt,
-          dispatch_schedule: { hourlyPlan },
+          dispatch_schedule: { hourly_plan: hourlyPlan },
           savings_projections: savingsProjections 
         }
       })
@@ -217,7 +217,9 @@ export function TariffVPPOptimizerTab() {
   };
 
   const renderDispatchChart = () => {
-    if (!selectedOpt?.dispatch_schedule) return null;
+    if (!selectedOpt?.dispatch_schedule?.hourly_plan || !Array.isArray(selectedOpt.dispatch_schedule.hourly_plan)) {
+      return null;
+    }
 
     const chartData = selectedOpt.dispatch_schedule.hourly_plan.map(h => ({
       hour: `${h.hour}:00`,
@@ -244,7 +246,9 @@ export function TariffVPPOptimizerTab() {
   };
 
   const renderSavingsChart = () => {
-    if (!selectedOpt?.dispatch_schedule) return null;
+    if (!selectedOpt?.dispatch_schedule?.hourly_plan || !Array.isArray(selectedOpt.dispatch_schedule.hourly_plan)) {
+      return null;
+    }
 
     const savingsData = selectedOpt.dispatch_schedule.hourly_plan.map(h => ({
       hour: `${h.hour}:00`,
