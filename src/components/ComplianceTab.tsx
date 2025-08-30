@@ -450,7 +450,7 @@ export function ComplianceTab() {
                         <AccordionTrigger className="hover:no-underline">
                           <div className="flex items-center justify-between w-full mr-4">
                             <div className="flex items-center gap-3">
-                              {getStatusIcon(result.status)}
+                              {getStatusIcon(result?.status || 'unknown')}
                               <div className="text-left">
                                 <div className="font-medium">{ruleCode}</div>
                                 <div className="text-sm text-muted-foreground">
@@ -462,12 +462,12 @@ export function ComplianceTab() {
                               {result.auto_fix_applied && (
                                 <Badge variant="secondary">Auto-Fixed</Badge>
                               )}
-                              <Badge 
-                                variant={result.status === 'pass' ? 'default' : 
-                                        result.status === 'warning' ? 'secondary' : 'destructive'}
-                              >
-                                {result.status.toUpperCase()}
-                              </Badge>
+                               <Badge 
+                                variant={result?.status === 'pass' ? 'default' : 
+                                        result?.status === 'warning' ? 'secondary' : 'destructive'}
+                               >
+                                 {result?.status?.toUpperCase() || 'UNKNOWN'}
+                               </Badge>
                             </div>
                           </div>
                         </AccordionTrigger>
