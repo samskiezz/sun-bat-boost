@@ -17,6 +17,10 @@ import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
 import NetworkMapVisualization from "@/components/SystemManager/NetworkMapVisualization";
 import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
+import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTab";
+import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTab";
+import { ComplianceTab } from "@/components/ComplianceTab";
+import { MonitoringTab } from "@/components/MonitoringTab";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -186,75 +190,19 @@ export default function SystemManager() {
         </TabsContent>
 
         <TabsContent value="twin">
-          <Card>
-            <CardHeader>
-              <CardTitle>Physics PV Digital Twin & Uncertainty</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Physics-informed PV simulation with P10/P50/P90 confidence bands.
-                This will integrate with pvlib-python for accurate irradiance modeling,
-                soiling factors, albedo effects, and bifacial gains.
-              </p>
-              <div className="mt-4">
-                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <TwinUncertaintyTab />
         </TabsContent>
 
         <TabsContent value="optimizer">
-          <Card>
-            <CardHeader>
-              <CardTitle>Real-time Tariff/VPP Optimizer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Multi-objective optimization for cost, emissions, and grid services.
-                Includes dynamic tariff optimization, VPP dispatch scheduling,
-                and real-time savings projections with uncertainty bands.
-              </p>
-              <div className="mt-4">
-                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <TariffVPPOptimizerTab />
         </TabsContent>
 
         <TabsContent value="compliance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Compliance Guardrails</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Automated AS/NZS 3000, 4777.1, 5139 compliance checking.
-                Auto-generates evidence packages, compliance checklists,
-                and integrates with CEC product validation.
-              </p>
-              <div className="mt-4">
-                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <ComplianceTab />
         </TabsContent>
 
         <TabsContent value="drift">
-          <Card>
-            <CardHeader>
-              <CardTitle>Drift & Quality Monitoring</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Real-time model performance and data quality monitoring.
-                Detects data drift, concept drift, and performance degradation
-                with automated alerts and remediation workflows.
-              </p>
-              <div className="mt-4">
-                <Badge variant="secondary">Coming Soon - Database Migration Pending</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <MonitoringTab />
         </TabsContent>
       </Tabs>
     </div>
