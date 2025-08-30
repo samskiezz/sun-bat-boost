@@ -128,18 +128,22 @@ export const TariffVPPOptimizerTab = () => {
 
       if (error) throw error;
 
-      const mappedOptimizations: TariffOptimization[] = (data || []).map((opt) => ({
-        id: opt.id,
-        site_id: opt.site_id,
-        created_at: opt.created_at,
-        tariff_data: opt.tariff_data as TariffOptimization['tariff_data'],
-        vpp_rules: opt.vpp_rules as TariffOptimization['vpp_rules'],
-        optimization_params: opt.optimization_params as TariffOptimization['optimization_params'],
-        dispatch_schedule: (opt.optimization_params as any)?.dispatch_schedule || generateMockDispatchData(),
-        savings_projection: (opt.optimization_params as any)?.savings_projection || generateMockSavingsData(),
-        annual_savings: (opt.optimization_params as any)?.annual_savings || 0,
-        vpp_revenue: (opt.optimization_params as any)?.vpp_revenue || 0
-      }));
+      const mappedOptimizations: TariffOptimization[] = (data || []).map((opt) => {
+        const params = opt.optimization_params as any;
+        return {
+          id: opt.id,
+          site_id: opt.site_id,
+          created_at: opt.created_at,
+          tariff_data: opt.tariff_data as TariffOptimization['tariff_data'],
+          vpp_rules: opt.vpp_rules as TariffOptimization['vpp_rules'],
+          optimization_params: params,
+          // Access nested data properly
+          dispatch_schedule: params?.dispatch_schedule || generateMockDispatchData(),
+          savings_projection: params?.savings_projection || generateMockSavingsData(),
+          annual_savings: params?.annual_savings || 0,
+          vpp_revenue: params?.vpp_revenue || 0
+        };
+      });
 
       setOptimizations(mappedOptimizations);
       if (mappedOptimizations.length > 0) {
@@ -157,10 +161,15 @@ export const TariffVPPOptimizerTab = () => {
 
   const createDemoOptimization = async () => {
     try {
-      const locations = ['Sydney', 'Melbourne', 'Adelaide', 'Perth', 'Brisbane'];
+      const locations = ['Sydney', 'Melbourne', 'Adelaide', 'Perth', 'Brisbane', 'Darwin', 'Canberra', 'Hobart'];
       const location = locations[Math.floor(Math.random() * locations.length)];
-      const systemKw = 5 + Math.random() * 15;
-      const batteryKwh = 10 + Math.random() * 20;
+      
+      // More varied system sizes for better demo variety
+      const systemSizes = [5.5, 6.6, 8.2, 10.4, 13.2, 15.8, 18.7, 22.1];
+      const batterySizes = [10.2, 13.5, 16.8, 20.4, 24.9, 29.0, 33.6];
+      
+      const systemKw = systemSizes[Math.floor(Math.random() * systemSizes.length)];
+      const batteryKwh = batterySizes[Math.floor(Math.random() * batterySizes.length)];
       
       const siteId = `${location.toLowerCase()}_${Date.now()}`;
       
@@ -198,17 +207,18 @@ export const TariffVPPOptimizerTab = () => {
 
       if (newOpts.data?.[0]) {
         const opt = newOpts.data[0];
+        const params = opt.optimization_params as any;
         const mappedOpt: TariffOptimization = {
           id: opt.id,
           site_id: opt.site_id,
           created_at: opt.created_at,
           tariff_data: opt.tariff_data as TariffOptimization['tariff_data'],
           vpp_rules: opt.vpp_rules as TariffOptimization['vpp_rules'],
-          optimization_params: opt.optimization_params as TariffOptimization['optimization_params'],
-          dispatch_schedule: (opt.optimization_params as any)?.dispatch_schedule || [],
-          savings_projection: (opt.optimization_params as any)?.savings_projection || [],
-          annual_savings: (opt.optimization_params as any)?.annual_savings || 0,
-          vpp_revenue: (opt.optimization_params as any)?.vpp_revenue || 0
+          optimization_params: params,
+          dispatch_schedule: params?.dispatch_schedule || [],
+          savings_projection: params?.savings_projection || [],
+          annual_savings: params?.annual_savings || 0,
+          vpp_revenue: params?.vpp_revenue || 0
         };
         setSelectedOptimization(mappedOpt);
       }
@@ -382,7 +392,7 @@ export const TariffVPPOptimizerTab = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold">
-                {selectedOptimization.optimization_params.battery_capacity}kWh
+                {formatNumber(selectedOptimization.optimization_params.battery_capacity)}kWh
               </div>
               <div className="text-sm text-muted-foreground">Battery Capacity</div>
             </CardContent>

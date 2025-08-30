@@ -130,7 +130,7 @@ export default function SystemManager() {
           </TabsTrigger>
           <TabsTrigger value="monitoring" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
-            Legacy Monitor
+            System Monitor
           </TabsTrigger>
           <TabsTrigger value="twin" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
