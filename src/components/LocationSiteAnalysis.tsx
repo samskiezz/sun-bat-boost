@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getDnspByPostcode, getDefaultMeterType, type DnspDetails } from '@/utils/dnspResolver';
 import { Glass } from './Glass';
 import InteractiveMap from './InteractiveMap';
+import AddressOCRScanner from './AddressOCRScanner';
 
 interface LocationData {
   address: string;
@@ -101,6 +102,7 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
   
   // Site analysis state
   const [siteAnalysis, setSiteAnalysis] = useState<SiteAnalysis>({
@@ -154,8 +156,15 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
 
   const analyzeLocation = useCallback(async (fullAddress: string, postcode: string) => {
     setLocationLoading(true);
+    setMapLoading(true);
     
     try {
+      // Show immediate feedback
+      toast({
+        title: "Analyzing Location...",
+        description: "Getting network details and site data"
+      });
+
       // Get DNSP details
       const dnspDetails = await getDnspByPostcode(postcode);
       const defaultMeterType = getDefaultMeterType(dnspDetails.state);
@@ -182,7 +191,7 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
       performSiteAnalysis(lat, lng);
       
       toast({
-        title: "Location Analyzed",
+        title: "Location Analyzed ✅",
         description: `Found ${dnspDetails.network}, ${dnspDetails.state}`,
       });
       
@@ -194,6 +203,8 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
       });
     } finally {
       setLocationLoading(false);
+      // Keep mapLoading true until map component loads
+      setTimeout(() => setMapLoading(false), 2000);
     }
   }, [onLocationUpdate, toast]);
 
@@ -251,6 +262,23 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
           Let's analyze your property for optimal solar system design
         </p>
       </div>
+
+      {/* Auto-detect Address with OCR */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <AddressOCRScanner 
+          onAddressDetected={(detectedAddress) => {
+            setAddress(detectedAddress);
+            // Auto-analyze the detected address
+            const postcodeMatch = detectedAddress.match(/(\d{4})/);
+            if (postcodeMatch) {
+              analyzeLocation(detectedAddress, postcodeMatch[1]);
+            }
+          }}
+        />
+      </motion.div>
 
       {/* Address Input with Autocomplete */}
       <Glass className="p-6">
@@ -609,16 +637,28 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <InteractiveMap 
-            lat={locationData.lat}
-            lng={locationData.lng}
-            address={locationData.address}
-            onLocationSelect={(lat, lng, addr) => {
-              const updated = { ...locationData, lat, lng, address: addr };
-              setLocationData(updated);
-              onLocationUpdate?.(updated);
-            }}
-          />
+          {mapLoading ? (
+            <Card className="p-8 text-center">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <div className="text-lg font-medium">Loading Interactive Map...</div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Initializing satellite view and location services
+              </div>
+            </Card>
+          ) : (
+            <InteractiveMap 
+              lat={locationData.lat}
+              lng={locationData.lng}
+              address={locationData.address}
+              onLocationSelect={(lat, lng, addr) => {
+                const updated = { ...locationData, lat, lng, address: addr };
+                setLocationData(updated);
+                onLocationUpdate?.(updated);
+              }}
+            />
+          )}
         </motion.div>
       )}
     </div>
