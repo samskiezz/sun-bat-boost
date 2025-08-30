@@ -24,12 +24,63 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
   
   // CORRECTED CALCULATIONS - All formulas validated for accuracy
   const calculations = useMemo(() => {
-    // Base energy metrics - from AI sizing or fallback calculations
+    // CRITICAL: Use AI sizing financial data if available, otherwise calculate
     const financialData = systemSize?.financial || {};
-    const baseCurrentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
-    const baseNewAnnualBill = financialData.new_annual_bill || baseCurrentAnnualBill;
-    const baseSavings = financialData.annual_savings || 0;
     
+    // If AI data is available, use it directly
+    if (financialData.annual_savings && financialData.annual_savings > 0) {
+      const baseCurrentAnnualBill = financialData.current_annual_bill || (billData.quarterlyBill * 4);
+      const baseNewAnnualBill = financialData.new_annual_bill || (baseCurrentAnnualBill - financialData.annual_savings);
+      const baseSavings = financialData.annual_savings;
+      
+      console.log('💰 Using AI financial data:', { baseCurrentAnnualBill, baseSavings, baseNewAnnualBill });
+      
+      return calculateWithData(baseCurrentAnnualBill, baseNewAnnualBill, baseSavings, financialData);
+    }
+    
+    // FALLBACK: Calculate savings manually if AI data missing or zero
+    console.warn('⚠️ AI financial data missing/zero, calculating manually...');
+    
+    const annualUsage = billData.quarterlyUsage * 4;
+    const currentBill = billData.quarterlyBill * 4;
+    const avgRate = billData.averageRate / 100; // Convert c/kWh to $/kWh
+    
+    // System specifications
+    const systemKw = systemSize?.recommendedKw || 0;
+    const batteryKwh = systemSize?.battery || 0;
+    
+    if (systemKw === 0) {
+      console.warn('⚠️ No system size specified, using minimal fallback');
+      return calculateWithData(currentBill, currentBill * 0.95, currentBill * 0.05, {});
+    }
+    
+    // Calculate generation and savings
+    const annualGeneration = systemKw * 1400; // kWh/year (conservative estimate)
+    const selfConsumption = Math.min(annualUsage * 0.3, annualGeneration * 0.7); // 30% usage overlap, 70% generation rate
+    const exportGeneration = annualGeneration - selfConsumption;
+    
+    // Financial calculations
+    const selfConsumptionSavings = selfConsumption * avgRate;
+    const exportIncome = exportGeneration * 0.06; // 6c FiT
+    const batteryTimeshiftSavings = batteryKwh > 0 ? Math.min(annualUsage * 0.2 * (avgRate - 0.18), batteryKwh * 365 * 0.15) : 0;
+    
+    const totalSavings = selfConsumptionSavings + exportIncome + batteryTimeshiftSavings;
+    const newBill = Math.max(0, currentBill - totalSavings);
+    
+    console.log('🧮 Manual calculation:', {
+      systemKw, annualGeneration, selfConsumption, exportGeneration,
+      selfConsumptionSavings, exportIncome, batteryTimeshiftSavings, totalSavings
+    });
+    
+    return calculateWithData(currentBill, newBill, totalSavings, {
+      annual_generation: annualGeneration,
+      self_consumption: selfConsumption,
+      export_generation: exportGeneration,
+      export_income: exportIncome
+    });
+  }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome]);
+  
+  const {
     // EV charging calculations (CORRECTED FORMULAS)
     const evAnnualChargingCost = includeEV ? 
       (evChargingKwh * 12 * (billData.averageRate / 100) * evChargingAtHome) : 0;
@@ -42,9 +93,9 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
     const evSolarSavings = evSolarOffsetPotential * (billData.averageRate / 100);
     
     // Total bill calculations including EV
-    const totalCurrentAnnualBill = baseCurrentAnnualBill + evAnnualChargingCost;
+    const totalCurrentAnnualBill = currentBill + evAnnualChargingCost;
     const totalSavings = baseSavings + evSolarSavings;
-    const totalNewAnnualBill = totalCurrentAnnualBill - totalSavings;
+    const totalNewAnnualBill = newBill + evAnnualChargingCost - evSolarSavings;
     
     // System performance metrics
     const solarGeneration = financialData.annual_generation || 0;
@@ -53,12 +104,12 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
     const exportIncome = financialData.export_income || 0;
     
     // System specifications
-    const systemKw = systemSize?.recommendations?.panels?.totalKw || 0;
-    const batteryKwh = systemSize?.recommendations?.battery?.capacity_kwh || 0;
+    const systemKw = systemSize?.recommendedKw || systemSize?.recommendations?.panels?.totalKw || 0;
+    const batteryKwh = systemSize?.battery || systemSize?.recommendations?.battery?.capacity_kwh || 0;
     const annualUsage = billData.quarterlyUsage * 4;
     
     // Energy independence calculation (CORRECTED)
-    const energyIndependence = solarGeneration > 0 ? 
+    const energyIndependence = solarGeneration > 0 && annualUsage > 0 ? 
       Math.min(100, Math.round((solarSelfConsumption / annualUsage) * 100)) : 0;
     
     // Savings breakdown (CORRECTED FORMULAS)
@@ -74,7 +125,7 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
       newAnnualBill: totalNewAnnualBill,
       totalSavings,
       monthlySavings: Math.round(totalSavings / 12),
-      billReductionPercent: Math.round((totalSavings / totalCurrentAnnualBill) * 100),
+      billReductionPercent: totalCurrentAnnualBill > 0 ? Math.round((totalSavings / totalCurrentAnnualBill) * 100) : 0,
       solarGeneration,
       solarSelfConsumption,
       solarExport,
@@ -89,6 +140,7 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
       evAnnualChargingCost,
       co2Avoided
     };
+  };
   }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome]);
   
   const {

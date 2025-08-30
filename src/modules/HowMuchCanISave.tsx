@@ -13,7 +13,7 @@ import BestRatesStep from "@/components/BestRatesStep";
 import SavingsAnalysisStep from "@/components/SavingsAnalysisStep";
 import SystemSizingStep from "@/components/SystemSizingStep";
 import EnhancedOCRScanner from "@/components/EnhancedOCRScanner";
-import { LocationAutoFill } from "@/components/LocationAutoFill";
+import SiteShadingAnalyzer from "@/components/SiteShadingAnalyzer";
 import { Banner } from "@/features/shared/Banner";
 import { MetricTile } from "@/features/shared/MetricTile";
 import { StatusStrip } from "@/features/shared/StatusStrip";
@@ -437,17 +437,46 @@ export default function HowMuchCanISave() {
             {currentStep === 'location' && (
               <Card className="glass-card">
                 <CardHeader>
-                  <CardTitle className="text-gray-900 dark:text-gray-100">Location & Network</CardTitle>
+                  <CardTitle className="text-gray-900 dark:text-gray-100">Location & Site Analysis</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <LocationAutoFill
+                  <SiteShadingAnalyzer
                     onLocationUpdate={(data) => {
-                      setLocationData(data);
+                      setLocationData({
+                        postcode: data.postcode,
+                        state: data.state,
+                        network: data.network,
+                        meterType: data.meterType
+                      });
+                    }}
+                    onSiteUpdate={(siteData) => {
+                      setBillData(prev => ({
+                        ...prev,
+                        siteAnalysis: {
+                          roofSlope: siteData.tilt,
+                          roofAzimuth: siteData.azimuth,
+                          shadingFactor: siteData.shadingFactor,
+                          solarAccess: siteData.solarPotential,
+                          latitude: locationData.postcode ? -33.8688 : undefined,
+                          longitude: locationData.postcode ? 151.2093 : undefined,
+                        }
+                      }));
+                    }}
+                    onEVUpdate={(evData) => {
+                      setBillData(prev => ({
+                        ...prev,
+                        hasEV: evData.hasEV,
+                        evChargingKwh: evData.evChargingKwh
+                      }));
                     }}
                   />
                   <div className="mt-6">
-                    <Button onClick={nextStep} className="w-full">
-                      Continue to System Sizing
+                    <Button 
+                      onClick={calculateSystemSize} 
+                      className="w-full"
+                      disabled={!locationData.postcode}
+                    >
+                      Continue to AI System Sizing
                     </Button>
                   </div>
                 </CardContent>

@@ -113,62 +113,95 @@ export function TariffVPPOptimizerTab() {
   };
 
   const createDemoOptimization = async () => {
-    const seed = `demo_opt_${Date.now()}`;
-    const random = createSeededRandom(seed);
+    setIsOptimizing(true);
     
-    const demoOpt = {
-      site_id: `site_${Date.now()}`,
-      tariff_data: {
-        peak_rate: 0.45,
-        shoulder_rate: 0.32,
-        off_peak_rate: 0.18,
-        export_rate: 0.06,
-        daily_charge: 1.20
-      },
-      vpp_rules: vppEnabled ? {
-        export_limit_kw: 5.0,
-        dispatch_windows: [
-          { start: '17:00', end: '21:00', rate: 0.85 },
-          { start: '06:00', end: '09:00', rate: 0.75 }
-        ],
-        participation_reward: 350
-      } : undefined,
-      optimization_params: {
-        battery_capacity_kwh: 13.5,
-        max_charge_rate: 5.0,
-        max_discharge_rate: 5.0,
-        round_trip_efficiency: 0.9
+    try {
+      const seed = `demo_opt_${Date.now()}`;
+      const random = createSeededRandom(seed);
+      
+      // Call the real tariff-optimizer edge function
+      const { data, error } = await supabase.functions.invoke('tariff-optimizer', {
+        body: {
+          siteId: `site_${Date.now()}`,
+          systemKw: 8.2,
+          batteryKwh: 16.8,
+          location: {
+            postcode: "2000",
+            state: "NSW",
+            network: "Ausgrid"
+          },
+          vppEnabled: vppEnabled,
+          tariffStructure: {
+            peak_rate: 0.45,
+            shoulder_rate: 0.32,
+            off_peak_rate: 0.18,
+            export_rate: 0.06,
+            daily_charge: 1.20
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
       }
-    };
 
-    // For now, insert into compliance_checks as demo until types regenerate
-    const { data, error } = await supabase
-      .from('compliance_checks')
-      .insert([{
-        site_id: demoOpt.site_id,
-        system_design: demoOpt,
-        check_results: { status: 'optimized' },
-        overall_status: 'compliant',
-        evidence_package: {}
-      }])
-      .select()
-      .single();
+      console.log('✅ Real optimization result:', data);
+      
+      // Store the optimization result
+      const optimizationRecord = {
+        id: `opt_${Date.now()}`,
+        site_id: data.siteId,
+        tariff_data: {
+          peak_rate: 0.45,
+          shoulder_rate: 0.32,
+          off_peak_rate: 0.18,
+          export_rate: 0.06,
+          daily_charge: 1.20
+        },
+        vpp_rules: vppEnabled ? {
+          export_limit_kw: 5.0,
+          dispatch_windows: [
+            { start: '17:00', end: '21:00', rate: 0.85 },
+            { start: '06:00', end: '09:00', rate: 0.75 }
+          ],
+          participation_reward: data.savings.vpp_revenue_aud
+        } : undefined,
+        dispatch_schedule: {
+          hourly_plan: data.dispatch.hourly_schedule.map((h: any) => ({
+            hour: h.hour,
+            charge_kw: h.charge_kw,
+            discharge_kw: h.discharge_kw,
+            grid_export_kw: h.grid_export_kw,
+            savings_aud: h.savings_aud
+          }))
+        },
+        savings_projections: {
+          annual_savings_p50: data.savings.annual_savings_aud,
+          annual_savings_p90: data.savings.total_benefit_aud,
+          payback_years: data.savings.payback_years,
+          roi_percent: (data.savings.total_benefit_aud / 15000) * 100
+        }
+      };
 
-    if (error) {
+      // Add to optimizations list
+      setOptimizations(prev => [optimizationRecord, ...prev]);
+      setSelectedOpt(optimizationRecord);
+
+      toast({
+        title: "Success! 🚀",
+        description: `Real optimization complete: $${data.savings.annual_savings_aud}/year savings`,
+      });
+      
+    } catch (error: any) {
+      console.error('Optimization error:', error);
       toast({
         title: "Error",
-        description: "Failed to create optimization",
+        description: error.message || "Failed to run optimization",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsOptimizing(false);
     }
-
-    await runOptimization(data.id);
-    loadOptimizations();
-    toast({
-      title: "Success",
-      description: "Demo optimization created",
-    });
   };
 
   const runOptimization = async (optId: string) => {

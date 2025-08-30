@@ -61,6 +61,13 @@ export default function SystemSizingStep({
     }
   }, [billData, locationData]);
 
+  // Auto-trigger when component loads
+  useEffect(() => {
+    if (!systemSize.recommendedKw && billData.quarterlyUsage > 0 && locationData.postcode) {
+      calculateAIOptimalSize();
+    }
+  }, []);
+
   const calculateAIOptimalSize = async () => {
     setIsCalculating(true);
     try {
