@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Calculator, Zap, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DollarSign, Calculator, Zap, RefreshCw, Upload, Search } from "lucide-react";
 import { Glass } from "@/components/Glass";
 import { Banner } from "@/features/shared/Banner";
 import { MetricTile } from "@/features/shared/MetricTile";
@@ -14,6 +15,8 @@ import { StatusStrip } from "@/features/shared/StatusStrip";
 import { useSolarROI } from "@/hooks/useModels";
 import { useModelStore } from "@/state/modelStore";
 import { tokens } from "@/theme/tokens";
+import { BillsQuotesOCR } from "@/components/BillsQuotesOCR";
+import { ProductPickerForm } from "@/components/forms/ProductPickerForm";
 
 interface RebatesCalculatorModuleProps {
   // Optional props to match original interface if needed
@@ -24,6 +27,7 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
   const [planCount, setPlanCount] = useState(5);
   const [results, setResults] = useState(null);
   const [eligibility, setEligibility] = useState(null);
+  const [activeTab, setActiveTab] = useState("ocr");
   
   // Form data for rebate calculator
   const [formData, setFormData] = useState({
@@ -34,6 +38,10 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
     vppProvider: 'None',
     stcPrice: 38.0
   });
+
+  // OCR and product picker state
+  const [ocrData, setOcrData] = useState(null);
+  const [pickerData, setPickerData] = useState(null);
 
   // Fetch plan count for display
   useEffect(() => {
@@ -101,6 +109,32 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
   
   const handleRequestCall = () => {
     console.log("Request call");
+  };
+
+  // Handle OCR data extraction
+  const handleOCRExtraction = (billData: any) => {
+    console.log("OCR extraction:", billData);
+    setOcrData(billData);
+    
+    // Auto-populate form data if postcode is available
+    if (billData.postcode) {
+      setFormData(prev => ({ ...prev, postcode: billData.postcode }));
+    }
+  };
+
+  // Handle product picker submission
+  const handleProductPickerSubmit = (data: any) => {
+    console.log("Product picker data:", data);
+    setPickerData(data);
+    
+    // Auto-populate form data from product picker
+    setFormData(prev => ({
+      ...prev,
+      solarSize: data.systemKw || prev.solarSize,
+      postcode: data.postcode || prev.postcode,
+      installDate: data.installDate || prev.installDate,
+      stcPrice: data.stcPrice || prev.stcPrice
+    }));
   };
 
   const { lastGoodResults } = useModelStore();
@@ -192,121 +226,149 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
         </div>
       )}
 
-      {/* Rebate Calculator Form */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* System Configuration */}
-        <div className={cn(tokens.card, "p-6 space-y-6")}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Zap className="h-5 w-5 text-primary" />
+      {/* Input Methods Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-white/10 border border-white/20">
+          <TabsTrigger value="ocr" className="data-[state=active]:bg-white/20">
+            <Upload className="w-4 h-4 mr-2" />
+            OCR Scanner
+          </TabsTrigger>
+          <TabsTrigger value="picker" className="data-[state=active]:bg-white/20">
+            <Search className="w-4 h-4 mr-2" />
+            Product Picker
+          </TabsTrigger>
+          <TabsTrigger value="manual" className="data-[state=active]:bg-white/20">
+            <Calculator className="w-4 h-4 mr-2" />
+            Manual Entry
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ocr" className="space-y-6">
+          <BillsQuotesOCR />
+        </TabsContent>
+
+        <TabsContent value="picker" className="space-y-6">
+          <ProductPickerForm onSubmit={handleProductPickerSubmit} appMode="pro" />
+        </TabsContent>
+
+        <TabsContent value="manual" className="space-y-6">
+          {/* Manual Entry Form */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* System Configuration */}
+            <div className={cn(tokens.card, "p-6 space-y-6")}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Zap className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">System Configuration</h3>
+                  <p className="text-sm text-muted-foreground">Configure your solar and battery system</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="solarSize">Solar System Size (kW)</Label>
+                  <Input
+                    id="solarSize"
+                    type="number"
+                    value={formData.solarSize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, solarSize: parseFloat(e.target.value) || 0 }))}
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="batterySize">Battery Size (kWh)</Label>
+                  <Input
+                    id="batterySize"
+                    type="number"
+                    value={formData.batterySize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, batterySize: parseFloat(e.target.value) || 0 }))}
+                    step="0.5"
+                    min="0"
+                    max="50"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="postcode">Postcode</Label>
+                  <Input
+                    id="postcode"
+                    value={formData.postcode}
+                    onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
+                    className="mt-1"
+                    placeholder="Enter your postcode"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold">System Configuration</h3>
-              <p className="text-sm text-muted-foreground">Configure your solar and battery system</p>
+
+            {/* Rebate Details */}
+            <div className={cn(tokens.card, "p-6 space-y-6")}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Rebate Configuration</h3>
+                  <p className="text-sm text-muted-foreground">Additional rebate settings</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="installDate">Installation Date</Label>
+                  <Input
+                    id="installDate"
+                    type="date"
+                    value={formData.installDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, installDate: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="vppProvider">VPP Provider</Label>
+                  <Select
+                    value={formData.vppProvider}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, vppProvider: value }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select VPP provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="None">No VPP</SelectItem>
+                      <SelectItem value="Tesla Energy">Tesla Energy</SelectItem>
+                      <SelectItem value="AGL VPP">AGL VPP</SelectItem>
+                      <SelectItem value="Origin Loop">Origin Loop</SelectItem>
+                      <SelectItem value="Simply Energy">Simply Energy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="stcPrice">STC Price ($/STC)</Label>
+                  <Input
+                    id="stcPrice"
+                    type="number"
+                    value={formData.stcPrice}
+                    onChange={(e) => setFormData(prev => ({ ...prev, stcPrice: parseFloat(e.target.value) || 0 }))}
+                    step="0.50"
+                    min="30"
+                    max="50"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="solarSize">Solar System Size (kW)</Label>
-              <Input
-                id="solarSize"
-                type="number"
-                value={formData.solarSize}
-                onChange={(e) => setFormData(prev => ({ ...prev, solarSize: parseFloat(e.target.value) || 0 }))}
-                step="0.1"
-                min="0"
-                max="100"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="batterySize">Battery Size (kWh)</Label>
-              <Input
-                id="batterySize"
-                type="number"
-                value={formData.batterySize}
-                onChange={(e) => setFormData(prev => ({ ...prev, batterySize: parseFloat(e.target.value) || 0 }))}
-                step="0.5"
-                min="0"
-                max="50"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="postcode">Postcode</Label>
-              <Input
-                id="postcode"
-                value={formData.postcode}
-                onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
-                className="mt-1"
-                placeholder="Enter your postcode"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Rebate Details */}
-        <div className={cn(tokens.card, "p-6 space-y-6")}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <DollarSign className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Rebate Configuration</h3>
-              <p className="text-sm text-muted-foreground">Additional rebate settings</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="installDate">Installation Date</Label>
-              <Input
-                id="installDate"
-                type="date"
-                value={formData.installDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, installDate: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="vppProvider">VPP Provider</Label>
-              <Select
-                value={formData.vppProvider}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, vppProvider: value }))}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select VPP provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="None">No VPP</SelectItem>
-                  <SelectItem value="Tesla Energy">Tesla Energy</SelectItem>
-                  <SelectItem value="AGL VPP">AGL VPP</SelectItem>
-                  <SelectItem value="Origin Loop">Origin Loop</SelectItem>
-                  <SelectItem value="Simply Energy">Simply Energy</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="stcPrice">STC Price ($/STC)</Label>
-              <Input
-                id="stcPrice"
-                type="number"
-                value={formData.stcPrice}
-                onChange={(e) => setFormData(prev => ({ ...prev, stcPrice: parseFloat(e.target.value) || 0 }))}
-                step="0.50"
-                min="30"
-                max="50"
-                className="mt-1"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Calculate Button */}
       <div className="flex justify-center">
