@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, CheckCircle, AlertTriangle, XCircle, Download, FileText, Search } from 'lucide-react';
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface ComplianceRule {
   id: string;
@@ -72,6 +71,7 @@ const DEMO_RULES: Partial<ComplianceRule>[] = [
 ];
 
 export function ComplianceTab() {
+  const { toast } = useToast();
   const [rules, setRules] = useState<ComplianceRule[]>([]);
   const [checks, setChecks] = useState<ComplianceCheck[]>([]);
   const [selectedCheck, setSelectedCheck] = useState<ComplianceCheck | null>(null);
@@ -90,7 +90,11 @@ export function ComplianceTab() {
     
     if (error) {
       console.error('Error loading compliance rules:', error);
-      toast.error('Failed to load compliance rules');
+      toast({
+        title: "Error",
+        description: "Failed to load compliance rules",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -111,7 +115,11 @@ export function ComplianceTab() {
     
     if (error) {
       console.error('Error loading compliance checks:', error);
-      toast.error('Failed to load compliance checks');
+      toast({
+        title: "Error",
+        description: "Failed to load compliance checks",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -152,17 +160,28 @@ export function ComplianceTab() {
 
     if (error) {
       console.error('Error initializing demo rules:', error);
-      toast.error('Failed to initialize demo rules');
+      toast({
+        title: "Error",
+        description: "Failed to initialize demo rules",
+        variant: "destructive",
+      });
       return;
     }
 
-    toast.success('Demo compliance rules initialized');
+    toast({
+      title: "Success",
+      description: "Demo compliance rules initialized",
+    });
     loadRules();
   };
 
   const runComplianceCheck = async () => {
     if (rules.length === 0) {
-      toast.error('No compliance rules found. Initialize demo rules first.');
+      toast({
+        title: "Error",
+        description: "No compliance rules found. Initialize demo rules first.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -257,9 +276,16 @@ export function ComplianceTab() {
 
     if (error) {
       console.error('Error saving compliance check:', error);
-      toast.error('Failed to save compliance check');
+      toast({
+        title: "Error",
+        description: "Failed to save compliance check",
+        variant: "destructive",
+      });
     } else {
-      toast.success(`Compliance check completed: ${passCount} pass, ${warningCount} warnings, ${failCount} failures`);
+      toast({
+        title: "Success",
+        description: `Compliance check completed: ${passCount} pass, ${warningCount} warnings, ${failCount} failures`,
+      });
       loadChecks();
     }
 
@@ -291,7 +317,10 @@ export function ComplianceTab() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast.success('Evidence package exported');
+    toast({
+      title: "Success",
+      description: "Evidence package exported",
+    });
   };
 
   const getStatusIcon = (status: string) => {
@@ -306,21 +335,6 @@ export function ComplianceTab() {
         return <XCircle className="h-5 w-5 text-red-500" />;
       default:
         return <Shield className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pass':
-      case 'compliant':
-        return 'bg-green-500';
-      case 'warning':
-        return 'bg-yellow-500';
-      case 'fail':
-      case 'non_compliant':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
     }
   };
 

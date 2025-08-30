@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Zap, Battery, DollarSign, TrendingUp, Clock, Calendar } from 'lucide-react';
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface TariffOptimization {
   id: string;
@@ -46,6 +46,7 @@ interface TariffOptimization {
 }
 
 export function TariffVPPOptimizerTab() {
+  const { toast } = useToast();
   const [optimizations, setOptimizations] = useState<TariffOptimization[]>([]);
   const [selectedOpt, setSelectedOpt] = useState<TariffOptimization | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -68,7 +69,11 @@ export function TariffVPPOptimizerTab() {
       .order('created_at', { ascending: false });
     
     if (error) {
-      toast.error('Failed to load optimizations');
+      toast({
+        title: "Error",
+        description: "Failed to load optimizations",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -146,13 +151,20 @@ export function TariffVPPOptimizerTab() {
       .single();
 
     if (error) {
-      toast.error('Failed to create optimization');
+      toast({
+        title: "Error",
+        description: "Failed to create optimization",
+        variant: "destructive",
+      });
       return;
     }
 
     await runOptimization(data.id);
     loadOptimizations();
-    toast.success('Demo optimization created');
+    toast({
+      title: "Success",
+      description: "Demo optimization created",
+    });
   };
 
   const runOptimization = async (optId: string) => {
@@ -208,9 +220,16 @@ export function TariffVPPOptimizerTab() {
       .eq('id', optId);
 
     if (error) {
-      toast.error('Failed to save optimization results');
+      toast({
+        title: "Error", 
+        description: "Failed to save optimization results",
+        variant: "destructive",
+      });
     } else {
-      toast.success('Multi-objective optimization completed');
+      toast({
+        title: "Success",
+        description: "Multi-objective optimization completed",
+      });
     }
 
     setIsOptimizing(false);

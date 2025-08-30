@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { AlertTriangle, TrendingUp, TrendingDown, Activity, Eye, Bell, RefreshCw } from 'lucide-react';
-import { toast } from "sonner";
+import { AlertTriangle, TrendingUp, Activity, Eye, Bell, RefreshCw } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 interface DriftMonitor {
   id: string;
@@ -47,6 +46,7 @@ interface QualityMetric {
 }
 
 export function MonitoringTab() {
+  const { toast } = useToast();
   const [monitors, setMonitors] = useState<DriftMonitor[]>([]);
   const [detections, setDetections] = useState<DriftDetection[]>([]);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
@@ -76,7 +76,11 @@ export function MonitoringTab() {
     
     if (error) {
       console.error('Error loading drift monitors:', error);
-      toast.error('Failed to load drift monitors');
+      toast({
+        title: "Error",
+        description: "Failed to load drift monitors",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -108,7 +112,11 @@ export function MonitoringTab() {
     
     if (error) {
       console.error('Error loading drift detections:', error);
-      toast.error('Failed to load drift detections');
+      toast({
+        title: "Error",
+        description: "Failed to load drift detections",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -175,17 +183,28 @@ export function MonitoringTab() {
 
     if (error) {
       console.error('Error initializing demo monitors:', error);
-      toast.error('Failed to initialize demo monitors');
+      toast({
+        title: "Error",
+        description: "Failed to initialize demo monitors",
+        variant: "destructive",
+      });
       return;
     }
 
-    toast.success('Demo monitors initialized');
+    toast({
+      title: "Success",
+      description: "Demo monitors initialized",
+    });
     loadMonitors();
   };
 
   const runDriftDetection = async () => {
     if (monitors.length === 0) {
-      toast.error('No monitors found. Initialize demo monitors first.');
+      toast({
+        title: "Error",
+        description: "No monitors found. Initialize demo monitors first.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -241,23 +260,41 @@ export function MonitoringTab() {
 
       if (error) {
         console.error('Error saving drift detections:', error);
-        toast.error('Failed to save drift detections');
+        toast({
+          title: "Error",
+          description: "Failed to save drift detections",
+          variant: "destructive",
+        });
       } else {
         const redAlerts = newDetections.filter(d => d.severity === 'red').length;
         const yellowAlerts = newDetections.filter(d => d.severity === 'yellow').length;
         
         if (redAlerts > 0) {
-          toast.error(`${redAlerts} critical drift alerts detected!`);
+          toast({
+            title: "Critical Alert",
+            description: `${redAlerts} critical drift alerts detected!`,
+            variant: "destructive",
+          });
         } else if (yellowAlerts > 0) {
-          toast.warning(`${yellowAlerts} drift warnings detected`);
+          toast({
+            title: "Warning",
+            description: `${yellowAlerts} drift warnings detected`,
+            variant: "destructive",
+          });
         } else {
-          toast.success('Drift detection completed - all systems stable');
+          toast({
+            title: "Success",
+            description: "Drift detection completed - all systems stable",
+          });
         }
         
         loadDetections();
       }
     } else {
-      toast.success('Drift detection completed - all systems stable');
+      toast({
+        title: "Success", 
+        description: "Drift detection completed - all systems stable",
+      });
     }
 
     setIsMonitoring(false);

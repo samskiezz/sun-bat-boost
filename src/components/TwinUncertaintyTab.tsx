@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { Zap, Sun, Cloud, TreePine, MapPin, Activity } from 'lucide-react';
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface PVTwin {
   id: string;
@@ -49,6 +49,7 @@ interface PVTwin {
 }
 
 export function TwinUncertaintyTab() {
+  const { toast } = useToast();
   const [twins, setTwins] = useState<PVTwin[]>([]);
   const [selectedTwin, setSelectedTwin] = useState<PVTwin | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -71,12 +72,16 @@ export function TwinUncertaintyTab() {
       .order('created_at', { ascending: false });
     
     if (error) {
-      toast.error('Failed to load PV twins');
+      toast({
+        title: "Error",
+        description: "Failed to load PV twins",
+        variant: "destructive",
+      });
       return;
     }
     
     // Map the data to PVTwin format
-  const mappedTwins: PVTwin[] = (data || []).map(item => ({
+    const mappedTwins: PVTwin[] = (data || []).map(item => ({
       id: item.id,
       site_id: item.rule_code,
       location: { lat: -33.8688, lng: 151.2093, timezone: 'Australia/Sydney' }, // Sydney default
@@ -133,13 +138,20 @@ export function TwinUncertaintyTab() {
       .single();
 
     if (error) {
-      toast.error('Failed to create PV twin');
+      toast({
+        title: "Error",
+        description: "Failed to create PV twin",
+        variant: "destructive",
+      });
       return;
     }
 
     await simulateTwin(data.id);
     loadTwins();
-    toast.success('Demo PV twin created');
+    toast({
+      title: "Success",
+      description: "Demo PV twin created",
+    });
   };
 
   const simulateTwin = async (twinId: string) => {
@@ -176,9 +188,16 @@ export function TwinUncertaintyTab() {
       .eq('id', twinId);
 
     if (updateError) {
-      toast.error('Failed to save simulation results');
+      toast({
+        title: "Error",
+        description: "Failed to save simulation results",
+        variant: "destructive",
+      });
     } else {
-      toast.success('Physics simulation completed');
+      toast({
+        title: "Success",
+        description: "Physics simulation completed",
+      });
     }
 
     setIsSimulating(false);
