@@ -265,7 +265,7 @@ export async function pipeSiteToVpp(siteId: string): Promise<{
       .eq('site_id', siteId)
       .single();
     
-    const features = siteFeatures?.features || {};
+    const features = (siteFeatures?.features as any) || {};
     const siteContext = {
       site_id: siteId,
       system_size_kw: features.solar?.panel_capacity_estimate || 6.5,
@@ -348,7 +348,7 @@ export async function pipeDesignValidation(siteId: string, designId: string): Pr
       .eq('site_id', siteId)
       .single();
     
-    const features = siteFeatures?.features || {};
+    const features = (siteFeatures?.features as any) || {};
     
     // Mock design data
     const designData = {
