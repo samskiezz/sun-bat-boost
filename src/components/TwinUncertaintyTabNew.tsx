@@ -5,6 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Tooltip } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { formatNumber, formatKWh } from '@/utils/format';
 
 interface PVTwin {
   id: string;
@@ -360,13 +361,13 @@ export const TwinUncertaintyTab = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 border rounded-lg">
                     <div className="text-2xl font-bold">
-                      {selectedTwin.simulation_results.annual_p50.toLocaleString()} kWh
+                      {formatKWh(selectedTwin.simulation_results?.annual_p50)}
                     </div>
                     <div className="text-sm text-muted-foreground">P50 Annual Production</div>
                   </div>
                   <div className="p-4 border rounded-lg">
                     <div className="text-2xl font-bold">
-                      {selectedTwin.simulation_results.annual_p90.toLocaleString()} kWh
+                      {formatKWh(selectedTwin.simulation_results?.annual_p90)}
                     </div>
                     <div className="text-sm text-muted-foreground">P90 Annual Production</div>
                   </div>
@@ -404,7 +405,7 @@ export const TwinUncertaintyTab = () => {
                     </div>
                     {twin.simulation_results && (
                       <div className="text-sm font-medium text-primary">
-                        {twin.simulation_results.annual_p50.toLocaleString()} kWh/year
+                        {formatKWh(twin.simulation_results?.annual_p50)}/year
                       </div>
                     )}
                   </div>

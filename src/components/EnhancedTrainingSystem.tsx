@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useTrainingState } from "@/hooks/useTrainingState";
+import { formatNumber } from "@/utils/format";
 import FunctionImpactDashboard from "./FunctionImpactDashboard";
 
 export default function EnhancedTrainingSystem() {
@@ -221,7 +222,7 @@ export default function EnhancedTrainingSystem() {
       try {
         toast({
           title: `Starting ${functionName}`,
-          description: `Training ${episodesPerRun.toLocaleString()} episodes (backend + UI)...`
+          description: `Training ${formatNumber(episodesPerRun)} episodes (backend + UI)...`
         });
 
         // Start backend training for this specific function
@@ -288,7 +289,7 @@ export default function EnhancedTrainingSystem() {
               
               toast({
                 title: "Training Complete!",
-                description: `${functionName} completed ${episodesPerRun.toLocaleString()} episodes (backend + UI).`
+                description: `${functionName} completed ${formatNumber(episodesPerRun)} episodes (backend + UI).`
               });
               
               resolve();
@@ -319,7 +320,7 @@ export default function EnhancedTrainingSystem() {
     
     toast({
       title: "Full Training Pipeline Started", 
-      description: `Training all ${totalFunctions} ML functions (${totalEpisodes.toLocaleString()} total episodes)...`
+      description: `Training all ${totalFunctions} ML functions (${formatNumber(totalEpisodes)} total episodes)...`
     });
     
     try {
@@ -358,7 +359,7 @@ export default function EnhancedTrainingSystem() {
       
       toast({
         title: "Full Pipeline Complete!",
-        description: `Successfully completed ${totalEpisodes.toLocaleString()} training episodes across ${totalFunctions} functions.`
+        description: `Successfully completed ${formatNumber(totalEpisodes)} training episodes across ${totalFunctions} functions.`
       });
     } catch (error) {
       console.error('UI training pipeline failed:', error);
@@ -382,7 +383,7 @@ export default function EnhancedTrainingSystem() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{metrics.totalEpisodes.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-primary">{formatNumber(metrics?.totalEpisodes)}</div>
               <div className="text-sm text-muted-foreground">Training Episodes</div>
             </div>
             <div className="text-center">
@@ -570,7 +571,7 @@ export default function EnhancedTrainingSystem() {
                   <div key={funcName} className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="truncate">{funcName}</span>
-                      <span>{progress.episodesAdded.toLocaleString()} episodes</span>
+                      <span>{formatNumber(progress?.episodesAdded)} episodes</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Progress value={Math.min(progress.recentMetric, 100)} className="flex-1" />

@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Brain, Target, TrendingUp, Zap, Activity, Award, AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { formatNumber } from '@/utils/format';
 import PDFProposalUploader from '@/components/PDFProposalUploader';
 import MultitaskTrainingDashboard from '@/components/MultitaskTrainingDashboard';
 
@@ -93,7 +94,7 @@ export default function ComprehensiveTrainingDashboard() {
 
       toast({
         title: "Training Started",
-        description: `Starting ${episodes.toLocaleString()} episode training run`,
+        description: `Starting ${formatNumber(episodes)} episode training run`,
       });
 
       // Refresh status
@@ -218,7 +219,7 @@ export default function ComprehensiveTrainingDashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold">Training Progress</span>
                     <span className="font-mono text-xl">
-                      {status.currentEpisodes.toLocaleString()} / {status.targetEpisodes.toLocaleString()}
+                      {formatNumber(status?.currentEpisodes)} / {formatNumber(status?.targetEpisodes)}
                     </span>
                   </div>
 
@@ -234,7 +235,7 @@ export default function ComprehensiveTrainingDashboard() {
 
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {status.currentEpisodes.toLocaleString()}
+                        {formatNumber(status?.currentEpisodes)}
                       </div>
                       <div className="text-sm text-muted-foreground">Episodes</div>
                     </div>
@@ -375,7 +376,7 @@ export default function ComprehensiveTrainingDashboard() {
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      Start Training ({episodes.toLocaleString()} episodes)
+                      Start Training ({formatNumber(episodes)} episodes)
                     </>
                   )}
                 </Button>
@@ -403,7 +404,7 @@ export default function ComprehensiveTrainingDashboard() {
                 <Alert>
                   <CheckCircle className="h-4 w-4" />
                   <AlertDescription>
-                    🎉 Training complete! The system has finished {status?.currentEpisodes.toLocaleString()} episodes 
+                    🎉 Training complete! The system has finished {formatNumber(status?.currentEpisodes)} episodes 
                     and is ready for production use. All readiness gates should now be passing.
                   </AlertDescription>
                 </Alert>
@@ -413,7 +414,7 @@ export default function ComprehensiveTrainingDashboard() {
                 <Alert>
                   <Clock className="h-4 w-4" />
                   <AlertDescription>
-                    Training in progress: {status.currentEpisodes.toLocaleString()} episodes completed. 
+                    Training in progress: {formatNumber(status?.currentEpisodes)} episodes completed. 
                     The system will continue learning and improving OCR accuracy and design validation.
                   </AlertDescription>
                 </Alert>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,13 @@ import {
   AlertTriangle,
   Bot,
   Timer,
-  TrendingUp
+  TrendingUp,
+  Square,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateTime } from '@/utils/format';
 
 interface AutomationConfig {
   enabled: boolean;
@@ -455,7 +458,7 @@ export default function TrainingAutomation() {
             <Alert>
               <Timer className="h-4 w-4" />
               <AlertDescription>
-                <strong>Next Scheduled Run:</strong> {new Date(status.nextScheduledRun).toLocaleString()}
+                <strong>Next Scheduled Run:</strong> {formatDateTime(status.nextScheduledRun)}
               </AlertDescription>
             </Alert>
           )}

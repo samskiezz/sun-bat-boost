@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { Brain, Layers, Target, Zap, Smartphone, CheckCircle2, AlertTriangle, Clock, Play, Pause, Settings, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateTime } from '@/utils/format';
 import ConfigManagementPanel from '@/components/ConfigManagementPanel';
 
 interface TrainingSession {
@@ -318,7 +319,7 @@ const MultitaskTrainingDashboard: React.FC = () => {
                   )}
                   
                   <div className="text-sm text-muted-foreground">
-                    Started: {new Date(currentSession.started_at).toLocaleString()}
+                    Started: {formatDateTime(currentSession.started_at)}
                   </div>
                 </div>
               ) : (

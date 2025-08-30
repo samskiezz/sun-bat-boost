@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency, formatNumber } from '@/utils/format';
 
 interface TariffOptimization {
   id: string;
@@ -363,7 +364,7 @@ export const TariffVPPOptimizerTab = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold">
-                ${selectedOptimization.annual_savings.toFixed(0)}
+                {formatCurrency(selectedOptimization?.annual_savings)}
               </div>
               <div className="text-sm text-muted-foreground">Annual Savings</div>
             </CardContent>
@@ -372,7 +373,7 @@ export const TariffVPPOptimizerTab = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold">
-                ${selectedOptimization.vpp_revenue.toFixed(0)}
+                {formatCurrency(selectedOptimization?.vpp_revenue)}
               </div>
               <div className="text-sm text-muted-foreground">VPP Revenue</div>
             </CardContent>
