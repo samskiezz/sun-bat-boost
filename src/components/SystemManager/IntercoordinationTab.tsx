@@ -111,7 +111,11 @@ export function IntercoordinationTab() {
           <button
             className="text-xs underline mb-2"
             onClick={async () => {
-              const res = await fetch("/api/orch/traces");
+              const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/orch-traces`, {
+                headers: {
+                  "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                }
+              });
               const json = await res.json();
               alert(JSON.stringify(json.messages.slice(-10), null, 2));
             }}

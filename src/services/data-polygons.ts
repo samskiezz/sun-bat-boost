@@ -6,9 +6,12 @@ import { recordEdge, recordMsg } from "@/lib/orch/trace";
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
-  const res = await fetch("/api/datapoly/embeddings", {
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-polygon-embeddings`, {
     method: "POST", 
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+    },
     body: JSON.stringify({ sources })
   });
   if (!res.ok) throw new Error(`embeddings ${res.status}`);
