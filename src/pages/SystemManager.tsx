@@ -17,6 +17,7 @@ import DnspBuilderPanel from "@/components/SystemManager/DnspBuilderPanel";
 import DnspChecker from "@/components/SystemManager/DnspChecker";
 import NetworkMapVisualization from "@/components/SystemManager/NetworkMapVisualization";
 import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
+// Tab component imports
 import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTab";
 import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTab";
 import { ComplianceTab } from "@/components/ComplianceTab";
