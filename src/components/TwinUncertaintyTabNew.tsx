@@ -85,13 +85,22 @@ export const TwinUncertaintyTab = () => {
 
   const createDemoTwin = async () => {
     try {
+      // Create a new PV twin with realistic data
+      const locations = ['Sydney, NSW', 'Melbourne, VIC', 'Adelaide, SA', 'Perth, WA', 'Brisbane, QLD'];
+      const location = locations[Math.floor(Math.random() * locations.length)];
+      const systemKw = 5 + Math.random() * 15; // 5-20kW systems
+      
       const newTwin = {
-        site_name: `Demo Site ${twins.length + 1}`,
-        location: 'Sydney, NSW',
-        system_kw: 30.5,
-        tilt_degrees: 30,
-        orientation_degrees: 0,
-        physics_params: simulationParams
+        site_name: `${location.split(',')[0]} Site ${twins.length + 1}`,
+        location,
+        system_kw: Math.round(systemKw * 10) / 10,
+        tilt_degrees: 25 + Math.random() * 15, // 25-40 degrees
+        orientation_degrees: -30 + Math.random() * 60, // ±30 degrees from north
+        physics_params: {
+          soiling: 0.01 + Math.random() * 0.03, // 1-4% soiling
+          albedo: 0.15 + Math.random() * 0.25, // 0.15-0.4 albedo
+          bifacial_gain: Math.random() * 0.2 // 0-20% bifacial gain
+        }
       };
 
       const { data, error } = await supabase
@@ -116,18 +125,14 @@ export const TwinUncertaintyTab = () => {
       setTwins([insertedTwin, ...twins]);
       setSelectedTwin(insertedTwin);
       
-      // Trigger simulation for the new twin
+      // Automatically trigger physics-based simulation
+      toast({ title: "Creating demo twin and running physics simulation..." });
       await simulateTwin(insertedTwin.id);
-      
-      toast({
-        title: "Success",
-        description: `Created new PV twin: ${newTwin.site_name}`,
-      });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating demo twin:', error);
       toast({
-        title: "Error",
-        description: "Failed to create demo twin",
+        title: "Error creating demo twin",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -137,60 +142,64 @@ export const TwinUncertaintyTab = () => {
     if (!selectedTwin) return;
     
     setIsSimulating(true);
-    
     try {
-      // Generate simulation data based on physics parameters
-      const monthlyData = Array.from({ length: 12 }, (_, i) => ({
-        month: new Date(2024, i, 1).toLocaleString('default', { month: 'short' }),
-        p10: Math.max(0, 800 + Math.sin(i * Math.PI / 6) * 400 + Math.random() * 100 - 200),
-        p50: 1000 + Math.sin(i * Math.PI / 6) * 500 + Math.random() * 50,
-        p90: 1200 + Math.sin(i * Math.PI / 6) * 600 + Math.random() * 100 + 200
-      }));
-
-      const dailyProfile = Array.from({ length: 24 }, (_, hour) => ({
-        hour,
-        generation: Math.max(0, Math.sin((hour - 6) * Math.PI / 12) * selectedTwin.system_kw * (hour >= 6 && hour <= 18 ? 1 : 0))
-      }));
-
-      const simulationResults = {
-        monthly_data: monthlyData,
-        daily_profile: dailyProfile,
-        annual_p50: monthlyData.reduce((sum, month) => sum + month.p50, 0) * 30,
-        annual_p90: monthlyData.reduce((sum, month) => sum + month.p90, 0) * 30
-      };
-
-      // Update the twin in the pv_twins table
-      const { error } = await supabase
-        .from('pv_twins')
-        .update({ 
-          simulation_results: simulationResults,
-          physics_params: selectedTwin?.physics_params
-        })
-        .eq('id', twinId);
+      // Call the real physics-based PV simulator edge function
+      const { data, error } = await supabase.functions.invoke('pv-simulator', {
+        body: {
+          twinId,
+          systemKw: selectedTwin.system_kw,
+          location: selectedTwin.location.split(',')[0], // Extract city name
+          tiltDegrees: selectedTwin.tilt_degrees,
+          orientationDegrees: selectedTwin.orientation_degrees,
+          physicsParams: {
+            soiling: simulationParams.soiling,
+            albedo: simulationParams.albedo,
+            bifacial_gain: simulationParams.bifacial_gain
+          }
+        }
+      });
 
       if (error) throw error;
 
-      // Update local state
-      setTwins(twins.map(twin => 
-        twin.id === twinId 
-          ? { ...twin, simulation_results: simulationResults }
-          : twin
-      ));
-      
-      if (selectedTwin.id === twinId) {
-        setSelectedTwin({ ...selectedTwin, simulation_results: simulationResults });
+      if (!data.success) {
+        throw new Error(data.error || 'Simulation failed');
       }
 
-      toast({
-        title: "Success",
-        description: "Simulation completed successfully",
+      // Update local state with simulation results
+      const updatedTwin = {
+        ...selectedTwin,
+        simulation_results: {
+          monthly_data: data.results.monthlyData,
+          daily_profile: data.results.dailyData.map((d: any) => ({
+            hour: d.hour,
+            generation: d.production
+          })),
+          annual_p50: data.results.annualP50,
+          annual_p90: data.results.annualP90
+        },
+        physics_params: {
+          soiling: simulationParams.soiling,
+          albedo: simulationParams.albedo,
+          bifacial_gain: simulationParams.bifacial_gain
+        }
+      };
+
+      setTwins(twins.map(twin => 
+        twin.id === twinId ? updatedTwin : twin
+      ));
+      
+      setSelectedTwin(updatedTwin);
+
+      toast({ 
+        title: "Physics-based simulation completed!", 
+        description: data.message 
       });
-    } catch (error) {
-      console.error('Error running simulation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to run simulation",
-        variant: "destructive"
+    } catch (error: any) {
+      console.error('Simulation error:', error);
+      toast({ 
+        title: "Simulation failed", 
+        description: error.message,
+        variant: "destructive" 
       });
     } finally {
       setIsSimulating(false);

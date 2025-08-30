@@ -91,6 +91,33 @@ export const TariffVPPOptimizerTab = () => {
     }));
   };
 
+  const generateTypicalLoadProfile = () => {
+    // Generate a typical residential load profile (24 hours)
+    return Array.from({ length: 24 }, (_, hour) => {
+      // Base load with peaks at morning and evening
+      let load = 1.5; // Base load 1.5kW
+      
+      // Morning peak (6-9 AM)
+      if (hour >= 6 && hour <= 9) {
+        load += 2 + Math.random() * 1.5;
+      }
+      // Evening peak (5-10 PM)
+      else if (hour >= 17 && hour <= 22) {
+        load += 3 + Math.random() * 2;
+      }
+      // Daytime moderate usage
+      else if (hour >= 10 && hour <= 16) {
+        load += 0.5 + Math.random() * 1;
+      }
+      // Night time low usage
+      else {
+        load += Math.random() * 0.5;
+      }
+      
+      return Math.round(load * 100) / 100;
+    });
+  };
+
   const loadOptimizations = async () => {
     try {
       const { data, error } = await supabase
@@ -129,68 +156,72 @@ export const TariffVPPOptimizerTab = () => {
 
   const createDemoOptimization = async () => {
     try {
-      const newOptimization = {
-        site_id: 'demo-site-' + Date.now(),
-        tariff_data: {
-          peak_rate: 0.32,
-          offpeak_rate: 0.18,
-          shoulder_rate: 0.25,
-          supply_charge: 1.20,
-          feed_in_tariff: 0.08
-        },
-        vpp_rules: vppEnabled ? {
-          discharge_start: '18:00',
-          discharge_end: '22:00',
-          min_soc: 0.2,
-          max_discharge_power: 5.0,
-          participation_days: ['mon', 'tue', 'wed', 'thu', 'fri']
-        } : undefined,
-        optimization_params: {
-          battery_capacity: 13.5,
-          solar_capacity: 6.6,
-          load_profile: 'residential',
-          optimization_horizon: 24,
-          dispatch_schedule: generateMockDispatchData(),
-          savings_projection: generateMockSavingsData(),
-          annual_savings: 1250,
-          vpp_revenue: vppEnabled ? 800 : 0
-        }
-      };
+      const locations = ['Sydney', 'Melbourne', 'Adelaide', 'Perth', 'Brisbane'];
+      const location = locations[Math.floor(Math.random() * locations.length)];
+      const systemKw = 5 + Math.random() * 15;
+      const batteryKwh = 10 + Math.random() * 20;
+      
+      const siteId = `${location.toLowerCase()}_${Date.now()}`;
+      
+      toast({ title: "Creating optimization and running analysis..." });
 
-      const { data, error } = await supabase
-        .from('tariff_optimizations')
-        .insert([newOptimization])
-        .select()
-        .single();
+      // Call the real tariff optimizer edge function
+      const { data, error } = await supabase.functions.invoke('tariff-optimizer', {
+        body: {
+          siteId,
+          systemKw: Math.round(systemKw * 10) / 10,
+          batteryKwh: Math.round(batteryKwh * 10) / 10,
+          location,
+          loadProfile: generateTypicalLoadProfile(),
+          vppEnabled,
+          realTimeEnabled: realTimeMode
+        }
+      });
 
       if (error) throw error;
 
-      const insertedOptimization: TariffOptimization = {
-        id: data.id,
-        site_id: data.site_id,
-        created_at: data.created_at,
-        tariff_data: data.tariff_data as TariffOptimization['tariff_data'],
-        vpp_rules: data.vpp_rules as TariffOptimization['vpp_rules'],
-        optimization_params: data.optimization_params as TariffOptimization['optimization_params'],
-        dispatch_schedule: (data.optimization_params as any)?.dispatch_schedule || generateMockDispatchData(),
-        savings_projection: (data.optimization_params as any)?.savings_projection || generateMockSavingsData(),
-        annual_savings: (data.optimization_params as any)?.annual_savings || 0,
-        vpp_revenue: (data.optimization_params as any)?.vpp_revenue || 0
-      };
+      if (!data.success) {
+        throw new Error(data.error || 'Optimization failed');
+      }
 
-      setOptimizations([insertedOptimization, ...optimizations]);
-      setSelectedOptimization(insertedOptimization);
+      // Refresh optimizations from database
+      await loadOptimizations();
       
-      toast({
-        title: "Success",
-        description: "Created new tariff optimization",
+      // Find and select the newly created optimization
+      const newOpts = await supabase
+        .from('tariff_optimizations')
+        .select('*')
+        .eq('site_id', siteId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (newOpts.data?.[0]) {
+        const opt = newOpts.data[0];
+        const mappedOpt: TariffOptimization = {
+          id: opt.id,
+          site_id: opt.site_id,
+          created_at: opt.created_at,
+          tariff_data: opt.tariff_data as TariffOptimization['tariff_data'],
+          vpp_rules: opt.vpp_rules as TariffOptimization['vpp_rules'],
+          optimization_params: opt.optimization_params as TariffOptimization['optimization_params'],
+          dispatch_schedule: (opt.optimization_params as any)?.dispatch_schedule || [],
+          savings_projection: (opt.optimization_params as any)?.savings_projection || [],
+          annual_savings: (opt.optimization_params as any)?.annual_savings || 0,
+          vpp_revenue: (opt.optimization_params as any)?.vpp_revenue || 0
+        };
+        setSelectedOptimization(mappedOpt);
+      }
+
+      toast({ 
+        title: "Multi-objective optimization completed!", 
+        description: data.message 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating demo optimization:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create tariff optimization",
-        variant: "destructive"
+      toast({ 
+        title: "Error creating optimization", 
+        description: error.message,
+        variant: "destructive" 
       });
     }
   };
@@ -199,53 +230,39 @@ export const TariffVPPOptimizerTab = () => {
     if (!selectedOptimization) return;
     
     setIsOptimizing(true);
-    
     try {
-      const dispatchSchedule = generateMockDispatchData();
-      const savingsProjection = generateMockSavingsData();
-      const annualSavings = savingsProjection.reduce((sum, month) => sum + month.savings, 0);
-      const vppRevenue = vppEnabled ? 800 : 0;
-
-      const updatedParams = {
-        ...selectedOptimization.optimization_params,
-        dispatch_schedule: dispatchSchedule,
-        savings_projection: savingsProjection,
-        annual_savings: annualSavings,
-        vpp_revenue: vppRevenue
-      };
-
-      const { error } = await supabase
-        .from('tariff_optimizations')
-        .update({ optimization_params: updatedParams })
-        .eq('id', selectedOptimization.id);
+      // Call the real tariff optimizer edge function
+      const { data, error } = await supabase.functions.invoke('tariff-optimizer', {
+        body: {
+          siteId: selectedOptimization.site_id,
+          systemKw: selectedOptimization.optimization_params.solar_capacity || 8.5,
+          batteryKwh: selectedOptimization.optimization_params.battery_capacity || 13.5,
+          location: 'Sydney', // Default location
+          loadProfile: generateTypicalLoadProfile(),
+          vppEnabled,
+          realTimeEnabled: realTimeMode
+        }
+      });
 
       if (error) throw error;
 
-      // Update local state
-      const updatedOptimization = {
-        ...selectedOptimization,
-        optimization_params: updatedParams,
-        dispatch_schedule: dispatchSchedule,
-        savings_projection: savingsProjection,
-        annual_savings: annualSavings,
-        vpp_revenue: vppRevenue
-      };
+      if (!data.success) {
+        throw new Error(data.error || 'Optimization failed');
+      }
 
-      setSelectedOptimization(updatedOptimization);
-      setOptimizations(optimizations.map(opt => 
-        opt.id === selectedOptimization.id ? updatedOptimization : opt
-      ));
+      // Refresh optimizations to get the latest data
+      await loadOptimizations();
 
-      toast({
-        title: "Success",
-        description: "Optimization completed successfully",
+      toast({ 
+        title: "Multi-objective optimization completed!", 
+        description: data.message 
       });
-    } catch (error) {
-      console.error('Error running optimization:', error);
-      toast({
-        title: "Error",
-        description: "Failed to run optimization",
-        variant: "destructive"
+    } catch (error: any) {
+      console.error('Optimization error:', error);
+      toast({ 
+        title: "Optimization failed", 
+        description: error.message,
+        variant: "destructive" 
       });
     } finally {
       setIsOptimizing(false);
