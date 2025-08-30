@@ -107,48 +107,69 @@ export default function SystemManager() {
       </Card>
 
       <Tabs defaultValue="health" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-10">
-          <TabsTrigger value="health" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Health
-          </TabsTrigger>
-          <TabsTrigger value="catalog" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Catalog
-          </TabsTrigger>
-          <TabsTrigger value="training" className="flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            Training
-          </TabsTrigger>
-          <TabsTrigger value="automation" className="flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            Automation
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="monitoring" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            System Monitor
-          </TabsTrigger>
-          <TabsTrigger value="twin" className="flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            Twin & Uncertainty
-          </TabsTrigger>
-          <TabsTrigger value="optimizer" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Tariff/VPP Optimizer
-          </TabsTrigger>
-          <TabsTrigger value="compliance" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Compliance
-          </TabsTrigger>
-          <TabsTrigger value="drift" className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            Drift Monitoring
-          </TabsTrigger>
-        </TabsList>
+        {/* Primary Navigation - Core System */}
+        <div className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 h-12">
+            <TabsTrigger value="health" className="flex items-center gap-2 text-sm font-medium">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">System</span>
+              <span className="inline sm:hidden">Health</span>
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center gap-2 text-sm font-medium">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Monitor</span>
+              <span className="inline sm:hidden">Monitor</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2 text-sm font-medium">
+              <Brain className="w-4 h-4" />
+              <span className="hidden sm:inline">Analytics</span>
+              <span className="inline sm:hidden">Analytics</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Secondary Navigation - Data & Training */}
+          <div className="border rounded-lg bg-muted/30 p-1">
+            <TabsList className="grid w-full grid-cols-3 bg-transparent h-10">
+              <TabsTrigger value="catalog" className="flex items-center gap-2 text-xs font-medium bg-background">
+                <Database className="w-3 h-3" />
+                Catalog
+              </TabsTrigger>
+              <TabsTrigger value="training" className="flex items-center gap-2 text-xs font-medium bg-background">
+                <Brain className="w-3 h-3" />
+                Training
+              </TabsTrigger>
+              <TabsTrigger value="automation" className="flex items-center gap-2 text-xs font-medium bg-background">
+                <Brain className="w-3 h-3" />
+                Automation
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Tertiary Navigation - Advanced Features */}
+          <div className="border rounded-lg bg-muted/20 p-1">
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1 bg-transparent h-10">
+              <TabsTrigger value="twin" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <Brain className="w-3 h-3" />
+                <span className="hidden lg:inline">Twin & Uncertainty</span>
+                <span className="inline lg:hidden">Twin</span>
+              </TabsTrigger>
+              <TabsTrigger value="optimizer" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <BarChart3 className="w-3 h-3" />
+                <span className="hidden lg:inline">Tariff/VPP</span>
+                <span className="inline lg:hidden">VPP</span>
+              </TabsTrigger>
+              <TabsTrigger value="compliance" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <Shield className="w-3 h-3" />
+                Compliance
+              </TabsTrigger>
+              <TabsTrigger value="drift" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <AlertTriangle className="w-3 h-3" />
+                <span className="hidden lg:inline">Drift Monitor</span>
+                <span className="inline lg:hidden">Drift</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
         <TabsContent value="health">
           <SystemHealthDashboard />
