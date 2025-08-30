@@ -27,6 +27,7 @@ import { ComplianceTab } from "@/components/ComplianceTab";
 import { MonitoringTab } from "@/components/MonitoringTab";
 import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
 import { PolygonMonitorTab } from "@/components/SystemManager/PolygonMonitorTab";
+import { IntercoordinationTab } from "@/components/SystemManager/IntercoordinationTab";
 
 export default function SystemManager() {
   const { toast } = useToast();
@@ -175,11 +176,16 @@ export default function SystemManager() {
 
           {/* Tertiary Navigation - Advanced Features */}
           <div className="border rounded-lg bg-muted/20 p-1">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-1 bg-transparent h-10">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 gap-1 bg-transparent h-10">
               <TabsTrigger value="geoml" className="flex items-center gap-1 text-xs font-medium bg-background">
                 <Brain className="w-3 h-3" />
                 <span className="hidden lg:inline">Geo/ML</span>
                 <span className="inline lg:hidden">Geo</span>
+              </TabsTrigger>
+              <TabsTrigger value="intercoord" className="flex items-center gap-1 text-xs font-medium bg-background">
+                <Brain className="w-3 h-3" />
+                <span className="hidden lg:inline">Intercoord</span>
+                <span className="inline lg:hidden">Inter</span>
               </TabsTrigger>
               <TabsTrigger value="twin" className="flex items-center gap-1 text-xs font-medium bg-background">
                 <Brain className="w-3 h-3" />
@@ -268,6 +274,12 @@ export default function SystemManager() {
         <TabsContent value="geoml">
           <TabContentWrapper tabName="Geo/ML Polygons">
             <PolygonMonitorTab />
+          </TabContentWrapper>
+        </TabsContent>
+
+        <TabsContent value="intercoord">
+          <TabContentWrapper tabName="Geo/ML Intercoordination">
+            <IntercoordinationTab />
           </TabContentWrapper>
         </TabsContent>
 

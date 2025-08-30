@@ -383,6 +383,53 @@
 
 ---
 
+## Inter-Model Orchestration & Proof-of-Interconnections
+
+**Comprehensive ML Model Coordination & Data Flow Visualization**
+
+### Event Bus & Messaging
+- `publish(event)` - Emit orchestrator events (src/lib/orch/event-bus.ts)
+- `subscribe(handler)` - Listen for orchestrator events (src/lib/orch/event-bus.ts) 
+- `setLastPolygon(points)` - Store polygon for cross-tab coordination (src/lib/orch/event-bus.ts)
+- `getLastPolygon()` - Retrieve last completed polygon (src/lib/orch/event-bus.ts)
+
+### Trace & Lineage Tracking
+- `recordEdge(from, to, summary, data)` - Record model-to-model interactions (src/lib/orch/trace.ts)
+- `recordMessage(msg)` - Log inter-model data sharing (src/lib/orch/trace.ts)
+- `getEdges()` - Retrieve interaction history (src/lib/orch/trace.ts)
+- `getMessages()` - Get model message log (src/lib/orch/trace.ts)
+- `clearOrchTrace()` - Reset trace storage (src/lib/orch/trace.ts)
+
+### Orchestration Engine
+- `runPolygonIntercoordination(params)` - Execute full ML pipeline coordination (src/services/geoml-orchestrator.ts)
+- `fetchTariffsByPostcode(postcode)` - Tariff recommendation integration (src/services/geoml-orchestrator.ts)
+- `applyAllRebates(ctx)` - Rebate calculation coordination (src/services/geoml-orchestrator.ts)
+
+### API Endpoints for Trace Inspection
+- `GET /api/orch/traces` - Retrieve orchestration traces and messages 
+- `POST /api/orch/clear` - Clear orchestration trace history
+
+### UI Components
+- `IntercoordinationTab` - Network visualization and live timeline (src/components/SystemManager/IntercoordinationTab.tsx)
+- Integration: `PolygonMonitorTab` → `setLastPolygon(points)` on finish
+
+### Proof Elements Rendered
+- **Network Graph**: Visual nodes & directional edges showing Polygon → Embedder → VectorIndex → CatalogMatcher, TariffRecommender → ROIEngine, RebateEngine → ROIEngine → SystemManager
+- **Live Timeline**: Real-time event logging as orchestration progresses  
+- **Model Messages**: Inter-model communication logs (sender, receiver, topic, content, confidence) accessible via /api/orch/traces
+- **Cross-Tab Coordination**: Polygon completion in Geo/ML tab automatically feeds Intercoordination tab
+
+### Event Types Supported
+- `POLY.FINISHED` - Polygon drawing completion
+- `EMBED.DONE` - Vector embedding generation complete
+- `MATCH.DONE` - Similarity matching results ready
+- `TARIFF.MATCHED` - Tariff plan recommendation complete
+- `VPP.MATCHED` - VPP plan matching complete  
+- `ROI.CALC.DONE` - ROI calculation finished
+- `ERROR` - Error occurred in pipeline
+
+---
+
 # Auto-Discovered Additions (from codebase)
 
 ## AI Adapters & Integrations (src/ai/adapters)
