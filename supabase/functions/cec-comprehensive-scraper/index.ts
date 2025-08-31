@@ -24,8 +24,21 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action, healthCheck } = body;
     console.log(`🚀 Job Orchestration Action: ${action}`);
+
+    // Handle health check requests
+    if (healthCheck) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'CEC comprehensive scraper is healthy',
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     switch (action) {
       case 'start':

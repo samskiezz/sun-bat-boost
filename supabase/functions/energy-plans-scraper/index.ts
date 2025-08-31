@@ -477,6 +477,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Parse request body
+    const body = await req.json().catch(() => ({}));
+    
+    // Handle health check requests
+    if (body.healthCheck) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Energy plans scraper is healthy',
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('🚀 Starting Energy Made Easy comprehensive scraper...');
 
