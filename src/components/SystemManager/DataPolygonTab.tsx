@@ -28,29 +28,49 @@ export function DataPolygonTab() {
   }, []);
 
   const run = async () => {
-    console.log("🚀 DEBUG: Button clicked! Starting run function");
-    console.log("🚀 Current sources:", sources);
-    console.log("🚀 Current k value:", k);
+    console.log("=== BUTTON CLICKED ===");
+    console.log("run function called at:", new Date().toISOString());
+    console.log("sources:", sources);
+    console.log("k:", k);
+    console.log("busy:", busy);
     
     setBusy(true);
+    console.log("setBusy(true) called");
+    
     try{
-      console.log("🔧 About to call buildDataPolygons...");
-      const built = await buildDataPolygons(sources, { k });
-      console.log("✅ buildDataPolygons returned:", Object.keys(built));
+      console.log("Entering try block...");
       
-      console.log("🔧 About to call comparePolygons...");
+      // Test if imports work
+      console.log("Testing imports...");
+      console.log("buildDataPolygons type:", typeof buildDataPolygons);
+      console.log("comparePolygons type:", typeof comparePolygons);
+      
+      console.log("About to call buildDataPolygons...");
+      const built = await buildDataPolygons(sources, { k });
+      console.log("buildDataPolygons completed, result:", built);
+      
+      console.log("About to call comparePolygons...");
       const results = comparePolygons(built);
-      console.log("✅ comparePolygons returned:", results.length, "pairs");
+      console.log("comparePolygons completed, results:", results);
       
       setPairs(results as any);
-      console.log("✅ All done! UI should update now.");
+      console.log("setPairs called with results");
+      
     } catch (error) {
-      console.error("❌ ERROR in run function:", error);
-      console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack');
+      console.error("=== ERROR IN RUN FUNCTION ===");
+      console.error("Error:", error);
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack available');
+      
+      // Also show error in UI
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      
     } finally { 
+      console.log("Finally block - setting busy to false");
       setBusy(false); 
-      console.log("🏁 Run function complete - busy set to false");
     }
+    
+    console.log("=== RUN FUNCTION COMPLETE ===");
   };
 
   const toggleSource = (s: string) => {
@@ -85,7 +105,14 @@ export function DataPolygonTab() {
             <input type="number" min={3} max={25} value={k} onChange={e=>setK(parseInt(e.target.value||"8"))}
                    className="w-16 border rounded px-1 py-0.5" />
           </label>
-          <button disabled={busy} onClick={run} className="ml-auto px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-colors">
+          <button 
+            disabled={busy} 
+            onClick={() => {
+              console.log("=== BUTTON ONCLICK FIRED ===");
+              run();
+            }} 
+            className="ml-auto px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-colors"
+          >
             {busy ? "🔄 Processing..." : "🚀 Build Real Polygons"}
           </button>
         </div>
