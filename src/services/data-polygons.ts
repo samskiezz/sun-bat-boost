@@ -7,28 +7,36 @@ import { l2Normalize, zWhiten, procrustesAlign } from "@/lib/data-polygons/align
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
-  console.log("🔄 Fetching embeddings locally for:", sources);
+  console.log("🔄 DEBUG: fetchEmbeddings called with:", sources);
   
-  // Generate synthetic data directly instead of API call
-  const result = sources.map((source: string, idx: number) => {
-    const rnd = () => Math.random();
-    const center = Array.from({length:5}, (_,i)=> (i+1)*(idx+1)*1.2);
-    const n = 60;
-    const items: number[][] = [];
-    for (let k=0;k<n;k++){
-      const r = center.map(c => c + (rnd()-0.5)*0.9);
-      items.push(r);
-    }
+  // FORCE: Generate synthetic data directly - no API calls
+  try {
+    const result = sources.map((source: string, idx: number) => {
+      console.log(`🔧 Generating data for ${source} (index ${idx})`);
+      const center = Array.from({length:5}, (_,i)=> (i+1)*(idx+1)*2.0); // bigger separation
+      const n = 60;
+      const items: number[][] = [];
+      
+      for (let k=0;k<n;k++){
+        const rnd = () => Math.random();
+        const r = center.map(c => c + (rnd()-0.5)*1.5);
+        items.push(r);
+      }
+      
+      console.log(`✅ Generated ${items.length} items for ${source}`);
+      return {
+        source,
+        items,
+        labels: Array.from({length: n}, (_, i) => `${source}_item_${i}`)
+      };
+    });
     
-    return {
-      source,
-      items,
-      labels: Array.from({length: n}, (_, i) => `${source}_item_${i}`)
-    };
-  });
-  
-  console.log("✅ Synthetic embeddings generated:", result.length, "sets");
-  return result;
+    console.log("✅ All synthetic embeddings generated:", result.length, "sets");
+    return result;
+  } catch (error) {
+    console.error("❌ Error in fetchEmbeddings:", error);
+    throw error;
+  }
 }
 
 export async function buildDataPolygons(sources: string[], opts?: { k?: number }) {

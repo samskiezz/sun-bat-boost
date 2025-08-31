@@ -28,18 +28,28 @@ export function DataPolygonTab() {
   }, []);
 
   const run = async () => {
+    console.log("🚀 DEBUG: Button clicked! Starting run function");
+    console.log("🚀 Current sources:", sources);
+    console.log("🚀 Current k value:", k);
+    
     setBusy(true);
-    console.log("🚀 Starting data polygon build with sources:", sources, "k:", k);
     try{
+      console.log("🔧 About to call buildDataPolygons...");
       const built = await buildDataPolygons(sources, { k });
-      console.log("✅ Polygons built:", Object.keys(built));
+      console.log("✅ buildDataPolygons returned:", Object.keys(built));
+      
+      console.log("🔧 About to call comparePolygons...");
       const results = comparePolygons(built);
-      console.log("✅ Comparison complete:", results.length, "pairs");
+      console.log("✅ comparePolygons returned:", results.length, "pairs");
+      
       setPairs(results as any);
+      console.log("✅ All done! UI should update now.");
     } catch (error) {
-      console.error("❌ Error building data polygons:", error);
+      console.error("❌ ERROR in run function:", error);
+      console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack');
     } finally { 
       setBusy(false); 
+      console.log("🏁 Run function complete - busy set to false");
     }
   };
 
