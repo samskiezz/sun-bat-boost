@@ -1,0 +1,12 @@
+[
+  {
+    "source": "ProductCatalog",
+    "items": [[1.2, 2.4, 3.6, 4.8, 6.0], [1.1, 2.3, 3.7, 4.9, 5.8], [1.3, 2.5, 3.5, 4.7, 6.2]],
+    "labels": ["ProductCatalog_item_0", "ProductCatalog_item_1", "ProductCatalog_item_2"]
+  },
+  {
+    "source": "TariffPlans", 
+    "items": [[2.4, 4.8, 7.2, 9.6, 12.0], [2.2, 4.6, 7.4, 9.8, 11.6], [2.6, 5.0, 7.0, 9.4, 12.4]],
+    "labels": ["TariffPlans_item_0", "TariffPlans_item_1", "TariffPlans_item_2"]
+  }
+]

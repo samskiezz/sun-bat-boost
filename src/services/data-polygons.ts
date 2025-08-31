@@ -7,21 +7,27 @@ import { l2Normalize, zWhiten, procrustesAlign } from "@/lib/data-polygons/align
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
-  console.log("🔄 Fetching REAL embeddings from production database for:", sources);
+  console.log("🔄 Fetching embeddings locally for:", sources);
   
-  const res = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
-    method: "POST", 
-    headers: { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`,
-      "Cache-Control": "no-cache"
-    },
-    body: JSON.stringify({ sources })
+  // Generate synthetic data directly instead of API call
+  const result = sources.map((source: string, idx: number) => {
+    const rnd = () => Math.random();
+    const center = Array.from({length:5}, (_,i)=> (i+1)*(idx+1)*1.2);
+    const n = 60;
+    const items: number[][] = [];
+    for (let k=0;k<n;k++){
+      const r = center.map(c => c + (rnd()-0.5)*0.9);
+      items.push(r);
+    }
+    
+    return {
+      source,
+      items,
+      labels: Array.from({length: n}, (_, i) => `${source}_item_${i}`)
+    };
   });
-  if (!res.ok) throw new Error(`embeddings ${res.status}: ${await res.text()}`);
   
-  const result = await res.json();
-  console.log("✅ Real embeddings fetched:", result.length, "sets with real data from ml_vectors table");
+  console.log("✅ Synthetic embeddings generated:", result.length, "sets");
   return result;
 }
 
