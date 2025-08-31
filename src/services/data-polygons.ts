@@ -32,11 +32,15 @@ export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]
 }
 
 export async function buildDataPolygons(sources: string[], opts?: { k?: number }) {
+  console.log("🔧 buildDataPolygons called with:", sources, "opts:", opts);
+  
   const sets = await fetchEmbeddings(sources);
+  console.log("📊 Embeddings received:", sets.length, "sets");
 
   // 1) normalize each source
   const normalized = sets.map(s => ({ ...s, items: l2Normalize(zWhiten(s.items)) }));
   recordEdge("Normalizer","Projection","L2+Z", { sources: normalized.length });
+  console.log("🔄 Normalized", normalized.length, "embedding sets");
 
   // 2) choose reference (first) and Procrustes-align others on anchor pairs (first N shared indices)
   const ref = normalized[0];
@@ -49,10 +53,12 @@ export async function buildDataPolygons(sources: string[], opts?: { k?: number }
     recordMsg({ from: s.source, to: ref.source, topic: "ALIGN", content: { anchors } });
     return { ...s, items };
   });
+  console.log("🎯 Aligned", aligned.length, "sets to reference");
 
   // 3) project to 2D (PCA; swap to UMAP/TSNE if you add APIs)
   const projected = aligned.map(s => ({ source: s.source, pts2d: (s.items[0].length>2 ? pca2d(s.items) : s.items).map(v=>[v[0],v[1]] as [number,number]) }));
   recordEdge("Projection","PolygonBuilder","PCA→2D", { d: aligned[0].items[0].length });
+  console.log("📐 Projected to 2D:", projected.length, "sets");
 
   // 4) concave hulls
   const k = opts?.k ?? 8;
@@ -63,6 +69,7 @@ export async function buildDataPolygons(sources: string[], opts?: { k?: number }
     recordEdge(s.source, "PolygonBuilder", "concave hull", { k, area: polygonArea(hull) });
     recordMsg({ from: s.source, to: "PolygonBuilder", topic: "BUILD", content: { k } });
   }
+  console.log("🔺 Built concave hulls:", Object.keys(hulls));
 
   publish({ type: "POLY.DATA.BUILT", payload: { sources, hulls } });
   return hulls;

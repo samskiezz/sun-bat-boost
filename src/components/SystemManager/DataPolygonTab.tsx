@@ -29,11 +29,18 @@ export function DataPolygonTab() {
 
   const run = async () => {
     setBusy(true);
+    console.log("🚀 Starting data polygon build with sources:", sources, "k:", k);
     try{
       const built = await buildDataPolygons(sources, { k });
+      console.log("✅ Polygons built:", Object.keys(built));
       const results = comparePolygons(built);
+      console.log("✅ Comparison complete:", results.length, "pairs");
       setPairs(results as any);
-    } finally { setBusy(false); }
+    } catch (error) {
+      console.error("❌ Error building data polygons:", error);
+    } finally { 
+      setBusy(false); 
+    }
   };
 
   const toggleSource = (s: string) => {
