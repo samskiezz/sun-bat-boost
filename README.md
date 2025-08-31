@@ -482,6 +482,74 @@
 
 ---
 
+---
+
+## Data Polygon Mapping — Advanced Additions
+
+### Sources & Embedding Ops
+
+registerEmbeddingSource, listEmbeddingSources, fetchEmbeddingsBatch, fetchEmbeddingsPaged, cacheEmbeddingsLocal, normalizeEmbeddingsL2, whitenEmbeddingsZScore, dedupeEmbeddingsByHash, labelEmbeddings, augmentEmbeddingsNoise
+
+### Projection & Alignment
+
+umap2d, tsne2d, isomap2d, spectral2d, normalize2dRange, alignProjectionsProcrustes, projectIncremental, projectionQualityScore, projectionDriftScore, projectionSwitch(source)
+
+### Polygon Construction (Embedding Space)
+
+concaveHullKNN, alphaShape, polygonSmoothChaikin, polygonResampleN, polygonSimplifyDouglasPeucker, polygonComplexityIndex, polygonSelfIntersectFix, multiPolygonUnion, multiPolygonIntersect, polygonEnvelope
+
+### Overlap & Distance Metrics
+
+hausdorffDistance, chamferDistance, diceCoefficient, overlapMatrixIoU, containmentScoreDirected, surfaceDifference, centroidDistance, boundaryFractalScore, polygonSimilarityComposite, pairwiseMetricMatrix
+
+### Matching & Assignment
+
+matchBipartiteHungarian, matchStableGaleShapley, matchGreedyKNN, matchConsensusVoting, matchCascadePipeline, matchWithConstraints, composeMatches, kHopNeighborhoodLinking, resolveMatchCycles, pruneLowConfidenceMatches
+
+### Sequencing & Orchestration
+
+pipelineConfigCreate, pipelineRunOnce, pipelineRunContinuous, pipelineBackpressure, pipelineRetryPolicy, pipelineMetricsSnapshot, pipelineRehydrate, pipelineCheckpoint, pipelineAblationToggle, scenarioRunnerSet
+
+### Drift, Temporal & Versioning
+
+timeSlicePolygons, trackPolygonDrift, detectChangePoints, embeddingDriftEWMA, snapshotEmbeddings(version), compareSnapshots(a,b), versionedSourceRegistry, rollingWindowMetrics, temporalIoUCurve, driftAlertPolicy
+
+### Explainability & QA
+
+regionAttributionMap, saliencyByVertex, counterfactualPolygon, explainMismatchPair, outlierDetectorDBSCAN, labelNoiseEstimator, qaCoverageGaps, qaMetricRegression, qaSpecCompleteness, qaFailFastGuards
+
+### Visualization (No-Map, SVG/Canvas)
+
+EmbeddingHeatmap, OverlapMatrixHeatmap, PolygonLassoSelect, PolygonComparePanel, ProjectionSwitcher, SourceLegend, MetricTrendChart, DriftSparkline, MessageTraceViewer, EdgeGraphMini
+
+### APIs (Data-Polygon)
+
+POST /api/datapoly/sources/upsert
+
+GET  /api/datapoly/sources
+
+POST /api/datapoly/project           (umap/tsne/isomap switch)
+
+POST /api/datapoly/polygons/build    (concave/alpha/convex)
+
+POST /api/datapoly/match/assign      (hungarian/stable/knn)
+
+GET  /api/datapoly/metrics           (IoU/Hausdorff/Dice)
+
+POST /api/datapoly/drift/check
+
+POST /api/datapoly/synthetic/generate
+
+### CLI
+
+cli:emb:import, cli:emb:index, cli:emb:reproject, cli:poly:build, cli:poly:metrics, cli:match:assign, cli:drift:check, cli:scenario:run
+
+### Tests
+
+datapoly.core.spec.ts, datapoly.metrics.spec.ts, datapoly.matching.spec.ts, datapoly.drift.spec.ts, datapoly.projection.spec.ts, datapoly.ui.spec.ts
+
+---
+
 # Auto-Discovered Additions (from codebase)
 
 ## AI Adapters & Integrations (src/ai/adapters)
