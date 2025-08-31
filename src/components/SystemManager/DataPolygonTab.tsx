@@ -13,6 +13,7 @@ export function DataPolygonTab() {
   const [hulls, setHulls] = React.useState<Hulls>({});
   const [pairs, setPairs] = React.useState<Array<{ a:string; b:string; iou:number }>>([]);
   const [busy, setBusy] = React.useState(false);
+  const [k, setK] = React.useState(8);
   const [edges, setEdges] = React.useState(getEdges());
   const [msgs, setMsgs] = React.useState(getMsgs());
 
@@ -29,7 +30,7 @@ export function DataPolygonTab() {
   const run = async () => {
     setBusy(true);
     try{
-      const built = await buildDataPolygons(sources);
+      const built = await buildDataPolygons(sources, { k });
       const results = comparePolygons(built);
       setPairs(results as any);
     } finally { setBusy(false); }
@@ -62,6 +63,11 @@ export function DataPolygonTab() {
               {s}
             </label>
           ))}
+          <label className="text-sm flex items-center gap-2">
+            Concavity k
+            <input type="number" min={3} max={25} value={k} onChange={e=>setK(parseInt(e.target.value||"8"))}
+                   className="w-16 border rounded px-1 py-0.5" />
+          </label>
           <button disabled={busy} onClick={run} className="ml-auto px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-colors">
             {busy ? "🔄 Processing..." : "🚀 Build Real Polygons"}
           </button>
@@ -105,14 +111,14 @@ export function DataPolygonTab() {
           <div className="font-semibold mb-2">Proof: Interconnections</div>
           <div className="text-xs text-gray-600 mb-1">Recent Edges</div>
           <div className="max-h-28 overflow-auto text-xs font-mono">
-            {edges.slice(-12).reverse().map(e=>(
-              <div key={e.id}>{new Date(e.ts).toLocaleTimeString()} {e.from} → {e.to} :: {e.summary}</div>
+            {[...edges].sort((a,b)=> a.seq - b.seq).slice(-20).map(e=>(
+              <div key={e.id} className="font-mono">{e.seq.toString().padStart(3,"0")} {e.from} → {e.to} :: {e.summary}</div>
             ))}
           </div>
           <div className="text-xs text-gray-600 mt-2 mb-1">Recent Messages</div>
           <div className="max-h-28 overflow-auto text-xs font-mono">
-            {msgs.slice(-12).reverse().map(m=>(
-              <div key={m.id}>{new Date(m.ts).toLocaleTimeString()} {m.from} ⇒ {m.to} [{m.topic}]</div>
+            {[...msgs].sort((a,b)=> a.seq - b.seq).slice(-20).map(m=>(
+              <div key={m.id} className="font-mono">{m.seq.toString().padStart(3,"0")} {m.from} ⇒ {m.to} [{m.topic}]</div>
             ))}
           </div>
         </div>
