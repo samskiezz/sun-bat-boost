@@ -3,7 +3,7 @@ import { FileText, Search, Zap, Sparkles, Settings, Brain } from "lucide-react";
 import { ProductPickerForm } from "./forms/ProductPickerForm";
 import { QuickSizesForm } from "./forms/QuickSizesForm";
 import UniversalOCRScanner from "./UniversalOCRScanner";
-import ComprehensiveTrainingDashboard from "./ComprehensiveTrainingDashboard";
+import EnhancedTrainingSystem from "./EnhancedTrainingSystem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,7 +58,7 @@ export const InputModeTabs = ({ onCalculate, appMode = 'lite', tier = 'free', un
             <CardTitle>AI Training & Management</CardTitle>
           </CardHeader>
           <CardContent>
-            <ComprehensiveTrainingDashboard />
+            <EnhancedTrainingSystem />
           </CardContent>
         </Card>
       )}

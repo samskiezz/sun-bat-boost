@@ -25,7 +25,7 @@ import {
 import { AICore, type AIAssistantResponse, type AppMode } from '@/lib/ai/AICore';
 import { cn } from '@/lib/utils';
 import UniversalOCRScanner from './UniversalOCRScanner';
-import ComprehensiveTrainingDashboard from './ComprehensiveTrainingDashboard';
+import EnhancedTrainingSystem from './EnhancedTrainingSystem';
 
 interface EnhancedAISystemProps {
   mode: AppMode;
@@ -541,7 +541,7 @@ export const EnhancedAISystem: React.FC<EnhancedAISystemProps> = ({
           <p className="text-sm text-gray-600">Monitor and control the AI training system</p>
         </div>
         <div className="h-[400px] overflow-y-auto">
-          <ComprehensiveTrainingDashboard />
+          <EnhancedTrainingSystem />
         </div>
       </div>
     );

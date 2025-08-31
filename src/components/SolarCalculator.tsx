@@ -390,9 +390,6 @@ const SolarCalculator = () => {
             <BatteryROICalculator preExtractedData={ocrData} />
           )}
           
-          {activeTab === "OCR Demo" && (
-            <OCRToMapDemo />
-          )}
           
           {/* AI Assistant - Only shown in dev mode */}
           {devMode && showAI && (
