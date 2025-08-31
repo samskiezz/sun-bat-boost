@@ -6,16 +6,22 @@ import { recordEdge, recordMsg } from "@/lib/orch/trace";
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
+  console.log("🔄 Fetching REAL embeddings from production database for:", sources);
+  
   const res = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
     method: "POST", 
     headers: { 
       "Content-Type": "application/json",
-      "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`
+      "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZ2NhY3VoZHdwc2ZrYmd1ZGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMjIwNzcsImV4cCI6MjA3MTY5ODA3N30.rtp0L8COz3XcmEzGqElLs-d08qHnZDbPr0ZWmyqq8Ms`,
+      "Cache-Control": "no-cache"
     },
     body: JSON.stringify({ sources })
   });
-  if (!res.ok) throw new Error(`embeddings ${res.status}`);
-  return res.json();
+  if (!res.ok) throw new Error(`embeddings ${res.status}: ${await res.text()}`);
+  
+  const result = await res.json();
+  console.log("✅ Real embeddings fetched:", result.length, "sets with real data from ml_vectors table");
+  return result;
 }
 
 export async function buildDataPolygons(sources: string[]) {

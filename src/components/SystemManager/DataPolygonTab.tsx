@@ -6,7 +6,7 @@ import { getEdges, getMsgs } from "@/lib/orch/trace";
 type Poly = [number, number][];
 type Hulls = Record<string, Poly>;
 
-const DEFAULT_SOURCES = ["ModelA", "ModelB", "TariffDB", "CatalogDB"];
+const DEFAULT_SOURCES = ["ProductCatalog", "TariffPlans", "VPPPrograms", "TrainingData"];
 
 export function DataPolygonTab() {
   const [sources, setSources] = React.useState<string[]>(DEFAULT_SOURCES);
@@ -62,14 +62,15 @@ export function DataPolygonTab() {
               {s}
             </label>
           ))}
-          <button disabled={busy} onClick={run} className="ml-auto px-3 py-2 rounded bg-indigo-600 text-white disabled:opacity-50">
-            Build & Compare
+          <button disabled={busy} onClick={run} className="ml-auto px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-colors">
+            {busy ? "🔄 Processing..." : "🚀 Build Real Polygons"}
           </button>
         </div>
 
         <div className="rounded-2xl border p-3">
-          <div className="text-sm font-medium mb-2">Embedding Space — Data Polygons</div>
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[480px] bg-white rounded-lg">
+          <div className="text-sm font-medium mb-2">🔄 Real-Time Data Polygons — Production Mode</div>
+          <div className="text-xs text-gray-600 mb-2">Using real ML vectors from database • {Object.keys(hulls).length} active models</div>
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[480px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border">
             {Object.entries(hulls).map(([k, poly]) => (
               <polygon key={k}
                 points={poly.map(p=>`${sx(p[0])},${sy(p[1])}`).join(" ")}
