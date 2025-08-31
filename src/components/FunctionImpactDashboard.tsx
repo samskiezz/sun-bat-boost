@@ -28,6 +28,7 @@ export default function FunctionImpactDashboard() {
             <Brain className="h-5 w-5" />
             Function Impact Analysis
           </CardTitle>
+          <div className="text-sm text-muted-foreground italic">Development mode - synthetic training data</div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -101,11 +102,7 @@ export default function FunctionImpactDashboard() {
                   </div>
                   
                   <div className="text-xs text-muted-foreground">
-                    Impact on system: 
-                    <span className="ml-1 text-primary">
-                      +{((impact.accuracy / 100) * 0.05 * 100).toFixed(2)}% sizing accuracy, 
-                      +{((impact.efficiency / 100) * 0.03 * 100).toFixed(2)}% cost optimization
-                    </span>
+                    <span className="italic">Demo data - synthetic training metrics for development</span>
                   </div>
                 </div>
               ))}

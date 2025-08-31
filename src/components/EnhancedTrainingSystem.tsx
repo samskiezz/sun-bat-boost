@@ -593,6 +593,7 @@ export default function EnhancedTrainingSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Training Impact on Other Systems</CardTitle>
+                <div className="text-sm text-muted-foreground italic">Demo data - synthetic calculations</div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
