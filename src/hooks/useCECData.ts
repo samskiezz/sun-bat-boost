@@ -89,9 +89,8 @@ export const useCECData = () => {
 
       console.log('🔄 Fetching ALL CEC data with pagination...');
 
-      // Approved brands filter
-      const approvedPanelBrands = ['REC', 'AIKO', 'LONGI', 'JINKO', 'TINDO'];
-      const approvedBatteryBrands = ['SIGENERGY', 'SUNGROW', 'GOODWE', 'FOX ESS', 'TESLA'];
+      // Fetch ALL products from the catalog (no brand filtering)
+      console.log('🌍 Fetching COMPLETE catalog - all brands and products');
 
       // Helper functions to fetch all pages for specific tables
       const fetchAllPanels = async () => {
@@ -104,7 +103,6 @@ export const useCECData = () => {
           const { data, error } = await supabase
             .from('pv_modules')
             .select('*')
-            .or(approvedPanelBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
             .range(from, from + pageSize - 1)
             .order('brand', { ascending: true });
 
@@ -136,7 +134,6 @@ export const useCECData = () => {
           const { data, error } = await supabase
             .from('batteries')
             .select('*')
-            .or(approvedBatteryBrands.map(brand => `brand.ilike.%${brand}%`).join(','))
             .range(from, from + pageSize - 1)
             .order('brand', { ascending: true });
 
@@ -166,8 +163,7 @@ export const useCECData = () => {
             .from('products')
             .select('*, manufacturers(name)')
             .eq('category', 'PANEL')
-            .eq('status', 'active')
-            .or(approvedPanelBrands.map(brand => `manufacturers.name.ilike.%${brand}%`).join(','));
+            .eq('status', 'active');
           
           // Map products to panel format
           return (data || []).map(product => ({
@@ -188,8 +184,7 @@ export const useCECData = () => {
             .from('products')
             .select('*, manufacturers(name)')
             .eq('category', 'BATTERY_MODULE')
-            .eq('status', 'active')
-            .or(approvedBatteryBrands.map(brand => `manufacturers.name.ilike.%${brand}%`).join(','));
+            .eq('status', 'active');
           
           // Map products to battery format
           return (data || []).map(product => ({
@@ -209,42 +204,46 @@ export const useCECData = () => {
         supabase.from('product_changes').select('*').order('changed_at', { ascending: false }).limit(100).then(r => r.data || [])
       ]);
 
-      console.log('🎯 PAGINATION COMPLETE - Final results:', {
+      console.log('🎯 COMPLETE CATALOG LOADED - Final results:', {
         panels: allPanels.length,
         batteries: allBatteries.length,
         vppProviders: allVppProviders.length,
         changes: allChanges.length
       });
 
-      // Immediate verification - check for approved brands in paginated data
+      // Verification - show sample of catalog data
       if (allPanels && allPanels.length > 0) {
-        const recPanels = allPanels.filter((p: any) => 
-          p.brand && p.brand.toLowerCase().includes('rec')
-        );
-        console.log(`✅ REC PANELS FOUND: ${recPanels.length}`);
+        const allBrands = [...new Set(allPanels.map((p: any) => p.brand))].sort();
+        console.log(`✅ TOTAL PANEL BRANDS: ${allBrands.length}`);
+        console.log(`✅ First 10 brands: ${allBrands.slice(0, 10).join(', ')}`);
         
+        // Sample specific brand counts
         const jinko = allPanels.filter((p: any) => 
           p.brand && p.brand.toLowerCase().includes('jinko')
         );
-        console.log(`✅ JINKO FOUND: ${jinko.length} panels`);
+        console.log(`✅ JINKO PANELS: ${jinko.length}`);
         
-        const approvedBrands = [...new Set(allPanels.map((p: any) => p.brand))].sort();
-        console.log(`✅ APPROVED PANEL BRANDS: ${approvedBrands.length}`, approvedBrands);
+        const canadian = allPanels.filter((p: any) => 
+          p.brand && p.brand.toLowerCase().includes('canadian')
+        );
+        console.log(`✅ CANADIAN SOLAR PANELS: ${canadian.length}`);
       }
 
       if (allBatteries && allBatteries.length > 0) {
+        const allBatteryBrands = [...new Set(allBatteries.map((b: any) => b.brand))].sort();
+        console.log(`✅ TOTAL BATTERY BRANDS: ${allBatteryBrands.length}`);
+        console.log(`✅ First 10 battery brands: ${allBatteryBrands.slice(0, 10).join(', ')}`);
+        
+        // Sample specific brand counts
         const tesla = allBatteries.filter((b: any) => 
           b.brand && b.brand.toLowerCase().includes('tesla')
         );
-        console.log(`✅ TESLA BATTERIES FOUND: ${tesla.length}`);
+        console.log(`✅ TESLA BATTERIES: ${tesla.length}`);
         
-        const sigenergy = allBatteries.filter((b: any) => 
-          b.brand && b.brand.toLowerCase().includes('sigenergy')
+        const lg = allBatteries.filter((b: any) => 
+          b.brand && b.brand.toLowerCase().includes('lg')
         );
-        console.log(`✅ SIGENERGY BATTERIES FOUND: ${sigenergy.length}`);
-        
-        const approvedBatteryBrands = [...new Set(allBatteries.map((b: any) => b.brand))].sort();
-        console.log(`✅ APPROVED BATTERY BRANDS: ${approvedBatteryBrands.length}`, approvedBatteryBrands);
+        console.log(`✅ LG BATTERIES: ${lg.length}`);
       }
 
       // Set the state with paginated data
@@ -253,7 +252,7 @@ export const useCECData = () => {
       setVppProviders(allVppProviders || []);
       setProductChanges(allChanges || []);
 
-      console.log(`🚀 STATE SET - Approved Panels: ${allPanels.length}, Approved Batteries: ${allBatteries.length}, VPPs: ${allVppProviders.length}`);
+      console.log(`🚀 COMPLETE CATALOG SET - Total Panels: ${allPanels.length}, Total Batteries: ${allBatteries.length}, VPPs: ${allVppProviders.length}`);
 
       // Set last updated timestamp using paginated data
       const allScrapedDates = [
@@ -268,7 +267,7 @@ export const useCECData = () => {
 
       // Always consider data complete since we now use weekly updates
       setDataComplete(true);
-      console.log('✅ PAGINATION SUCCESS! Approved products loaded - Panels:', allPanels.length, 'Batteries:', allBatteries.length, 'VPPs:', allVppProviders.length);
+      console.log('✅ COMPLETE CATALOG SUCCESS! All products loaded - Panels:', allPanels.length, 'Batteries:', allBatteries.length, 'VPPs:', allVppProviders.length);
 
     } catch (err) {
       console.error('❌ Error fetching complete CEC data:', err);
