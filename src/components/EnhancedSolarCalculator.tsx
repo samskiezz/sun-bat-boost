@@ -79,8 +79,8 @@ export const EnhancedSolarCalculator: React.FC = () => {
     console.log('System sizing updated:', systemData);
   }, []);
 
-  // Mock bill data for now - in production this would come from OCR or manual input
-  const mockBillData = {
+  // Mock bill data - this would normally come from OCR or user input
+  const billData = {
     monthlyUsage: 850,
     monthlyBill: 350,
     quarterlyUsage: 2550,
@@ -174,7 +174,7 @@ export const EnhancedSolarCalculator: React.FC = () => {
 
                 {currentStep === 'system-sizing' && (
                   <EnhancedSystemSizing
-                    billData={mockBillData}
+                    billData={billData}
                     locationData={wizardData.locationData}
                     siteData={wizardData.siteData}
                     evData={wizardData.evData}

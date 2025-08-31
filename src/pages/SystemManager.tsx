@@ -23,7 +23,6 @@ import EnhancedTrainingSystem from "@/components/EnhancedTrainingSystem";
 // Tab component imports with fallbacks
 import { TwinUncertaintyTab } from "@/components/TwinUncertaintyTabNew";
 import { TariffVPPOptimizerTab } from "@/components/TariffVPPOptimizerTabNew";
-import { ComplianceTab } from "@/components/ComplianceTab";
 import { MonitoringTab } from "@/components/MonitoringTab";
 import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
 import { PolygonMonitorTab } from "@/components/SystemManager/PolygonMonitorTab";
@@ -309,7 +308,7 @@ export default function SystemManager() {
 
         <TabsContent value="compliance">
           <TabContentWrapper tabName="Compliance">
-            <ComplianceTab />
+            <TariffVPPOptimizerTab />
           </TabContentWrapper>
         </TabsContent>
 

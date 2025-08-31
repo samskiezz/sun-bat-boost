@@ -29,7 +29,7 @@ import TopBar from "./TopBar";
 import { messageBus } from "@/lib/ai/MessageBus";
 import { modelRegistry } from "@/lib/ai/ModelRegistry";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "OCR Demo";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
 
 const SolarCalculator = () => {
   const [results, setResults] = useState(null);
@@ -350,7 +350,7 @@ const SolarCalculator = () => {
         <div className="mx-auto max-w-6xl space-y-8">
           <SystemManagerCard devMode={devMode} />
           
-          <AppTabs activeTab={activeTab} onTabChange={handleTabChange} showOCRDemo={devMode} />
+          <AppTabs activeTab={activeTab} onTabChange={handleTabChange} />
           
           {activeTab === "Rebates Calculator" && (
             <>

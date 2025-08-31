@@ -23,9 +23,9 @@ const defaultImpact: TrainingImpact = {
   sizingConfidenceBoost: 1.0,
   savingsPrecisionBoost: 1.0,
   roiCalibration: 1.0,
-  planRankingConfidence: 0.85,
+  planRankingConfidence: 0.0,
   overallScore: 0,
-  isReady: false,
+  isReady: true,
   functionImpacts: {},
   totalFunctionsTrained: 0
 };
@@ -96,14 +96,16 @@ export function useTrainingImpact() {
             totalFunctionsTrained
           });
 
-          console.log('🤖 AI tuning applied:', {
-            sizingConfidenceBoost: `${((sizingConfidenceBoost - 1) * 100).toFixed(1)}%`,
-            savingsPrecisionBoost: `${((savingsPrecisionBoost - 1) * 100).toFixed(1)}%`,
-            roiCalibration: `${((roiCalibration - 1) * 100).toFixed(1)}%`,
-            planRankingConfidence: `${(planRankingConfidence * 100).toFixed(1)}%`,
-            overallScore: `${overallScore.toFixed(1)}%`,
-            functionsActive: `${totalFunctionsTrained} functions trained`
-          });
+          if (totalFunctionsTrained > 0) {
+            console.log('🤖 Training impact calculated:', {
+              sizingConfidenceBoost: `${((sizingConfidenceBoost - 1) * 100).toFixed(1)}%`,
+              savingsPrecisionBoost: `${((savingsPrecisionBoost - 1) * 100).toFixed(1)}%`,
+              roiCalibration: `${((roiCalibration - 1) * 100).toFixed(1)}%`,
+              planRankingConfidence: `${(planRankingConfidence * 100).toFixed(1)}%`,
+              overallScore: `${overallScore.toFixed(1)}%`,
+              functionsActive: `${totalFunctionsTrained} functions trained`
+            });
+          }
         }
       } catch (error) {
         console.warn('Failed to load training impact:', error);

@@ -2,20 +2,18 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calculator, Battery, Sparkles, FileText } from "lucide-react";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "OCR Demo";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
 
 interface AppTabsProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
-  showOCRDemo?: boolean;
 }
 
-export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange, showOCRDemo }) => {
+export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: "Rebates Calculator" as Tab, label: "Rebates Calculator", icon: Calculator },
     { id: "How much can I save?" as Tab, label: "How Much Can I Save?", icon: Sparkles },
-    { id: "Battery ROI Calculator" as Tab, label: "Battery ROI Calculator", icon: Battery },
-    ...(showOCRDemo ? [{ id: "OCR Demo" as Tab, label: "OCR Demo", icon: FileText }] : [])
+    { id: "Battery ROI Calculator" as Tab, label: "Battery ROI Calculator", icon: Battery }
   ];
 
   return (
@@ -43,7 +41,6 @@ export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange, showOC
                 {tab.id === "Rebates Calculator" && "Rebates"}
                 {tab.id === "How much can I save?" && "Savings"}
                 {tab.id === "Battery ROI Calculator" && "Battery ROI"}
-                {tab.id === "OCR Demo" && "OCR"}
               </span>
               
               {activeTab === tab.id && (
