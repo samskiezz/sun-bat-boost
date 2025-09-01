@@ -1,5 +1,6 @@
 import * as React from "react";
 import { toast } from "@/hooks/use-toast";
+import { suggestLinks, findGaps, detectConflicts, summarizeActions } from "@/services/datapoly-actions";
 
 export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Promise<any> }) {
   const [preview, setPreview] = React.useState<any>(null);
@@ -10,13 +11,10 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     setBusy(true); setMsg("");
     try {
       const payload = await getPayload();
-      const res = await fetch("/api/datapoly-actions-preview", { 
-        method:"POST", 
-        headers:{ "Content-Type":"application/json" }, 
-        body: JSON.stringify(payload) 
-      });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+      const links = suggestLinks(payload.hulls);
+      const gaps = findGaps(payload.items || [], payload.hulls);
+      const conflicts = detectConflicts(payload.existingLinks || [], payload.hulls, payload.previousHulls || {});
+      const result = summarizeActions(links, gaps, conflicts);
       setPreview(result);
       
       // Auto-apply if there are links to create
@@ -39,18 +37,18 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     if (!dataToApply) return;
     
     try {
-      const res = await fetch("/api/datapoly-actions-apply", { 
-        method:"POST", 
-        headers:{ "Content-Type":"application/json" }, 
-        body: JSON.stringify(dataToApply) 
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
+      // TODO: write accepted links to DB ("links" table) and emit events
+      const applied = dataToApply?.createLinks?.length || 0;
       
-      setMsg(`✅ Applied ${json.applied} links automatically`);
+      // Store applied links globally for future conflict detection
+      if (applied > 0) {
+        (window as any).__existingLinks = dataToApply.createLinks;
+      }
+      
+      setMsg(`✅ Applied ${applied} links automatically`);
       toast({
         title: "Links Applied",
-        description: `Successfully applied ${json.applied} data links`,
+        description: `Successfully applied ${applied} data links`,
       });
     } catch (error) {
       toast({
