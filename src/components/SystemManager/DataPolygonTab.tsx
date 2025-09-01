@@ -17,6 +17,7 @@ export function DataPolygonTab() {
   const [k, setK] = React.useState(8);
   const [edges, setEdges] = React.useState(getEdges());
   const [msgs, setMsgs] = React.useState(getMsgs());
+  const [dataSource, setDataSource] = React.useState<'real' | 'synthetic' | 'unknown'>('unknown');
 
   React.useEffect(()=> {
     console.log("🎯 DataPolygonTab subscribing to events...");
@@ -50,56 +51,27 @@ export function DataPolygonTab() {
 
   const run = async (runSources?: string[]) => {
     const sourcesToUse = runSources || sources;
-    console.log("=== BUTTON CLICKED ===");
-    console.log("run function called at:", new Date().toISOString());
-    console.log("sources:", sourcesToUse);
-    console.log("k:", k);
-    console.log("busy:", busy);
-    
+    console.log("🔧 Building polygons for sources:", sourcesToUse);
     setBusy(true);
-    console.log("setBusy(true) called");
     
-    // Store previous hulls for drift detection
-    (window as any).__prevHulls = hulls;
-    
-    try{
-      console.log("Entering try block...");
+    try {
+      const result = await buildDataPolygons(sourcesToUse, { k });
+      console.log("✅ Polygons built:", Object.keys(result));
       
-      // Test if imports work
-      console.log("Testing imports...");
-      console.log("buildDataPolygons type:", typeof buildDataPolygons);
-      console.log("comparePolygons type:", typeof comparePolygons);
+      // Extract metadata if available
+      const metadata = (result as any).metadata;
+      if (metadata) {
+        setDataSource(metadata.hasRealData ? 'real' : 'synthetic');
+      }
       
-      console.log("About to call buildDataPolygons...");
-      const built = await buildDataPolygons(sourcesToUse, { k });
-      console.log("buildDataPolygons completed, result:", built);
-      
-      // Directly update hulls state (don't rely only on events)
-      setHulls(built);
-      console.log("setHulls called with built result");
-      
-      console.log("About to call comparePolygons...");
-      const results = comparePolygons(built);
-      console.log("comparePolygons completed, results:", results);
-      
-      setPairs(results as any);
-      console.log("setPairs called with results");
-      
+      setHulls(result);
+      const pairs = comparePolygons(result);
+      setPairs(pairs);
     } catch (error) {
-      console.error("=== ERROR IN RUN FUNCTION ===");
-      console.error("Error:", error);
-      console.error("Error message:", error instanceof Error ? error.message : String(error));
-      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack available');
-      
-      // Also show error in UI
-      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      
-    } finally { 
-      console.log("Finally block - setting busy to false");
-      setBusy(false); 
+      console.error("❌ Failed to build polygons:", error);
+    } finally {
+      setBusy(false);
     }
-    
-    console.log("=== RUN FUNCTION COMPLETE ===");
   };
 
   const toggleSource = (s: string) => {
@@ -147,8 +119,15 @@ export function DataPolygonTab() {
         </div>
 
         <div className="rounded-2xl border p-3">
-          <div className="text-sm font-medium mb-2">🔄 Real-Time Data Polygons — Production Mode</div>
-          <div className="text-xs text-gray-600 mb-2">Using real ML vectors from database • {Object.keys(hulls).length} active models</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">🔄 Real-Time Data Polygons — Production Mode</div>
+            <div className="flex items-center gap-2">
+              {dataSource === 'real' && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">📊 REAL DATA</span>}
+              {dataSource === 'synthetic' && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">🎲 SYNTHETIC</span>}
+              {dataSource === 'unknown' && <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">❓ UNKNOWN</span>}
+            </div>
+          </div>
+          <div className="text-xs text-gray-600 mb-2">Using ML vectors from database • {Object.keys(hulls).length} active models</div>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[480px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border">
             {Object.entries(hulls).map(([k, poly]) => (
               <polygon key={k}

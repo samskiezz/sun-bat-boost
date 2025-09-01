@@ -6,7 +6,7 @@ import { l2Normalize, zWhiten, procrustesAlign } from "@/lib/data-polygons/align
 
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
-export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
+export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[] & { metadata?: any }> {
   console.log("🔄 DEBUG: fetchEmbeddings called with:", sources);
   
   // Try Supabase edge function first
@@ -21,11 +21,21 @@ export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]
     console.log("📡 Supabase response status:", r1.status, r1.statusText);
     
     if (r1.ok) {
-      const data = await r1.json();
-      console.log("📊 Supabase response data:", data);
-      if (Array.isArray(data) && data.every((d:any)=>Array.isArray(d.items) && d.items.length)) {
-        console.log("✅ Using real embeddings from Supabase function");
-        return data as EmbeddingSet[];
+      const response = await r1.json();
+      console.log("📊 Supabase response:", response);
+      
+      // Handle new response format with metadata
+      if (response.embeddings && Array.isArray(response.embeddings)) {
+        console.log(`✅ Using ${response.metadata?.hasRealData ? 'REAL' : 'synthetic'} embeddings from Supabase function`);
+        const result = response.embeddings as EmbeddingSet[];
+        (result as any).metadata = response.metadata;
+        return result;
+      }
+      
+      // Handle legacy format
+      if (Array.isArray(response) && response.every((d:any)=>Array.isArray(d.items) && d.items.length)) {
+        console.log("✅ Using legacy format embeddings from Supabase function");
+        return response as EmbeddingSet[];
       }
     }
   } catch (error) {

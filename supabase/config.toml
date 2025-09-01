@@ -24,3 +24,6 @@ verify_jwt = false
 
 [functions.mapbox-token]
 verify_jwt = false
+
+[functions.data-polygon-embeddings]
+verify_jwt = false
