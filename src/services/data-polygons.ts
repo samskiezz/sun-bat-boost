@@ -9,34 +9,34 @@ export type EmbeddingSet = { source: string; items: number[][]; labels?: string[
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]> {
   console.log("🔄 DEBUG: fetchEmbeddings called with:", sources);
   
-  // FORCE: Generate synthetic data directly - no API calls
   try {
-    const result = sources.map((source: string, idx: number) => {
-      console.log(`🔧 Generating data for ${source} (index ${idx})`);
-      const center = Array.from({length:5}, (_,i)=> (i+1)*(idx+1)*2.0); // bigger separation
-      const n = 60;
-      const items: number[][] = [];
-      
-      for (let k=0;k<n;k++){
-        const rnd = () => Math.random();
-        const r = center.map(c => c + (rnd()-0.5)*1.5);
-        items.push(r);
-      }
-      
-      console.log(`✅ Generated ${items.length} items for ${source}`);
-      return {
-        source,
-        items,
-        labels: Array.from({length: n}, (_, i) => `${source}_item_${i}`)
-      };
+    const r1 = await fetch("/functions/v1/data-polygon-embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sources })
     });
-    
-    console.log("✅ All synthetic embeddings generated:", result.length, "sets");
-    return result;
+    if (r1.ok) {
+      const data = await r1.json();
+      if (Array.isArray(data) && data.every((d:any)=>Array.isArray(d.items) && d.items.length)) {
+        console.log("✅ Using real embeddings from Supabase function");
+        return data as EmbeddingSet[];
+      }
+    }
   } catch (error) {
-    console.error("❌ Error in fetchEmbeddings:", error);
-    throw error;
+    console.warn("⚠️ Real embeddings failed, falling back to synthetic:", error);
   }
+  
+  // Fallback to synthetic embeddings
+  const r2 = await fetch("/api/datapoly/embeddings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sources })
+  });
+  if (!r2.ok) throw new Error("embeddings_unavailable");
+  
+  const result = await r2.json();
+  console.log("✅ Using synthetic embeddings:", result.length, "sets");
+  return result;
 }
 
 export async function buildDataPolygons(sources: string[], opts?: { k?: number }) {
