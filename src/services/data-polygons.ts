@@ -10,7 +10,7 @@ export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[]
   console.log("🔄 DEBUG: fetchEmbeddings called with:", sources);
   
   try {
-    const r1 = await fetch("/functions/v1/data-polygon-embeddings", {
+    const r1 = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sources })

@@ -1,4 +1,4 @@
-// Generate synthetic embeddings with better separation
+// Generate synthetic embeddings with better separation - fallback API route
 
 function mulberry32(a: number) {
   return function() {
@@ -22,15 +22,25 @@ function makeBlob(seed: number) {
 }
 
 export async function POST(request: Request) {
-  const { sources } = await request.json();
-  
-  const result = sources.map((source: string, idx: number) => ({
-    source,
-    items: makeBlob(idx),
-    labels: Array.from({length: 160}, (_, i) => `${source}_item_${i}`)
-  }));
+  try {
+    const { sources } = await request.json();
+    
+    console.log("🔄 Using synthetic embeddings fallback for:", sources);
+    
+    const result = sources.map((source: string, idx: number) => ({
+      source,
+      items: makeBlob(idx),
+      labels: Array.from({length: 160}, (_, i) => `${source}_item_${i}`)
+    }));
 
-  return new Response(JSON.stringify(result), {
-    headers: { "Content-Type": "application/json" }
-  });
+    return new Response(JSON.stringify(result), {
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (error) {
+    console.error("❌ Synthetic embeddings error:", error);
+    return new Response(JSON.stringify({ error: "Failed to generate synthetic embeddings" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 }

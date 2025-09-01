@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,41 +25,44 @@ function mulberry32(a: number) {
   };
 }
 
-async function fetchRealEmbeddings(source: string): Promise<number[][]> {
+async function fetchRealEmbeddings(supabase: any, source: string): Promise<number[][]> {
   try {
-    // Connect to Supabase to get real embeddings from ml_vectors table
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { data: vectors, error } = await supabase
+      .from('ml_vectors')
+      .select('embedding, meta')
+      .eq('kind', source)
+      .limit(200);
     
-    const response = await fetch(`${supabaseUrl}/rest/v1/ml_vectors?kind=eq.${source}`, {
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Content-Type': 'application/json'
-      }
-    });
+    if (error) throw error;
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch embeddings: ${response.statusText}`);
-    }
-    
-    const vectors = await response.json();
-    const embeddings: number[][] = [];
-    
-    for (const vector of vectors) {
-      if (vector.embedding) {
-        // Decode base64 embedding back to float array
-        const binaryString = atob(vector.embedding);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+    if (vectors && vectors.length > 0) {
+      const embeddings: number[][] = [];
+      
+      for (const vector of vectors) {
+        if (vector.embedding) {
+          try {
+            // Decode base64 embedding back to float array
+            const binaryString = atob(vector.embedding);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const floats = new Float32Array(bytes.buffer);
+            embeddings.push(Array.from(floats));
+          } catch (decodeError) {
+            console.warn(`Failed to decode embedding for ${source}:`, decodeError);
+          }
         }
-        const floats = new Float32Array(bytes.buffer);
-        embeddings.push(Array.from(floats));
+      }
+      
+      if (embeddings.length > 0) {
+        console.log(`✅ Found ${embeddings.length} real embeddings for ${source}`);
+        return embeddings;
       }
     }
     
-    return embeddings.length > 0 ? embeddings : generateFallbackEmbeddings(source);
+    console.log(`⚠️ No real embeddings found for ${source}, using fallback`);
+    return generateFallbackEmbeddings(source);
   } catch (error) {
     console.warn(`Failed to fetch real embeddings for ${source}:`, error);
     return generateFallbackEmbeddings(source);
@@ -66,7 +70,7 @@ async function fetchRealEmbeddings(source: string): Promise<number[][]> {
 }
 
 function generateFallbackEmbeddings(source: string): number[][] {
-  // Fallback to deterministic embeddings if no real data available
+  // Generate deterministic synthetic embeddings
   const seed = source.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const rnd = mulberry32(seed + 42);
   const center = Array.from({length: 64}, (_, i) => (i + 1) * (seed + 1) * 0.001);
@@ -90,11 +94,16 @@ serve(async (req) => {
 
     console.log(`📊 Generating embeddings for sources: ${sources.join(', ')}`);
 
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const result: EmbeddingSet[] = [];
     
     for (let i = 0; i < sources.length; i++) {
       const source = sources[i];
-      const items = await fetchRealEmbeddings(source);
+      const items = await fetchRealEmbeddings(supabase, source);
       result.push({
         source,
         items,
