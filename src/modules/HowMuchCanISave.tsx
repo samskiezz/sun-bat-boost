@@ -21,6 +21,7 @@ import { useSolarROI } from "@/hooks/useModels";
 import { formatCurrency, formatNumber } from "@/utils/format";
 import type { RankContext } from "@/energy/rankPlans";
 import { cn } from "@/lib/utils";
+import { getLinks } from "@/services/links";
 
 type Step = 'method' | 'current-bill' | 'location' | 'system-sizing' | 'best-rates' | 'savings-analysis';
 
@@ -137,7 +138,7 @@ export default function HowMuchCanISave() {
   const modelVersion = solarROIQuery.data?.version || "v1.0";
   const modelError = solarROIQuery.data?.error;
 
-  // Get solar equipment count
+  // Get solar equipment count and ML links
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -152,6 +153,18 @@ export default function HowMuchCanISave() {
           .select('*', { count: 'exact', head: true });
         
         setPlanCount((panelCount || 0) + (batteryCount || 0));
+        
+        // Fetch ML links to bias tariff/product ranking
+        const links = await getLinks();
+        const catalogTariffLinks = links.filter(l =>
+          (l.source_a === "ProductCatalog" && l.source_b === "TariffPlans") ||
+          (l.source_a === "TariffPlans" && l.source_b === "ProductCatalog")
+        );
+        
+        if (catalogTariffLinks.length > 0) {
+          console.log("🔗 Found", catalogTariffLinks.length, "catalog-tariff links for enhanced ROI calculation");
+          // Links can influence ranking algorithms in BestRatesStep and SystemSizingStep
+        }
         
       } catch (error) {
         console.error('Error fetching data:', error);

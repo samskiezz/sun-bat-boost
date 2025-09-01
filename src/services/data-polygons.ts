@@ -7,64 +7,49 @@ import { l2Normalize, zWhiten, procrustesAlign } from "@/lib/data-polygons/align
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[] & { metadata?: any }> {
-  console.log("🔄 DEBUG: fetchEmbeddings called with:", sources);
+  console.log("📊 Fetching embeddings for sources:", sources);
   
-  // Try Supabase edge function first
   try {
-    console.log("🌐 Attempting Supabase edge function...");
-    const r1 = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
+    // Try real endpoint first with full URL
+    const response = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sources })
     });
     
-    console.log("📡 Supabase response status:", r1.status, r1.statusText);
-    
-    if (r1.ok) {
-      const response = await r1.json();
-      console.log("📊 Supabase response:", response);
-      
-      // Handle new response format with metadata
-      if (response.embeddings && Array.isArray(response.embeddings)) {
-        console.log(`✅ Using ${response.metadata?.hasRealData ? 'REAL' : 'synthetic'} embeddings from Supabase function`);
-        const result = response.embeddings as EmbeddingSet[];
-        (result as any).metadata = response.metadata;
+    if (response.ok) {
+      const data = await response.json();
+      if (data.embeddings && Array.isArray(data.embeddings)) {
+        console.log(`✅ Using ${data.metadata?.hasRealData ? 'REAL' : 'synthetic'} embeddings from Supabase function`);
+        const result = data.embeddings as EmbeddingSet[];
+        (result as any).metadata = data.metadata;
         return result;
       }
       
       // Handle legacy format
-      if (Array.isArray(response) && response.every((d:any)=>Array.isArray(d.items) && d.items.length)) {
+      if (Array.isArray(data) && data.every((d: any) => Array.isArray(d.items) && d.items.length)) {
         console.log("✅ Using legacy format embeddings from Supabase function");
-        return response as EmbeddingSet[];
+        return data as EmbeddingSet[];
       }
     }
   } catch (error) {
-    console.warn("⚠️ Supabase edge function failed:", error);
+    console.warn("⚠️ Real endpoint failed, trying fallback:", error);
   }
   
-  // Try local API fallback
-  try {
-    console.log("🏠 Attempting local API fallback...");
-    const r2 = await fetch("/api/datapoly/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sources })
-    });
-    
-    console.log("📡 Local API response status:", r2.status, r2.statusText);
-    
-    if (r2.ok) {
-      const result = await r2.json();
-      console.log("✅ Using local API synthetic embeddings:", result.length, "sets");
-      return result;
-    }
-  } catch (error) {
-    console.warn("⚠️ Local API fallback failed:", error);
+  // Fallback to synthetic
+  const response = await fetch("/api/datapoly/embeddings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sources })
+  });
+  
+  if (!response.ok) {
+    throw new Error("embeddings_unavailable");
   }
   
-  // Direct synthetic fallback - no API calls needed
-  console.log("🔧 Using direct synthetic fallback...");
-  return generateDirectSyntheticEmbeddings(sources);
+  const data = await response.json();
+  console.log("🎲 Using synthetic embeddings:", data.length, "sets");
+  return data as EmbeddingSet[];
 }
 
 function generateDirectSyntheticEmbeddings(sources: string[]): EmbeddingSet[] {

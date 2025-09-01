@@ -122,27 +122,27 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
       {preview && (
         <div className="grid grid-cols-3 gap-3 text-sm">
           <div>
-            <div className="font-medium mb-1 text-foreground">Created Links ({preview.counts.links})</div>
+            <div className="font-medium mb-1 text-foreground">Created Links ({preview.counts?.links || 0})</div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {preview.createLinks.map((l:any, i:number)=>(
+              {(preview.createLinks || []).map((l:any, i:number)=>(
                 <li key={i} className="text-foreground">{l.from} ↔ {l.to} — {l.score} <span className="text-xs text-muted-foreground">({l.reason})</span></li>
               ))}
             </ul>
           </div>
           <div>
-            <div className="font-medium mb-1 text-foreground">Gaps ({preview.counts.gaps})</div>
+            <div className="font-medium mb-1 text-foreground">Gaps ({preview.counts?.gaps || 0})</div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {preview.gaps.map((g:any, i:number)=>(
+              {(preview.gaps || []).map((g:any, i:number)=>(
                 <li key={i} className="text-foreground">
-                  {g.source} @ [{Number(g.at[0]).toFixed(2)}, {Number(g.at[1]).toFixed(2)}]
+                  {g.source} @ [{Number(g.at?.[0] || 0).toFixed(2)}, {Number(g.at?.[1] || 0).toFixed(2)}]
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <div className="font-medium mb-1 text-foreground">Conflicts ({preview.counts.conflicts})</div>
+            <div className="font-medium mb-1 text-foreground">Conflicts ({preview.counts?.conflicts || 0})</div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {preview.conflicts.map((c:any, i:number)=>(<li key={i} className="text-foreground">{c.a} ↔ {c.b} — {c.note}</li>))}
+              {(preview.conflicts || []).map((c:any, i:number)=>(<li key={i} className="text-foreground">{c.a} ↔ {c.b} — {c.note}</li>))}
             </ul>
           </div>
         </div>
