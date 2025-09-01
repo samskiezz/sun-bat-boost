@@ -19,14 +19,15 @@ export function DataPolygonTab() {
   const [msgs, setMsgs] = React.useState(getMsgs());
 
   React.useEffect(()=> {
+    console.log("🎯 DataPolygonTab subscribing to events...");
     const unsub = subscribe((e) => {
       console.log("🎯 Event received:", e.type, e.payload);
       if (e.type === "POLY.DATA.BUILT") {
-        console.log("📊 Setting hulls from event:", e.payload.hulls);
+        console.log("📊 Setting hulls from event:", Object.keys(e.payload.hulls || {}));
         setHulls(e.payload.hulls as Hulls);
       }
       if (e.type === "MATCH.DONE") {
-        console.log("🔗 Setting pairs from event:", e.payload.pairs);
+        console.log("🔗 Setting pairs from event:", e.payload.pairs?.length);
         setPairs(e.payload.pairs as any);
       }
       setEdges(getEdges());
@@ -35,10 +36,23 @@ export function DataPolygonTab() {
     return unsub;
   }, []);
 
-  const run = async () => {
+  // Auto-run when component mounts with default sources
+  React.useEffect(() => {
+    console.log("🚀 Auto-starting polygon build...");
+    const autoSources = ["ProductCatalog", "TariffPlans", "VPPPrograms", "TrainingData"];
+    setSources(autoSources);
+    
+    // Auto-run after a short delay to ensure everything is initialized
+    setTimeout(() => {
+      run(autoSources);
+    }, 1000);
+  }, []);
+
+  const run = async (runSources?: string[]) => {
+    const sourcesToUse = runSources || sources;
     console.log("=== BUTTON CLICKED ===");
     console.log("run function called at:", new Date().toISOString());
-    console.log("sources:", sources);
+    console.log("sources:", sourcesToUse);
     console.log("k:", k);
     console.log("busy:", busy);
     
@@ -57,7 +71,7 @@ export function DataPolygonTab() {
       console.log("comparePolygons type:", typeof comparePolygons);
       
       console.log("About to call buildDataPolygons...");
-      const built = await buildDataPolygons(sources, { k });
+      const built = await buildDataPolygons(sourcesToUse, { k });
       console.log("buildDataPolygons completed, result:", built);
       
       // Directly update hulls state (don't rely only on events)

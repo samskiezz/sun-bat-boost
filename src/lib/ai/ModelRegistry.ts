@@ -1,5 +1,8 @@
 // AI Model Registry - Manages 15+ ML models for energy intelligence
 
+import { callAdapter } from "@/ai/integrations/registry";
+import { getCurrentWeights } from "@/hooks/useTrainingState";
+
 export interface MLModel {
   id: string;
   version: string;
@@ -59,7 +62,34 @@ export class ModelRegistry {
 
   private createMockInferFunction(modelId: string, outputType: string) {
     return async (inputs: any): Promise<{ value: any; confidence: number }> => {
-      // Simulate processing time
+      try {
+        // Try to call real adapters for key models
+        const adapterMap: Record<string, string> = {
+          M10: "ml_xgboost",       // ROI regressor
+          M4:  "ml_lightgbm",      // load estimator
+          M7:  "ai_stable_baselines3" // dispatch policy
+        };
+        
+        const adapterName = adapterMap[modelId];
+        if (adapterName) {
+          console.log(`🔧 Calling adapter ${adapterName} for model ${modelId}`);
+          const result = await callAdapter(adapterName, inputs);
+          
+          // Apply training weights to influence results
+          const weights = getCurrentWeights();
+          if (weights?.performance?.overallScore && result?.yhat != null && typeof result.yhat === "number") {
+            const delta = weights.perFunction?.roi?.delta || 0;
+            result.yhat = result.yhat * (1 + delta);
+            console.log(`🎯 Applied training delta ${delta} to model ${modelId}`);
+          }
+          
+          return { value: result, confidence: 0.85 };
+        }
+      } catch (error) {
+        console.warn(`⚠️ Adapter ${modelId} failed, using fallback:`, error);
+      }
+      
+      // Fallback to mock implementation
       await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 100));
       
       const confidence = 0.7 + Math.random() * 0.3;

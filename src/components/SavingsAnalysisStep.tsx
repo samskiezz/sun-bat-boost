@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import GlassmorphicChart from "./GlassmorphicChart";
+import { getLinks } from "@/services/links";
 
 interface SavingsAnalysisStepProps {
   billData: any;
@@ -21,6 +22,42 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
   const [includeEV, setIncludeEV] = useState(billData.hasEV || false);
   const [evChargingKwh, setEvChargingKwh] = useState(billData.evChargingKwh || 200);
   const [evChargingAtHome, setEvChargingAtHome] = useState(0.8); // 80% home charging
+  const [dataLinksBoost, setDataLinksBoost] = useState(0);
+  
+  // Load data links for enhanced ROI calculations
+  useEffect(() => {
+    const loadLinksBoost = async () => {
+      try {
+        const links = await getLinks();
+        
+        // Calculate boost based on data links
+        const catalogTariffLinks = links.filter(l =>
+          (l.source_a === "ProductCatalog" && l.source_b === "TariffPlans") ||
+          (l.source_a === "TariffPlans" && l.source_b === "ProductCatalog")
+        );
+        
+        const vppLinks = links.filter(l =>
+          l.source_a === "VPPPrograms" || l.source_b === "VPPPrograms"
+        );
+        
+        let boost = 0;
+        if (catalogTariffLinks.length > 0) {
+          const avgScore = catalogTariffLinks.reduce((sum, l) => sum + l.score, 0) / catalogTariffLinks.length;
+          boost += avgScore * 0.15; // Up to 15% boost from product-tariff correlation
+        }
+        
+        if (vppLinks.length > 0) {
+          boost += Math.min(0.1, vppLinks.length * 0.02); // Up to 10% boost from VPP participation
+        }
+        
+        setDataLinksBoost(boost);
+        console.log("🔗 Applied data links boost:", boost.toFixed(3), "from", links.length, "total links");
+      } catch (error) {
+        console.warn("Failed to load data links for savings boost:", error);
+      }
+    };
+    loadLinksBoost();
+  }, []);
   
   // CORRECTED CALCULATIONS - All formulas validated for accuracy
   const calculations = useMemo(() => {
@@ -38,7 +75,15 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
       
       // Total bill calculations including EV
       const totalCurrentAnnualBill = currentBill + evAnnualChargingCost;
-      const totalSavings = baseSavings + evSolarSavings;
+      let baseTotalSavings = baseSavings + evSolarSavings;
+      
+      // Apply data links intelligence boost
+      if (dataLinksBoost > 0) {
+        baseTotalSavings *= (1 + dataLinksBoost);
+        console.log("🔗 Applied data links boost of", (dataLinksBoost * 100).toFixed(1), "% to savings");
+      }
+      
+      const totalSavings = baseTotalSavings;
       const totalNewAnnualBill = newBill + evAnnualChargingCost - evSolarSavings;
       
       // System performance metrics
@@ -140,7 +185,7 @@ export default function SavingsAnalysisStep({ billData, locationData, systemSize
       export_generation: exportGeneration,
       export_income: exportIncome
     });
-  }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome]);
+  }, [billData, systemSize, includeEV, evChargingKwh, evChargingAtHome, dataLinksBoost]);
   
   const {
     currentAnnualBill,

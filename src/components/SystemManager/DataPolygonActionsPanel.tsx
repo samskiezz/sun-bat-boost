@@ -19,6 +19,7 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
       
       // Auto-apply if there are links to create
       if (result.createLinks?.length > 0) {
+        console.log("🚀 Auto-applying", result.createLinks.length, "links");
         await runApply(result);
       }
     } catch (error) {
@@ -37,15 +38,18 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     if (!dataToApply) return;
     
     try {
-      // TODO: write accepted links to DB ("links" table) and emit events
-      const applied = dataToApply?.createLinks?.length || 0;
+      const res = await fetch("/api/datapoly-actions-apply", {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(dataToApply)
+      });
       
-      // Store applied links globally for future conflict detection
-      if (applied > 0) {
-        (window as any).__existingLinks = dataToApply.createLinks;
-      }
+      if (!res.ok) throw new Error(`Apply failed: ${res.statusText}`);
       
-      setMsg(`✅ Applied ${applied} links automatically`);
+      const result = await res.json();
+      const applied = result.applied || 0;
+      
+      setMsg(`✅ Applied ${applied} links to database`);
       toast({
         title: "Links Applied",
         description: `Successfully applied ${applied} data links`,
@@ -59,12 +63,17 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     }
   };
 
-  // Auto-run preview when component receives new data
+  // Auto-run when the component mounts or data changes
   React.useEffect(() => {
     const autoRun = async () => {
-      const payload = await getPayload();
-      if (Object.keys(payload.hulls || {}).length > 0) {
-        runPreview();
+      try {
+        const payload = await getPayload();
+        if (Object.keys(payload.hulls || {}).length > 0) {
+          console.log("🎯 Auto-running preview with hulls:", Object.keys(payload.hulls));
+          runPreview();
+        }
+      } catch (error) {
+        console.warn("Auto-run failed:", error);
       }
     };
     autoRun();
@@ -91,7 +100,11 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
           <div>
             <div className="font-medium mb-1 text-foreground">Gaps ({preview.counts.gaps})</div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {preview.gaps.map((g:any, i:number)=>(<li key={i} className="text-foreground">{g.source} @ [{g.at[0].toFixed(2)}, {g.at[1].toFixed(2)}]</li>))}
+              {preview.gaps.map((g:any, i:number)=>(
+                <li key={i} className="text-foreground">
+                  {g.source} @ [{Number(g.at[0]).toFixed(2)}, {Number(g.at[1]).toFixed(2)}]
+                </li>
+              ))}
             </ul>
           </div>
           <div>

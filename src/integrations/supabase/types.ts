@@ -654,6 +654,33 @@ export type Database = {
         }
         Relationships: []
       }
+      links: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          score: number
+          source_a: string
+          source_b: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          score: number
+          source_a: string
+          source_b: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          score?: number
+          source_a?: string
+          source_b?: string
+        }
+        Relationships: []
+      }
       manufacturers: {
         Row: {
           aliases: string[] | null

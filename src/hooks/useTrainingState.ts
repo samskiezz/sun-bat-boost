@@ -54,6 +54,16 @@ const defaultState: TrainingState = {
   lastUpdated: new Date().toISOString()
 };
 
+export function getCurrentWeights() {
+  try { 
+    const raw = localStorage.getItem('advanced_training_state'); 
+    return raw ? JSON.parse(raw) : null; 
+  }
+  catch { 
+    return null; 
+  }
+}
+
 export function useTrainingState() {
   const [state, setState] = useState<TrainingState>(defaultState);
   const [isLoading, setIsLoading] = useState(true);
