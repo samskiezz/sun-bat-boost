@@ -62,14 +62,19 @@ export class ModelRegistry {
 
   private createMockInferFunction(modelId: string, outputType: string) {
     return async (inputs: any): Promise<{ value: any; confidence: number }> => {
+      // Map your tiles to adapters (extend over time)
+      const adapterMap: Record<string, string> = {
+        RL1: "ai_stable_baselines3",   // DQN/PPO/A2C via SB3
+        RL2: "ai_rllib",              // RLlib for advanced RL
+        TR1: "nlp_transformers",       // transformers (local)
+        TS1: "forecast_prophet",       // classical forecast
+        TS2: "forecast_tft",           // deep forecasting
+        M10: "ml_xgboost",             // ROI regressor
+        M4:  "ml_lightgbm",            // load estimator
+        M7:  "ai_stable_baselines3"    // dispatch policy
+      };
+      
       try {
-        // Try to call real adapters for key models
-        const adapterMap: Record<string, string> = {
-          M10: "ml_xgboost",       // ROI regressor
-          M4:  "ml_lightgbm",      // load estimator
-          M7:  "ai_stable_baselines3" // dispatch policy
-        };
-        
         const adapterName = adapterMap[modelId];
         if (adapterName) {
           console.log(`🔧 Calling adapter ${adapterName} for model ${modelId}`);
