@@ -45,7 +45,8 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
       
       console.log("📡 Apply API response status:", res.status, res.statusText);
       
-      if (res.ok) {
+      const ct = res.headers.get("content-type") || "";
+      if (res.ok && ct.includes("application/json")) {
         const result = await res.json();
         const applied = result.applied || 0;
         
@@ -130,19 +131,31 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
             </ul>
           </div>
           <div>
-            <div className="font-medium mb-1 text-foreground">Gaps ({preview.counts?.gaps || 0})</div>
+            <div className="font-medium mb-1 text-foreground">
+              Gaps ({preview.counts?.gaps ?? (preview.gaps?.length ?? 0)})
+            </div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {(preview.gaps || []).map((g:any, i:number)=>(
+              {(preview.gaps || []).map((g: any, i: number) => (
                 <li key={i} className="text-foreground">
-                  {g.source} @ [{Number(g.at?.[0] || 0).toFixed(2)}, {Number(g.at?.[1] || 0).toFixed(2)}]
+                  {String(g.source)} @ [
+                  {Array.isArray(g.at) && g.at.length >= 2
+                    ? `${Number(g.at[0]).toFixed(2)}, ${Number(g.at[1]).toFixed(2)}`
+                    : "?, ?"}
+                  ]
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <div className="font-medium mb-1 text-foreground">Conflicts ({preview.counts?.conflicts || 0})</div>
+            <div className="font-medium mb-1 text-foreground">
+              Conflicts ({preview.counts?.conflicts ?? (preview.conflicts?.length ?? 0)})
+            </div>
             <ul className="space-y-1 max-h-40 overflow-auto">
-              {(preview.conflicts || []).map((c:any, i:number)=>(<li key={i} className="text-foreground">{c.a} ↔ {c.b} — {c.note}</li>))}
+              {(preview.conflicts || []).map((c: any, i: number) => (
+                <li key={i} className="text-foreground">
+                  {String(c.a)} ↔ {String(c.b)} — {String(c.note ?? "")}
+                </li>
+              ))}
             </ul>
           </div>
         </div>

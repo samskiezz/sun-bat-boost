@@ -6,12 +6,14 @@ import { l2Normalize, zWhiten, procrustesAlign } from "@/lib/data-polygons/align
 
 export type EmbeddingSet = { source: string; items: number[][]; labels?: string[] };
 
+import { url } from "@/lib/config";
+
 export async function fetchEmbeddings(sources: string[]): Promise<EmbeddingSet[] & { metadata?: any }> {
   console.log("📊 Fetching embeddings for sources:", sources);
   
   try {
-    // Try real endpoint first with full URL
-    const response = await fetch("https://mkgcacuhdwpsfkbguddk.supabase.co/functions/v1/data-polygon-embeddings", {
+    // Try real endpoint first with portable URL
+    const response = await fetch(url("/functions/v1/data-polygon-embeddings"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sources })

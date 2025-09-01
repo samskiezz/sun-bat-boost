@@ -197,12 +197,14 @@ export default function SiteAnalysisPopup({
     return Math.round(azimuthFactor * tiltFactor * shadingFactorDecimal * accessFactor * 100);
   };
 
+  const MAPTILER_KEY = (import.meta as any).env?.VITE_MAPTILER_KEY || "";
+  
   const getSatelliteImageUrl = (lat: number, lng: number) => {
-    // Using free satellite imagery from OpenStreetMap-based services
     const zoom = 18;
     const size = 640;
-    // Using MapTiler or similar free service (replace with actual free service)
-    return `https://api.maptiler.com/maps/satellite/static/${lng},${lat},${zoom}/${size}x${size}.jpg?key=get-your-free-key`;
+    return MAPTILER_KEY
+      ? `https://api.maptiler.com/maps/satellite/static/${lng},${lat},${zoom}/${size}x${size}.jpg?key=${MAPTILER_KEY}`
+      : ""; // No image if not configured
   };
 
   return (

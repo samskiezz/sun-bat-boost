@@ -11,6 +11,7 @@ import { useDropzone } from "react-dropzone";
 import { pdfExtractor } from "@/utils/pdfExtract";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { log } from "@/lib/log";
 
 // ... keep existing code (all interfaces and types)
 
@@ -98,7 +99,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
   // Remove auto-advance logic from OCR scanner - let parent handle navigation
 
   const extractBillData = (text: string): ExtractedField[] => {
-    console.log('🔍 Extracting bill data from text:', text.substring(0, 200) + '...');
+    log.debug('🔍 Extracting bill data from text:', text.substring(0, 200) + '...');
     const upperText = text.toUpperCase();
     const fields: ExtractedField[] = [];
 
@@ -123,7 +124,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
             key: "address",
             category: "site"
           });
-          console.log('✅ Found address in bill:', address);
+          log.debug('✅ Found address in bill:', address);
           break;
         }
       }
@@ -147,7 +148,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
           key: "postcode",
           category: "site"
         });
-        console.log('✅ Found postcode in bill:', validPostcodes[0]);
+        log.debug('✅ Found postcode in bill:', validPostcodes[0]);
       }
     }
 
@@ -159,7 +160,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
         if (upperText.includes(pattern)) {
           retailer = name;
           retailerConfidence = 0.95;
-          console.log('✅ Found retailer:', name, 'via pattern:', pattern);
+          log.debug('✅ Found retailer:', name, 'via pattern:', pattern);
           break;
         }
       }
@@ -183,7 +184,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
                        text.match(/peak\s+rate[\s:]*(\d{1,2}(?:\.\d{1,2})?)/i);
     if (peakMatches) {
       const peakValue = parseFloat(peakMatches[1]);
-      console.log('✅ Found peak rate:', peakValue, 'c/kWh');
+      log.debug('✅ Found peak rate:', peakValue, 'c/kWh');
       fields.push({
         label: "Peak Rate (c/kWh)",
         value: peakValue,
@@ -199,7 +200,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
                           text.match(/off.?peak\s+rate[\s:]*(\d{1,2}(?:\.\d{1,2})?)/i);
     if (offPeakMatches) {
       const offPeakValue = parseFloat(offPeakMatches[1]);
-      console.log('✅ Found off-peak rate:', offPeakValue, 'c/kWh');
+      log.debug('✅ Found off-peak rate:', offPeakValue, 'c/kWh');
       fields.push({
         label: "Off-Peak Rate (c/kWh)",
         value: offPeakValue,
@@ -214,7 +215,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
                            text.match(/(\d{1,2}(?:\.\d{1,2})?)\s*c(?:ents)?[\s\w]*?shoulder/i);
     if (shoulderMatches) {
       const shoulderValue = parseFloat(shoulderMatches[1]);
-      console.log('✅ Found shoulder rate:', shoulderValue, 'c/kWh');
+      log.debug('✅ Found shoulder rate:', shoulderValue, 'c/kWh');
       fields.push({
         label: "Shoulder Rate (c/kWh)",
         value: shoulderValue,
@@ -253,7 +254,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
     if (validUsage.length > 0) {
       const bestMatch = validUsage[0];
-      console.log(`✅ Found usage: ${bestMatch.value} kWh (${bestMatch.source}, confidence: ${bestMatch.confidence})`);
+      log.debug(`✅ Found usage: ${bestMatch.value} kWh (${bestMatch.source}, confidence: ${bestMatch.confidence})`);
       fields.push({
         label: "Total Usage (kWh)",
         value: bestMatch.value,
@@ -265,7 +266,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
     } else if (allUsageMatches.length > 0) {
       // If no realistic quarterly usage found, take the highest value but mark as low confidence
       const fallbackMatch = allUsageMatches.sort((a, b) => b.value - a.value)[0];
-      console.log(`⚠️ Found low usage: ${fallbackMatch.value} kWh (${fallbackMatch.source}) - may need manual adjustment`);
+      log.debug(`⚠️ Found low usage: ${fallbackMatch.value} kWh (${fallbackMatch.source}) - may need manual adjustment`);
       fields.push({
         label: "Total Usage (kWh)",
         value: fallbackMatch.value,
@@ -300,7 +301,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
     if (validBills.length > 0) {
       const bestBill = validBills[0];
-      console.log(`✅ Found bill amount: $${bestBill.value} (${bestBill.source}, confidence: ${bestBill.confidence})`);
+      log.debug(`✅ Found bill amount: $${bestBill.value} (${bestBill.source}, confidence: ${bestBill.confidence})`);
       fields.push({
         label: "Bill Amount ($)",
         value: bestBill.value,
@@ -335,7 +336,7 @@ export default function EnhancedOCRScanner({ onExtraction, onProcessing, mode }:
 
     if (validSupply.length > 0) {
       const bestSupply = validSupply[0];
-      console.log(`✅ Found daily supply: ${bestSupply.value} c/day (${bestSupply.source}, confidence: ${bestSupply.confidence})`);
+      log.debug(`✅ Found daily supply: ${bestSupply.value} c/day (${bestSupply.source}, confidence: ${bestSupply.confidence})`);
       fields.push({
         label: "Daily Supply (c/day)",
         value: bestSupply.value,
