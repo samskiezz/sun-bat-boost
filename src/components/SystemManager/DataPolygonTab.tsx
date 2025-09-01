@@ -53,6 +53,10 @@ export function DataPolygonTab() {
       const built = await buildDataPolygons(sources, { k });
       console.log("buildDataPolygons completed, result:", built);
       
+      // Directly update hulls state (don't rely only on events)
+      setHulls(built);
+      console.log("setHulls called with built result");
+      
       console.log("About to call comparePolygons...");
       const results = comparePolygons(built);
       console.log("comparePolygons completed, results:", results);
