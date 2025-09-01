@@ -37,27 +37,74 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     const dataToApply = previewData || preview;
     if (!dataToApply) return;
     
+    console.log("🚀 runApply called with:", dataToApply);
+    
     try {
+      // Try API route first
+      console.log("📡 Attempting API route for apply...");
       const res = await fetch("/api/datapoly-actions-apply", {
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify(dataToApply)
       });
       
-      if (!res.ok) throw new Error(`Apply failed: ${res.statusText}`);
+      console.log("📡 Apply API response status:", res.status, res.statusText);
       
-      const result = await res.json();
-      const applied = result.applied || 0;
-      
-      setMsg(`✅ Applied ${applied} links to database`);
-      toast({
-        title: "Links Applied",
-        description: `Successfully applied ${applied} data links`,
-      });
+      if (res.ok) {
+        const result = await res.json();
+        const applied = result.applied || 0;
+        
+        setMsg(`✅ Applied ${applied} links to database via API`);
+        toast({
+          title: "Links Applied",
+          description: `Successfully applied ${applied} data links via API`,
+        });
+        return;
+      } else {
+        console.warn("⚠️ Apply API failed, trying direct Supabase...");
+      }
     } catch (error) {
+      console.warn("⚠️ Apply API route failed:", error);
+    }
+    
+    // Direct Supabase fallback
+    try {
+      console.log("🔗 Attempting direct Supabase insert...");
+      const links = dataToApply?.createLinks || [];
+      
+      if (links.length > 0) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        
+        const rows = links.map((l: any) => ({ 
+          source_a: l.from, 
+          source_b: l.to, 
+          score: l.score, 
+          reason: l.reason 
+        }));
+        
+        console.log("💾 Inserting rows to Supabase:", rows);
+        const { error } = await supabase.from("links").insert(rows);
+        
+        if (error) {
+          console.error("❌ Supabase insert error:", error);
+          throw error;
+        }
+        
+        console.log("✅ Direct Supabase insert successful");
+        setMsg(`✅ Applied ${links.length} links to database`);
+        toast({
+          title: "Links Applied",
+          description: `Successfully applied ${links.length} data links to database`,
+        });
+      } else {
+        console.log("ℹ️ No links to apply");
+        setMsg("ℹ️ No links to apply");
+      }
+    } catch (error) {
+      console.error("❌ Direct Supabase apply failed:", error);
       toast({
         title: "Apply Error", 
-        description: error instanceof Error ? error.message : String(error),
+        description: `Failed to apply links: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       });
     }
