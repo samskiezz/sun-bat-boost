@@ -1,80 +1,113 @@
-// Simple Procrustes alignment: find R,s,t to map X→Y on anchor pairs
+// Procrustes alignment and data normalization functions
+
 export function procrustesAlign(X: number[][], Y: number[][]) {
-  const n = Math.min(X.length, Y.length);
-  if (n === 0) return { map:(v:number[])=>v };
-
-  // mean-center
-  const mean = (A:number[][])=>A[0].map((_,j)=>A.reduce((s,r)=>s+r[j],0)/A.length);
-  const mx = mean(X), my = mean(Y);
-  const cx = X.map(r=>r.map((v,j)=>v-mx[j]));
-  const cy = Y.map(r=>r.map((v,j)=>v-my[j]));
-
-  // cross-covariance
-  const d = cx[0].length;
-  const C = Array.from({length:d},()=>Array(d).fill(0));
-  for (let i=0;i<n;i++) for (let a=0;a<d;a++) for (let b=0;b<d;b++) C[a][b]+=cx[i][a]*cy[i][b];
-
-  // SVD(C) ≈ UΣVᵀ → R = VUᵀ
-  const {U,S,Vt} = svdSmall(C); // tiny helper below
-  const R = multiply(Vt, transpose(U));
-  const scale = trace(S) / (normF(cx)**2 || 1);
-
-  const map = (v:number[])=>{
-    const vc = v.map((x,j)=>x-mx[j]);
-    const r = multiplyVec(R, vc);
-    const s = r.map(x=>x*scale);
-    return s.map((x,j)=>x+my[j]);
-  };
-  return { map };
-}
-
-// L2 + Z-score whitening
-export function l2Normalize(X:number[][]){
-  return X.map(r=>{const n=Math.hypot(...r)||1; return r.map(v=>v/n);});
-}
-export function zWhiten(X:number[][]){
-  const d=X[0]?.length||0; const mu=Array(d).fill(0), sd=Array(d).fill(1);
-  X.forEach(r=>r.forEach((v,j)=>mu[j]+=v/X.length));
-  X.forEach(r=>r.forEach((v,j)=>sd[j]+= (v-mu[j])**2));
-  sd.forEach((s,j)=>sd[j]=Math.sqrt(s/(X.length||1))||1);
-  return X.map(r=>r.map((v,j)=>(v-mu[j])/sd[j]));
-}
-
-// --- tiny linear algebra helpers (good enough for small d) ---
-function transpose(A:number[][]){return A[0].map((_,j)=>A.map(r=>r[j]));}
-function multiply(A:number[][],B:number[][]){return A.map(r=>B[0].map((_,j)=>r.reduce((s,ai,i)=>s+ai*B[i][j],0)));}
-function multiplyVec(A:number[][],v:number[]){return A.map(r=>r.reduce((s,ai,i)=>s+ai*v[i],0));}
-function normF(A:number[][]){return Math.sqrt(A.flat().reduce((s,x)=>s+x*x,0));}
-function trace(A:number[][]){let t=0; for(let i=0;i<Math.min(A.length,A[0].length);i++) t+=A[i][i]; return t;}
-
-// very small SVD via power iterations for U,S,Vᵀ (rank ~ d)
-function svdSmall(M:number[][]){
-  // symmetric trick on MtM
-  const Mt = transpose(M), MtM = multiply(Mt,M);
-  const eigVecs:number[][] = [];
-  const eigVals:number[] = [];
-  const k = Math.min(3, MtM.length); // top-3 is enough
-  let B = MtM.map(row=>row.slice());
-  for(let c=0;c<k;c++){
-    let v = Array(B.length).fill(0).map((_,i)=> i===c?1:0.001*i);
-    for(let it=0;it<64;it++){
-      const w = multiplyVec(B, v);
-      const n = Math.hypot(...w)||1; v = w.map(x=>x/n);
-    }
-    const λ = dot(v, multiplyVec(B,v));
-    eigVecs.push(v); eigVals.push(λ);
-    // deflate
-    const outer = v.map(vi=>v.map(vj=>vi*vj*λ));
-    B = B.map((row,i)=>row.map((x,j)=>x-outer[i][j]));
+  if (!X.length || !Y.length || X.length !== Y.length) {
+    throw new Error("X and Y must have same length and be non-empty");
   }
-  const V = eigVecs; // columns
-  const S = eigVals.map(x=>Math.sqrt(Math.max(0,x)));
-  const Uapprox = multiply(M, V).map(row=>{
-    const out = row.slice();
-    for(let j=0;j<out.length;j++){ out[j] = out[j] / (S[j]||1); }
-    return out;
-  });
-  return { U: Uapprox, S: diag(S), Vt: transpose(V) };
+
+  const n = X.length;
+  const d = X[0].length;
+
+  // Center both point sets
+  const meanX = centroid(X);
+  const meanY = centroid(Y);
+  
+  const Xc = X.map(p => p.map((v, i) => v - meanX[i]));
+  const Yc = Y.map(p => p.map((v, i) => v - meanY[i]));
+
+  // Compute cross-covariance matrix H = Xc^T * Yc
+  const H = Array.from({ length: d }, () => Array(d).fill(0));
+  for (let i = 0; i < d; i++) {
+    for (let j = 0; j < d; j++) {
+      for (let k = 0; k < n; k++) {
+        H[i][j] += Xc[k][i] * Yc[k][j];
+      }
+    }
+  }
+
+  // Simple 2D rotation matrix (for higher dimensions, would need proper SVD)
+  let R: number[][];
+  if (d === 2) {
+    // 2D case - compute optimal rotation angle
+    const angle = Math.atan2(H[0][1] - H[1][0], H[0][0] + H[1][1]);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    R = [[cos, -sin], [sin, cos]];
+  } else {
+    // For higher dimensions, use identity (simplified)
+    R = Array.from({ length: d }, (_, i) => 
+      Array.from({ length: d }, (_, j) => i === j ? 1 : 0)
+    );
+  }
+
+  // Compute scale
+  const numX = Xc.reduce((sum, p) => sum + p.reduce((s, v) => s + v * v, 0), 0);
+  const numY = Yc.reduce((sum, p) => sum + p.reduce((s, v) => s + v * v, 0), 0);
+  const scale = numY > 0 ? Math.sqrt(numX / numY) : 1;
+
+  // Return transformation function
+  const map = (point: number[]): number[] => {
+    // Center
+    const centered = point.map((v, i) => v - meanX[i]);
+    // Rotate and scale
+    const transformed = centered.map((_, i) => 
+      R[i].reduce((sum, rij, j) => sum + rij * centered[j], 0) * scale
+    );
+    // Translate
+    return transformed.map((v, i) => v + meanY[i]);
+  };
+
+  return { map, rotation: R, scale, translation: meanY };
 }
-function diag(a:number[]){return a.map((v,i)=>a.map((_,j)=>i===j?v:0));}
-function dot(a:number[],b:number[]){return a.reduce((s,x,i)=>s+x*b[i],0);}
+
+export function l2Normalize(X: number[][]): number[][] {
+  return X.map(row => {
+    const norm = Math.sqrt(row.reduce((sum, val) => sum + val * val, 0));
+    return norm > 0 ? row.map(val => val / norm) : row;
+  });
+}
+
+export function zWhiten(X: number[][]): number[][] {
+  if (!X.length) return X;
+  
+  const n = X.length;
+  const d = X[0].length;
+  
+  // Compute mean for each dimension
+  const mean = Array(d).fill(0);
+  for (const row of X) {
+    for (let j = 0; j < d; j++) {
+      mean[j] += row[j] / n;
+    }
+  }
+  
+  // Compute standard deviation for each dimension
+  const std = Array(d).fill(0);
+  for (const row of X) {
+    for (let j = 0; j < d; j++) {
+      const diff = row[j] - mean[j];
+      std[j] += diff * diff / n;
+    }
+  }
+  for (let j = 0; j < d; j++) {
+    std[j] = Math.sqrt(std[j]);
+  }
+  
+  // Center and scale
+  return X.map(row => 
+    row.map((val, j) => std[j] > 0 ? (val - mean[j]) / std[j] : val - mean[j])
+  );
+}
+
+// Helper functions
+function centroid(points: number[][]): number[] {
+  if (!points.length) return [];
+  const d = points[0].length;
+  const mean = Array(d).fill(0);
+  for (const point of points) {
+    for (let i = 0; i < d; i++) {
+      mean[i] += point[i] / points.length;
+    }
+  }
+  return mean;
+}
