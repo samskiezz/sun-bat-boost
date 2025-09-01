@@ -20,8 +20,15 @@ export function DataPolygonTab() {
 
   React.useEffect(()=> {
     const unsub = subscribe((e) => {
-      if (e.type === "POLY.DATA.BUILT") setHulls(e.payload.hulls as Hulls);
-      if (e.type === "MATCH.DONE") setPairs(e.payload.pairs as any);
+      console.log("🎯 Event received:", e.type, e.payload);
+      if (e.type === "POLY.DATA.BUILT") {
+        console.log("📊 Setting hulls from event:", e.payload.hulls);
+        setHulls(e.payload.hulls as Hulls);
+      }
+      if (e.type === "MATCH.DONE") {
+        console.log("🔗 Setting pairs from event:", e.payload.pairs);
+        setPairs(e.payload.pairs as any);
+      }
       setEdges(getEdges());
       setMsgs(getMsgs());
     });
