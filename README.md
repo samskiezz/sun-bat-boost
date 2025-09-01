@@ -482,6 +482,13 @@
 
 ---
 
+## Data Polygon Actions
+- Predicates: pointInPolygon, polygonCentroid
+- Actions: suggestLinks, findGaps, detectConflicts, summarizeActions
+- API: POST /api/datapoly/actions/preview, POST /api/datapoly/actions/apply
+- UI: DataPolygonActionsPanel
+- Policy: actionPolicy { IouLinkMin, IouConflictMax, ContainmentBoost }
+
 ---
 
 ## Data Polygon Mapping — Advanced Additions

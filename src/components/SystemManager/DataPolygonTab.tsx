@@ -2,6 +2,7 @@ import * as React from "react";
 import { buildDataPolygons, comparePolygons } from "@/services/data-polygons";
 import { subscribe } from "@/lib/orch/data-bus";
 import { getEdges, getMsgs } from "@/lib/orch/trace";
+import { DataPolygonActionsPanel } from "./DataPolygonActionsPanel";
 
 type Poly = [number, number][];
 type Hulls = Record<string, Poly>;
@@ -36,6 +37,9 @@ export function DataPolygonTab() {
     
     setBusy(true);
     console.log("setBusy(true) called");
+    
+    // Store previous hulls for drift detection
+    (window as any).__prevHulls = hulls;
     
     try{
       console.log("Entering try block...");
@@ -166,6 +170,14 @@ export function DataPolygonTab() {
             ))}
           </div>
         </div>
+
+        {/* Actions Panel */}
+        <DataPolygonActionsPanel getPayload={async () => ({
+          hulls,                               // current hull map
+          items: [],                           // (optional) pass 2D items if available
+          previousHulls: (window as any).__prevHulls || {},   // stash last run
+          existingLinks: (window as any).__existingLinks || [] // preload from DB if you have it
+        })} />
       </div>
     </div>
   );
