@@ -1,5 +1,4 @@
 import * as React from "react";
-import { toast } from "@/hooks/use-toast";
 import { suggestLinks, findGaps, detectConflicts, summarizeActions } from "@/services/datapoly-actions";
 
 export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Promise<any> }) {
@@ -23,11 +22,7 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
         await runApply(result);
       }
     } catch (error) {
-      toast({
-        title: "Preview Error",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive"
-      });
+      setMsg(`❌ Preview Error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -54,11 +49,7 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
         const result = await res.json();
         const applied = result.applied || 0;
         
-        setMsg(`✅ Applied ${applied} links to database via API`);
-        toast({
-          title: "Links Applied",
-          description: `Successfully applied ${applied} data links via API`,
-        });
+        setMsg(`✅ Applied ${applied} links to database`);
         return;
       } else {
         console.warn("⚠️ Apply API failed, trying direct Supabase...");
@@ -92,21 +83,13 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
         
         console.log("✅ Direct Supabase insert successful");
         setMsg(`✅ Applied ${links.length} links to database`);
-        toast({
-          title: "Links Applied",
-          description: `Successfully applied ${links.length} data links to database`,
-        });
       } else {
         console.log("ℹ️ No links to apply");
         setMsg("ℹ️ No links to apply");
       }
     } catch (error) {
       console.error("❌ Direct Supabase apply failed:", error);
-      toast({
-        title: "Apply Error", 
-        description: `Failed to apply links: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
-      });
+      setMsg(`❌ Apply failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -130,9 +113,11 @@ export function DataPolygonActionsPanel({ getPayload }: { getPayload: () => Prom
     <div className="rounded-2xl border border-border p-3 space-y-2 bg-card">
       <div className="font-semibold text-foreground flex items-center justify-between">
         <span>🤖 Automatic Actions</span>
-        {busy && <span className="text-xs text-muted-foreground">Processing...</span>}
+        <div className="flex items-center gap-2">
+          {busy && <span className="text-xs text-muted-foreground">⏳ Processing...</span>}
+          {msg && <span className="text-xs font-medium">{msg}</span>}
+        </div>
       </div>
-      {msg && <div className="text-xs text-green-600 font-medium">{msg}</div>}
       
       {preview && (
         <div className="grid grid-cols-3 gap-3 text-sm">
