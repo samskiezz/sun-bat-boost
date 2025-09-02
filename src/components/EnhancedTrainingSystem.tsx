@@ -456,15 +456,15 @@ export default function EnhancedTrainingSystem() {
               <div className="text-sm text-muted-foreground">Training Episodes</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-500">{metrics.accuracy > 0 ? metrics.accuracy.toFixed(1) : '0.0'}%</div>
+              <div className="text-2xl font-bold text-green-500">{state.metrics.accuracy > 0 ? state.metrics.accuracy.toFixed(1) : '0.0'}%</div>
               <div className="text-sm text-muted-foreground">Accuracy</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-500">{metrics.efficiency > 0 ? metrics.efficiency.toFixed(1) : '0.0'}%</div>
+              <div className="text-2xl font-bold text-blue-500">{state.metrics.efficiency > 0 ? state.metrics.efficiency.toFixed(1) : '0.0'}%</div>
               <div className="text-sm text-muted-foreground">Efficiency</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-500">{performance.overallScore > 0 ? performance.overallScore.toFixed(1) : '0.0'}%</div>
+              <div className="text-2xl font-bold text-purple-500">{state.performance.overallScore > 0 ? state.performance.overallScore.toFixed(1) : '0.0'}%</div>
               <div className="text-sm text-muted-foreground">Overall Score</div>
             </div>
           </div>
@@ -604,24 +604,24 @@ export default function EnhancedTrainingSystem() {
                 <CardTitle>Training Metrics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <div className="text-lg font-semibold">{metrics.loss > 0 ? metrics.loss.toFixed(3) : '0.000'}</div>
-                    <div className="text-xs text-muted-foreground">Loss Function</div>
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-semibold">{state.metrics.loss > 0 ? state.metrics.loss.toFixed(3) : '0.000'}</div>
+                      <div className="text-xs text-muted-foreground">Loss Function</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{state.metrics.learningRate.toFixed(4)}</div>
+                      <div className="text-xs text-muted-foreground">Learning Rate</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{state.metrics.convergence > 0 ? state.metrics.convergence.toFixed(1) : '0.0'}%</div>
+                      <div className="text-xs text-muted-foreground">Convergence</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{state.metrics.efficiency > 0 ? state.metrics.efficiency.toFixed(1) : '0.0'}%</div>
+                      <div className="text-xs text-muted-foreground">Efficiency</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-lg font-semibold">{metrics.learningRate.toFixed(4)}</div>
-                    <div className="text-xs text-muted-foreground">Learning Rate</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold">{metrics.convergence > 0 ? metrics.convergence.toFixed(1) : '0.0'}%</div>
-                    <div className="text-xs text-muted-foreground">Convergence</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold">{metrics.efficiency > 0 ? metrics.efficiency.toFixed(1) : '0.0'}%</div>
-                    <div className="text-xs text-muted-foreground">Efficiency</div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -664,23 +664,23 @@ export default function EnhancedTrainingSystem() {
                 <CardTitle>Training Impact on Other Systems</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {metrics.accuracy > 0 ? (
+                {state.metrics.accuracy > 0 ? (
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm">OCR Accuracy Boost</span>
-                      <Badge variant="secondary">+{(metrics.accuracy * 0.05).toFixed(1)}%</Badge>
+                      <Badge variant="secondary">+{(state.metrics.accuracy * 0.05).toFixed(1)}%</Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm">Design Success Rate</span>
-                      <Badge variant="secondary">+{(performance.overallScore * 0.08).toFixed(1)}%</Badge>
+                      <Badge variant="secondary">+{(state.performance.overallScore * 0.08).toFixed(1)}%</Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm">Cost Optimization</span>
-                      <Badge variant="secondary">+{(metrics.efficiency * 0.06).toFixed(1)}%</Badge>
+                      <Badge variant="secondary">+{(state.metrics.efficiency * 0.06).toFixed(1)}%</Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm">Energy Plan Ranking</span>
-                      <Badge variant="secondary">+{(metrics.convergence * 0.04).toFixed(1)}%</Badge>
+                      <Badge variant="secondary">+{(state.metrics.convergence * 0.04).toFixed(1)}%</Badge>
                     </div>
                   </div>
                 ) : (
@@ -697,11 +697,11 @@ export default function EnhancedTrainingSystem() {
                     <div className="flex-1 bg-muted rounded-full h-2">
                       <div 
                         className="bg-primary h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(performance.overallScore, 100)}%` }}
+                        style={{ width: `${Math.min(state.performance.overallScore, 100)}%` }}
                       />
                     </div>
                     <span className="text-sm font-medium">
-                      {performance.overallScore > 0 ? performance.overallScore.toFixed(0) : '0'}%
+                      {state.performance.overallScore > 0 ? state.performance.overallScore.toFixed(0) : '0'}%
                     </span>
                   </div>
                 </div>
