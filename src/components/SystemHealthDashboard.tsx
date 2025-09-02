@@ -46,21 +46,39 @@ export const SystemHealthDashboard = () => {
       // Check FastAPI Backend Health
       try {
         const backendStart = Date.now();
-        const response = await fetch(`${API_BASE}/health`);
+        const response = await fetch(`${API_BASE}/health`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         const backendTime = Date.now() - backendStart;
         
-        checks.push({
-          service: 'FastAPI Backend',
-          status: response.ok ? 'healthy' : 'error',
-          message: response.ok ? 'Backend server responsive' : `HTTP ${response.status}`,
-          lastChecked: new Date(),
-          responseTime: backendTime
-        });
+        if (response.ok) {
+          const data = await response.json();
+          checks.push({
+            service: 'FastAPI Backend',
+            status: 'healthy',
+            message: `Backend operational (${data.status || 'running'})`,
+            lastChecked: new Date(),
+            responseTime: backendTime
+          });
+        } else {
+          checks.push({
+            service: 'FastAPI Backend',
+            status: 'error',
+            message: `HTTP ${response.status} - ${response.statusText}`,
+            lastChecked: new Date(),
+            responseTime: backendTime
+          });
+        }
       } catch (error) {
+        // In development, this is expected if ml-svc is not running
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
         checks.push({
           service: 'FastAPI Backend',
-          status: 'error',
-          message: 'Backend server unreachable',
+          status: isDev ? 'warning' : 'error',
+          message: isDev ? 'Backend not running (dev mode)' : 'Backend server unreachable',
           lastChecked: new Date()
         });
       }
@@ -68,22 +86,38 @@ export const SystemHealthDashboard = () => {
       // Check NASA POWER Integration
       try {
         const nasaStart = Date.now();
-        const response = await fetch(`${API_BASE}/features/poa?lat=-33.8688&lng=151.2093&tilt=20&azimuth=0&start=2025-01-02&end=2025-01-02`);
-        const nasaTime = Date.now() - nasaStart;
-        const data = response.ok ? await response.json() : null;
-        
-        checks.push({
-          service: 'NASA POWER API',
-          status: response.ok && data?.daily?.length > 0 ? 'healthy' : 'error',
-          message: response.ok ? `POA data available (${data?.daily?.length || 0} days)` : 'NASA integration failed',
-          lastChecked: new Date(),
-          responseTime: nasaTime
+        const response = await fetch(`${API_BASE}/features/poa?lat=-33.8688&lng=151.2093&tilt=20&azimuth=0&start=2025-01-02&end=2025-01-02`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
         });
+        const nasaTime = Date.now() - nasaStart;
+        
+        if (response.ok) {
+          const data = await response.json();
+          checks.push({
+            service: 'NASA POWER API',
+            status: data?.daily?.length > 0 ? 'healthy' : 'warning',
+            message: `POA data available (${data?.daily?.length || 0} days)`,
+            lastChecked: new Date(),
+            responseTime: nasaTime
+          });
+        } else {
+          checks.push({
+            service: 'NASA POWER API',
+            status: 'error',
+            message: `API Error: HTTP ${response.status}`,
+            lastChecked: new Date(),
+            responseTime: nasaTime
+          });
+        }
       } catch (error) {
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
         checks.push({
           service: 'NASA POWER API',
-          status: 'error',
-          message: 'NASA POWER service unavailable',
+          status: isDev ? 'warning' : 'error',
+          message: isDev ? 'Requires backend service (dev mode)' : 'NASA POWER service unavailable',
           lastChecked: new Date()
         });
       }
@@ -100,7 +134,10 @@ export const SystemHealthDashboard = () => {
           const quantumStart = Date.now();
           const response = await fetch(`${API_BASE}/quantum/dispatch`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
             body: JSON.stringify({
               prices: [0.3, 0.25, 0.5],
               pv: [0, 0.5, 1.2],
@@ -110,20 +147,31 @@ export const SystemHealthDashboard = () => {
             })
           });
           const quantumTime = Date.now() - quantumStart;
-          const result = response.ok ? await response.json() : null;
           
-          checks.push({
-            service: `Optimizer: ${name}`,
-            status: response.ok && (result?.schedule || result?.bitstring) ? 'healthy' : 'warning',
-            message: response.ok ? 'Solver operational' : 'Solver unavailable',
-            lastChecked: new Date(),
-            responseTime: quantumTime
-          });
+          if (response.ok) {
+            const result = await response.json();
+            checks.push({
+              service: `Optimizer: ${name}`,
+              status: (result?.schedule || result?.bitstring) ? 'healthy' : 'warning',
+              message: result?.schedule ? 'Solver operational' : 'Solver response incomplete',
+              lastChecked: new Date(),
+              responseTime: quantumTime
+            });
+          } else {
+            checks.push({
+              service: `Optimizer: ${name}`,
+              status: 'error',
+              message: `HTTP ${response.status} - Solver error`,
+              lastChecked: new Date(),
+              responseTime: quantumTime
+            });
+          }
         } catch (error) {
+          const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
           checks.push({
             service: `Optimizer: ${name}`,
-            status: 'error',
-            message: error instanceof Error ? error.message : 'Solver failed',
+            status: isDev ? 'warning' : 'error',
+            message: isDev ? 'Requires backend service (dev mode)' : (error instanceof Error ? error.message : 'Solver failed'),
             lastChecked: new Date()
           });
         }
