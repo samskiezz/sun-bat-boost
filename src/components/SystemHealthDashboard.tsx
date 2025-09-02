@@ -129,7 +129,7 @@ export const SystemHealthDashboard = () => {
         }
       }
 
-        # Check AEST Time System
+        // Check AEST Time System
         try {
           const aestNow = nowAEST();
           const testDate = toAEST('2025-01-01');
