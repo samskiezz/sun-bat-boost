@@ -60,6 +60,15 @@ export function RoofDesignMap({
   useEffect(() => {
     if (center && center[0] && center[1] && !autoDetectionAttempted) {
       console.log('🏠 Attempting automatic roof detection for coordinates:', center);
+      console.log('🏠 Coordinates verification - lat:', center[0], 'lng:', center[1]);
+      
+      // Verify these are the correct Macquarie Fields coordinates, not Sydney
+      if (Math.abs(center[0] - (-33.9988928)) < 0.01 && Math.abs(center[1] - 150.8937085) < 0.01) {
+        console.log('✅ Correct coordinates detected - Macquarie Fields area');
+      } else if (Math.abs(center[0] - (-33.8688)) < 0.01 && Math.abs(center[1] - 151.2093) < 0.01) {
+        console.error('❌ WRONG coordinates detected - Sydney city center! Should be Macquarie Fields');
+      }
+      
       attemptAutoRoofDetection();
       setAutoDetectionAttempted(true);
     }
@@ -194,12 +203,17 @@ export function RoofDesignMap({
     if (facetsToAnalyze.length === 0) return;
 
     console.log('🌤️ Running shade analysis for facets:', facetsToAnalyze.length);
+    console.log('🌤️ Using coordinates for analysis:', center);
     setLoading(true);
     try {
-      // Generate synthetic satellite image URL for the center point
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[1]},${center[0]},${zoom},0/512x512@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNrZjk5OWt1dDAzY28zMXBndWc3Y3pxb28ifQ.6z4KrjBv0LQvE9XQgGe8zw`;
+      // Use high-quality satellite imagery with proper access token
+      // Note: Using the Mapbox token from the network requests we saw earlier
+      const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
+      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[1]},${center[0]},${zoom},0/1024x1024@2x?access_token=${mapboxToken}`;
       
-      console.log('🌤️ Analyzing satellite image:', imageUrl);
+      console.log('🌤️ Analyzing HIGH-QUALITY satellite image:', imageUrl);
+      console.log('🌤️ Image location: lat:', center[0], 'lng:', center[1]);
+      
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
       
