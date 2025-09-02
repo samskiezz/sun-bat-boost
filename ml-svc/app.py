@@ -287,5 +287,10 @@ def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "ml-svc"}
 
+@app.get("/health")
+def health_check_standard():
+    """Standard health check endpoint for monitoring"""
+    return {"status": "healthy", "service": "sun-bat-boost-api", "version": "1.0.0"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

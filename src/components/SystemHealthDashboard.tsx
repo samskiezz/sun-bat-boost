@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Server, Database, Zap, Clock, Globe, Cpu } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE } from '@/lib/config';
+import { nowAEST, toAEST } from '@/utils/timeAEST';
 
 interface HealthCheck {
   service: string;
@@ -40,6 +42,135 @@ export const SystemHealthDashboard = () => {
         lastChecked: new Date(),
         responseTime: supabaseTime
       });
+
+      // Check FastAPI Backend Health
+      try {
+        const backendStart = Date.now();
+        const response = await fetch(`${API_BASE}/health`);
+        const backendTime = Date.now() - backendStart;
+        
+        checks.push({
+          service: 'FastAPI Backend',
+          status: response.ok ? 'healthy' : 'error',
+          message: response.ok ? 'Backend server responsive' : `HTTP ${response.status}`,
+          lastChecked: new Date(),
+          responseTime: backendTime
+        });
+      } catch (error) {
+        checks.push({
+          service: 'FastAPI Backend',
+          status: 'error',
+          message: 'Backend server unreachable',
+          lastChecked: new Date()
+        });
+      }
+
+      // Check NASA POWER Integration
+      try {
+        const nasaStart = Date.now();
+        const response = await fetch(`${API_BASE}/features/poa?lat=-33.8688&lng=151.2093&tilt=20&azimuth=0&start=2025-01-02&end=2025-01-02`);
+        const nasaTime = Date.now() - nasaStart;
+        const data = response.ok ? await response.json() : null;
+        
+        checks.push({
+          service: 'NASA POWER API',
+          status: response.ok && data?.daily?.length > 0 ? 'healthy' : 'error',
+          message: response.ok ? `POA data available (${data?.daily?.length || 0} days)` : 'NASA integration failed',
+          lastChecked: new Date(),
+          responseTime: nasaTime
+        });
+      } catch (error) {
+        checks.push({
+          service: 'NASA POWER API',
+          status: 'error',
+          message: 'NASA POWER service unavailable',
+          lastChecked: new Date()
+        });
+      }
+
+      // Check Quantum Dispatch Optimizers
+      const quantumSolvers = [
+        { name: 'Classical MILP', solver: 'milp' },
+        { name: 'Quantum QAOA', solver: 'qaoa' },
+        { name: 'Simulated Annealing', solver: 'anneal' }
+      ];
+
+      for (const { name, solver } of quantumSolvers) {
+        try {
+          const quantumStart = Date.now();
+          const response = await fetch(`${API_BASE}/quantum/dispatch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prices: [0.3, 0.25, 0.5],
+              pv: [0, 0.5, 1.2],
+              load: [0.6, 0.7, 0.8],
+              constraints: { P_ch_max: 5, P_dis_max: 5, soc_min: 0.1, soc_max: 1, eta_ch: 0.95, eta_dis: 0.95, export_cap: 5 },
+              solver
+            })
+          });
+          const quantumTime = Date.now() - quantumStart;
+          const result = response.ok ? await response.json() : null;
+          
+          checks.push({
+            service: `Optimizer: ${name}`,
+            status: response.ok && (result?.schedule || result?.bitstring) ? 'healthy' : 'warning',
+            message: response.ok ? 'Solver operational' : 'Solver unavailable',
+            lastChecked: new Date(),
+            responseTime: quantumTime
+          });
+        } catch (error) {
+          checks.push({
+            service: `Optimizer: ${name}`,
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Solver failed',
+            lastChecked: new Date()
+          });
+        }
+      }
+
+      // Check AEST Time System
+      try {
+        const aestNow = nowAEST();
+        const testDate = toAEST('2025-01-01');
+        const isValidAEST = aestNow instanceof Date && testDate instanceof Date;
+        
+        checks.push({
+          service: 'AEST Time System',
+          status: isValidAEST ? 'healthy' : 'error',
+          message: isValidAEST ? `AEST time working (${aestNow.toLocaleTimeString()})` : 'Time utilities failed',
+          lastChecked: new Date()
+        });
+      } catch (error) {
+        checks.push({
+          service: 'AEST Time System',
+          status: 'error',
+          message: 'Time zone calculations failed',
+          lastChecked: new Date()
+        });
+      }
+
+      // Check Feature Flags System
+      try {
+        const { featureFlags } = await import('@/config/featureFlags');
+        const liteFlags = featureFlags('lite');
+        const proFlags = featureFlags('pro');
+        const isValid = typeof liteFlags === 'object' && typeof proFlags === 'object';
+        
+        checks.push({
+          service: 'Feature Flags System',
+          status: isValid ? 'healthy' : 'error',
+          message: isValid ? `Lite/Pro modes configured` : 'Feature flags failed',
+          lastChecked: new Date()
+        });
+      } catch (error) {
+        checks.push({
+          service: 'Feature Flags System',
+          status: 'error',
+          message: 'Feature flags system unavailable',
+          lastChecked: new Date()
+        });
+      }
 
       // Check Edge Functions
       const functions = [
@@ -132,6 +263,16 @@ export const SystemHealthDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const getServiceIcon = (service: string) => {
+    if (service.includes('Database')) return <Database className="h-4 w-4 text-blue-500" />;
+    if (service.includes('FastAPI')) return <Server className="h-4 w-4 text-green-500" />;
+    if (service.includes('NASA')) return <Globe className="h-4 w-4 text-blue-400" />;
+    if (service.includes('Optimizer') || service.includes('Quantum')) return <Cpu className="h-4 w-4 text-purple-500" />;
+    if (service.includes('Time')) return <Clock className="h-4 w-4 text-orange-500" />;
+    if (service.includes('Feature')) return <Zap className="h-4 w-4 text-yellow-600" />;
+    return <Server className="h-4 w-4 text-gray-500" />;
+  };
+
   const getStatusIcon = (status: HealthCheck['status']) => {
     switch (status) {
       case 'healthy':
@@ -194,6 +335,7 @@ export const SystemHealthDashboard = () => {
             {healthChecks.map((check, index) => (
               <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
+                  {getServiceIcon(check.service)}
                   {getStatusIcon(check.status)}
                   <div>
                     <div className="font-medium">{check.service}</div>
