@@ -237,7 +237,7 @@ async function processMatchHits(
   let batteryHits = hits.filter(h => h.product.type === 'battery');
   let inverterHits = hits.filter(h => h.product.type === 'inverter');
   
-  // Smart reclassification based on context clues
+  // Smart reclassification based on context clues and model patterns
   const allHits = [...panelHits, ...batteryHits, ...inverterHits];
   
   for (const hit of allHits) {
@@ -249,6 +249,21 @@ async function processMatchHits(
     const hasKW = /\b(\d{1,2}(?:\.\d)?)\s*kW\b(?!\s*h)/i.test(contextWindow);
     const hasKWH = /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh\b/i.test(contextWindow);
     const hasWatts = /\b(\d{3,4})\s*W\b/i.test(contextWindow);
+    
+    // Special handling for Sigenergy SigenStor (always batteries when model contains "SigenStor")
+    const isSigenStor = hit.product.brand === 'SIGENERGY' && 
+                       (hit.product.model.toLowerCase().includes('sigenstor') || 
+                        hit.raw.toLowerCase().includes('sigenstor'));
+    
+    if (isSigenStor) {
+      console.log(`🔋 Force classifying ${hit.product.brand} ${hit.product.model} as battery (SigenStor model)`);
+      if (!batteryHits.includes(hit)) {
+        batteryHits.push(hit);
+        panelHits = panelHits.filter(h => h !== hit);
+        inverterHits = inverterHits.filter(h => h !== hit);
+      }
+      continue;
+    }
     
     // Reclassify based on units found in context
     if (hasKW && !hasKWH && !hasWatts && hit.product.type !== 'inverter') {
