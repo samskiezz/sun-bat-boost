@@ -36,8 +36,32 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
   const [meterType, setMeterType] = useState<"Single" | "TOU" | "Demand">("TOU");
   const { toast } = useToast();
 
-  const handlePostcodeLookup = useCallback(async () => {
-    if (!postcode || postcode.length < 3) {
+  const handleDnspSelection = useCallback((selectedDnsp: DnspDetails, targetPostcode?: string) => {
+    const usePostcode = targetPostcode || postcode;
+    const defaultMeterType = getDefaultMeterType(selectedDnsp.state);
+    setMeterType(defaultMeterType);
+    
+    // Create location data and notify parent
+    const locationData: LocationData = {
+      postcode: usePostcode,
+      state: selectedDnsp.state,
+      network: selectedDnsp.network,
+      meterType: defaultMeterType,
+      exportCapKw: selectedDnsp.export_cap_kw
+    };
+    
+    onLocationUpdate?.(locationData);
+    
+    toast({
+      title: "Location Updated",
+      description: `Selected ${selectedDnsp.network} in ${selectedDnsp.state}`,
+    });
+  }, [postcode, onLocationUpdate, toast]);
+
+  // Internal lookup function that can be called with a specific postcode
+  const handlePostcodeLookupInternal = useCallback(async (targetPostcode?: string) => {
+    const lookupPostcode = targetPostcode || postcode;
+    if (!lookupPostcode || lookupPostcode.length < 3) {
       toast({
         title: "Invalid Postcode",
         description: "Please enter a valid Australian postcode",
@@ -51,15 +75,15 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
       setError('');
       setDnspResult(null);
       
-      if (!postcode.trim()) {
+      if (!lookupPostcode.trim()) {
         throw new Error('Please enter a postcode');
       }
 
-      const result = await getDnspByPostcode(postcode);
+      const result = await getDnspByPostcode(lookupPostcode);
       setDnspResult(result);
       
       // Auto-fill with the single result
-      handleDnspSelection(result);
+      handleDnspSelection(result, lookupPostcode);
 
       toast({
         title: "Location Details Found",
@@ -76,28 +100,20 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [postcode, toast]);
+  }, [postcode, toast, handleDnspSelection]);
 
-  const handleDnspSelection = useCallback((selectedDnsp: DnspDetails) => {
-    const defaultMeterType = getDefaultMeterType(selectedDnsp.state);
-    setMeterType(defaultMeterType);
-    
-    // Create location data and notify parent
-    const locationData: LocationData = {
-      postcode: postcode,
-      state: selectedDnsp.state,
-      network: selectedDnsp.network,
-      meterType: defaultMeterType,
-      exportCapKw: selectedDnsp.export_cap_kw
-    };
-    
-    onLocationUpdate?.(locationData);
-    
-    toast({
-      title: "Location Updated",
-      description: `Selected ${selectedDnsp.network} in ${selectedDnsp.state}`,
-    });
-  }, [postcode, onLocationUpdate, toast]);
+  const handlePostcodeLookup = useCallback(() => {
+    handlePostcodeLookupInternal();
+  }, [handlePostcodeLookupInternal]);
+
+  // Auto-lookup when initialPostcode changes (from OCR)
+  React.useEffect(() => {
+    if (initialPostcode && initialPostcode !== postcode && initialPostcode.length >= 4) {
+      setPostcode(initialPostcode);
+      // Auto-trigger lookup for OCR-extracted postcode
+      handlePostcodeLookupInternal(initialPostcode);
+    }
+  }, [initialPostcode, handlePostcodeLookupInternal]);
 
   const handleMeterTypeChange = useCallback((newMeterType: "Single" | "TOU" | "Demand") => {
     setMeterType(newMeterType);

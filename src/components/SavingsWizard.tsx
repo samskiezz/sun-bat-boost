@@ -159,39 +159,6 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   const [ocrExtracted, setOcrExtracted] = useState(false);
   const [locationData, setLocationData] = useState<any>(null);
 
-  // Handle OCR extraction results
-  const handleOCRExtraction = useCallback((data: ExtractedBillData, fullOCRData?: any) => {
-    setOcrExtracted(true);
-    
-    // Store full OCR data including system specs
-    if (fullOCRData) {
-      setOCRHistory(prev => [...prev, fullOCRData]);
-    }
-    
-    // Check if solar system was detected and update the scenario accordingly
-    if (data.hasSolar || fullOCRData?.systemSize?.value > 0) {
-      const detectedSolar = fullOCRData?.systemSize?.value || data.estimatedSolarSize;
-      setScenario(prev => ({
-        ...prev,
-        currentSetup: {
-          ...prev.currentSetup,
-          currentSystem: detectedSolar > 0 ? 'solar' : 'solar',
-          pvSize: detectedSolar || 6.6,
-        }
-      }));
-      
-      toast({
-        title: "Solar System Detected!",
-        description: `Found ${detectedSolar ? detectedSolar + 'kW' : ''} solar system from your proposal`,
-      });
-    } else {
-      toast({
-        title: "Bill Processed",
-        description: "No solar system detected - ready for new system design",
-      });
-    }
-  }, [toast, setScenario]);
-
   // Handle address extraction from OCR
   const handleAddressExtracted = useCallback(async (address: string, postcode?: string) => {
     if (postcode) {
@@ -237,6 +204,43 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       }
     }
   }, [toast, setScenario]);
+
+  // Handle OCR extraction results
+  const handleOCRExtraction = useCallback((data: ExtractedBillData, fullOCRData?: any) => {
+    setOcrExtracted(true);
+    
+    // Store extracted bill data for auto-fill (merge with fullOCRData)
+    const completeData = { ...data, ...fullOCRData };
+    setOCRHistory(prev => [...prev, completeData]);
+    
+    // Check if solar system was detected and update the scenario accordingly
+    if (data.hasSolar || fullOCRData?.systemSize?.value > 0) {
+      const detectedSolar = fullOCRData?.systemSize?.value || data.estimatedSolarSize;
+      setScenario(prev => ({
+        ...prev,
+        currentSetup: {
+          ...prev.currentSetup,
+          currentSystem: detectedSolar > 0 ? 'solar' : 'solar',
+          pvSize: detectedSolar || 6.6,
+        }
+      }));
+      
+      toast({
+        title: "Solar System Detected!",
+        description: `Found ${detectedSolar ? detectedSolar + 'kW' : ''} solar system from your proposal`,
+      });
+    } else {
+      toast({
+        title: "Bill Processed",
+        description: "No solar system detected - ready for new system design",
+      });
+    }
+
+    // Auto-trigger location lookup if postcode is extracted
+    if (data.postcode && data.address) {
+      handleAddressExtracted(data.address, data.postcode);
+    }
+  }, [toast, setScenario, handleAddressExtracted]);
 
   // Handle location updates from LocationAutoFill
   const handleLocationUpdate = useCallback((data: any) => {
@@ -496,7 +500,9 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       {/* Location & Network Details */}
       <LocationAutoFill 
         onLocationUpdate={handleLocationUpdate}
-        initialPostcode={locationData?.postcode}
+        initialPostcode={ocrHistory.length > 0 && ocrHistory[ocrHistory.length - 1].postcode ? 
+          ocrHistory[ocrHistory.length - 1].postcode : 
+          locationData?.postcode}
       />
 
       {/* Manual Fallback */}
