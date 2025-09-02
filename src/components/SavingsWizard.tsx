@@ -392,7 +392,10 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <LocationAutoFill onLocationUpdate={handleLocationUpdate} />
+          <LocationAutoFill 
+            onLocationUpdate={handleLocationUpdate} 
+            initialPostcode={scenario.location?.postcode}
+          />
         </CardContent>
       </Card>
 
