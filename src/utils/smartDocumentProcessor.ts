@@ -106,6 +106,10 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
     try {
       const { data: panels } = await supabase.from('pv_modules').select('*').limit(2000);
       const { data: batteries } = await supabase.from('batteries').select('*').limit(1000);
+      const { data: inverters } = await supabase.from('all_products')
+        .select('*')
+        .eq('product_type', 'inverter')
+        .limit(1000);
       
       allProducts = [
         ...(panels || []).map(p => ({ 
@@ -123,6 +127,14 @@ export const processSmartDocument = async (file: File): Promise<SmartProcessorRe
           type: 'battery' as const,
           capacity_kwh: b.capacity_kwh,
           specs: b
+        })),
+        ...(inverters || []).map(i => ({ 
+          id: String(i.id), 
+          brand: i.brand, 
+          model: i.model, 
+          type: 'inverter' as const,
+          power_rating: i.rating,
+          specs: { ...i, kW: i.rating }
         }))
       ];
     } catch (error) {
@@ -220,10 +232,42 @@ async function processMatchHits(
     installer: undefined
   };
 
-  // Group hits by type
-  const panelHits = hits.filter(h => h.product.type === 'panel');
-  const batteryHits = hits.filter(h => h.product.type === 'battery');
-  const inverterHits = hits.filter(h => h.product.type === 'inverter');
+  // Group hits by type with smart classification based on context
+  let panelHits = hits.filter(h => h.product.type === 'panel');
+  let batteryHits = hits.filter(h => h.product.type === 'battery');
+  let inverterHits = hits.filter(h => h.product.type === 'inverter');
+  
+  // Smart reclassification based on context clues
+  const allHits = [...panelHits, ...batteryHits, ...inverterHits];
+  
+  for (const hit of allHits) {
+    const contextWindow = fullText.substring(
+      Math.max(0, hit.at - 200), 
+      Math.min(fullText.length, hit.at + 200)
+    );
+    
+    const hasKW = /\b(\d{1,2}(?:\.\d)?)\s*kW\b(?!\s*h)/i.test(contextWindow);
+    const hasKWH = /\b(\d{1,3}(?:\.\d{1,2})?)\s*kWh\b/i.test(contextWindow);
+    const hasWatts = /\b(\d{3,4})\s*W\b/i.test(contextWindow);
+    
+    // Reclassify based on units found in context
+    if (hasKW && !hasKWH && !hasWatts && hit.product.type !== 'inverter') {
+      console.log(`🔄 Reclassifying ${hit.product.brand} ${hit.product.model} as inverter (found kW)`);
+      inverterHits.push(hit);
+      panelHits = panelHits.filter(h => h !== hit);
+      batteryHits = batteryHits.filter(h => h !== hit);
+    } else if (hasKWH && hit.product.type !== 'battery') {
+      console.log(`🔄 Reclassifying ${hit.product.brand} ${hit.product.model} as battery (found kWh)`);
+      batteryHits.push(hit);
+      panelHits = panelHits.filter(h => h !== hit);
+      inverterHits = inverterHits.filter(h => h !== hit);
+    } else if (hasWatts && hit.product.type !== 'panel') {
+      console.log(`🔄 Reclassifying ${hit.product.brand} ${hit.product.model} as panel (found watts)`);
+      panelHits.push(hit);
+      batteryHits = batteryHits.filter(h => h !== hit);
+      inverterHits = inverterHits.filter(h => h !== hit);
+    }
+  }
 
     // Process panels - Add debug logging
     for (const hit of panelHits.slice(0, 3)) { // Top 3 panel matches
@@ -271,7 +315,7 @@ async function processMatchHits(
       Math.min(fullText.length, hit.at + 200)
     );
     
-    // Enhanced capacity extraction supporting larger batteries
+    // Enhanced capacity extraction with better pattern matching
     const capacityPatterns = [
       /(\d{1,3}(?:\.\d{1,2})?)\s*kWh/gi,
       /(\d{1,3}(?:\.\d{1,2})?)\s*kwh/gi,
@@ -280,15 +324,27 @@ async function processMatchHits(
     
     let extractedCapacity = hit.product.capacity_kwh; // Default to database value
     
-    // Try to extract capacity from context
+    // Try to extract capacity from context, but be more selective
+    const capacityMatches = [];
     for (const pattern of capacityPatterns) {
-      const matches = contextWindow.match(pattern);
-      if (matches && matches.length > 0) {
-        const value = parseFloat(matches[0].replace(/kWh/gi, ''));
+      pattern.lastIndex = 0; // Reset regex state
+      let match;
+      while ((match = pattern.exec(contextWindow)) !== null) {
+        const value = parseFloat(match[1]);
         if (value > 0 && value <= 200) { // Reasonable battery range
-          extractedCapacity = value;
-          break;
+          capacityMatches.push(value);
         }
+      }
+    }
+    
+    // Use the most reasonable capacity value
+    if (capacityMatches.length > 0) {
+      // Prefer values that make sense for batteries (avoid very small or very large values)
+      const reasonableCapacities = capacityMatches.filter(c => c >= 5 && c <= 100);
+      if (reasonableCapacities.length > 0) {
+        extractedCapacity = reasonableCapacities[0];
+      } else {
+        extractedCapacity = capacityMatches[0];
       }
     }
     
@@ -321,19 +377,38 @@ async function processMatchHits(
       Math.min(fullText.length, hit.at + 200)
     );
     
-    const kwMatch = contextWindow.match(/(\d(?:\.\d)?)\s*kW/i);
+    // Enhanced kW extraction for inverters
+    const kwPatterns = [
+      /(\d{1,2}(?:\.\d)?)\s*kW\b(?!\s*h)/gi,
+      /(\d{1,2}(?:\.\d)?)\s*KW\b(?!\s*H)/gi
+    ];
+    
+    let extractedKW = hit.product.specs?.kW || hit.product.power_rating;
+    
+    // Try to extract kW from context
+    for (const pattern of kwPatterns) {
+      pattern.lastIndex = 0;
+      const match = pattern.exec(contextWindow);
+      if (match) {
+        const value = parseFloat(match[1]);
+        if (value >= 1 && value <= 100) { // Reasonable inverter range
+          extractedKW = value;
+          break;
+        }
+      }
+    }
     
     extractedData.inverters!.push({
       description: hit.raw,
       confidence: hit.score,
-      kw: kwMatch ? parseFloat(kwMatch[1]) : hit.product.specs?.kW,
+      kw: extractedKW,
       needsConfirmation,
       candidates: needsConfirmation ? [hit] : undefined,
       suggestedMatch: {
         id: hit.productId,
         brand: hit.product.brand,
         model: hit.product.model,
-        kw: hit.product.specs?.kW || 0,
+        kw: extractedKW || 0,
         confidence: hit.score,
         matchType: hit.evidence.regexHit ? 'regex' : hit.evidence.aliasHit ? 'alias' : 'fuzzy'
       }
