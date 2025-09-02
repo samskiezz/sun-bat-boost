@@ -43,6 +43,7 @@ serve(async (req) => {
 
     if (req.method === 'POST') {
       // Full system health check
+      console.log('Starting comprehensive system health check...');
       const startTime = Date.now();
       const checks: HealthCheck[] = [];
       

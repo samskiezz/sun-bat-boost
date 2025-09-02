@@ -12,20 +12,32 @@ serve(async (req) => {
   }
 
   try {
-    if (req.method !== 'GET') {
+    let lat, lng, tilt, azimuth, start, end;
+
+    if (req.method === 'GET') {
+      // Handle GET requests with URL parameters
+      const url = new URL(req.url);
+      lat = parseFloat(url.searchParams.get('lat') || '0');
+      lng = parseFloat(url.searchParams.get('lng') || '0');
+      tilt = parseFloat(url.searchParams.get('tilt') || '0');
+      azimuth = parseFloat(url.searchParams.get('azimuth') || '0');
+      start = url.searchParams.get('start') || '';
+      end = url.searchParams.get('end') || '';
+    } else if (req.method === 'POST') {
+      // Handle POST requests with JSON body (from supabase.functions.invoke)
+      const body = await req.json();
+      lat = parseFloat(body.lat || '0');
+      lng = parseFloat(body.lng || '0');
+      tilt = parseFloat(body.tilt || '0');
+      azimuth = parseFloat(body.azimuth || '0');
+      start = body.start || '';
+      end = body.end || '';
+    } else {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-
-    const url = new URL(req.url);
-    const lat = parseFloat(url.searchParams.get('lat') || '0');
-    const lng = parseFloat(url.searchParams.get('lng') || '0');
-    const tilt = parseFloat(url.searchParams.get('tilt') || '0');
-    const azimuth = parseFloat(url.searchParams.get('azimuth') || '0');
-    const start = url.searchParams.get('start') || '';
-    const end = url.searchParams.get('end') || '';
 
     // Validate parameters
     if (!lat || !lng || !start || !end) {

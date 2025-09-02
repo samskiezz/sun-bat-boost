@@ -19,7 +19,19 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        details: parseError.message 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
     const { prices, pv, load, constraints, solver } = body;
 
     console.log(`Quantum dispatch optimization: ${solver} solver with ${prices?.length} time steps`);
