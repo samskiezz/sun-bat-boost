@@ -252,22 +252,15 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
       // Run quantum optimization
       const optimizerResult = await runOptimizer({
-        solar_kw: systemKw,
-        battery_kwh: batterykWh,
-        battery_power_kw: batterykWh * 0.5, // Assume 0.5C rate
-        load_profile: billData.hourlyUsage || Array(24).fill(2.5),
-        poa_profile: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(0.5),
-        tariff_rates: {
-          peak: billData.peakRate || 0.35,
-          shoulder: billData.shoulderRate || 0.25,
-          offpeak: billData.offpeakRate || 0.15,
-          feed_in: billData.feedInTariff || 0.08
-        },
+        prices: Array(24).fill(billData.avgRate || 0.25),
+        pv: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(0.5),
+        load: billData.hourlyUsage || Array(24).fill(2.5),
         constraints: {
           battery_capacity_kwh: batterykWh,
           battery_power_kw: batterykWh * 0.5,
           initial_soc: 0.5
-        }
+        },
+        solver: "milp"
       });
 
       emitSignal({
@@ -386,7 +379,7 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <OCRScanner onExtraction={handleOCRExtraction} />
+          <OCRScanner onDataExtracted={handleOCRExtraction} />
         </CardContent>
       </Card>
 

@@ -11,9 +11,17 @@ export function WaitingFor({ deps }: WaitingForProps) {
 
   useEffect(() => {
     const updateMissing = () => setMissing(getMissing(deps));
-    updateMissing(); // Update immediately
+    
+    // Update immediately
+    updateMissing();
+    
+    // Subscribe to future updates
     const unsubscribe = subscribeToSignals(updateMissing);
-    return unsubscribe;
+    
+    // Return cleanup function
+    return () => {
+      unsubscribe();
+    };
   }, [deps]);
 
   return missing.length ? (

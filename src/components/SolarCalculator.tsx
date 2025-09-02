@@ -374,7 +374,7 @@ const SolarCalculator = () => {
           )}
           
           {activeTab === "How much can I save?" && (
-            <SavingsWizard onApplyToROI={(scenario) => {
+            <SavingsWizard onApplyResults={(scenario) => {
               // Switch to Battery ROI tab and apply scenario data
               setActiveTab("Battery ROI Calculator");
               // The scenario data would be applied to BatteryROICalculator
