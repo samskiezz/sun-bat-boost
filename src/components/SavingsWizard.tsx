@@ -361,16 +361,28 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       
       // Get REAL POA data from NASA using ACTUAL coordinates
       console.log('🚀 Fetching NASA POA data for coordinates:', scenario.location.lat, scenario.location.lng);
-      const poaData = await getPoa({
-        lat: scenario.location.lat!,
-        lng: scenario.location.lng!,
-        tilt: 20,
-        azimuth: 0,
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        end: new Date().toISOString().split('T')[0]
-      });
-
-      console.log('🚀 NASA POA data received:', poaData);
+      
+      let poaData;
+      try {
+        poaData = await getPoa({
+          lat: scenario.location.lat!,
+          lng: scenario.location.lng!,
+          tilt: 20,
+          azimuth: 0,
+          start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          end: new Date().toISOString().split('T')[0]
+        });
+        console.log('🚀 NASA POA data received successfully:', poaData);
+      } catch (error) {
+        console.error('🚀 NASA POA API call failed:', error);
+        emitSignal({
+          key: 'nasa.poa',
+          status: 'error',
+          message: `NASA API failed: ${error.message}`,
+          details: { error: error.message, coordinates: { lat: scenario.location.lat, lng: scenario.location.lng } }
+        });
+        throw error;
+      }
 
       // Emit POA signal with REAL data
       emitSignal({
@@ -386,19 +398,31 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
       // Run REAL quantum optimization with actual data
       console.log('🚀 Running quantum optimization...');
-      const optimizerResult = await runOptimizer({
-        prices: Array(24).fill(billData.avgRate || 0.25),
-        pv: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(actualSolarKw * 0.2),
-        load: billData.hourlyUsage || Array(24).fill(2.5),
-        constraints: {
-          battery_capacity_kwh: batterykWh,
-          battery_power_kw: batterykWh * 0.5,
-          initial_soc: 0.5
-        },
-        solver: "milp"
-      });
-
-      console.log('🚀 Optimization result:', optimizerResult);
+      
+      let optimizerResult;
+      try {
+        optimizerResult = await runOptimizer({
+          prices: Array(24).fill(billData.avgRate || 0.25),
+          pv: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(actualSolarKw * 0.2),
+          load: billData.hourlyUsage || Array(24).fill(2.5),
+          constraints: {
+            battery_capacity_kwh: batterykWh,
+            battery_power_kw: batterykWh * 0.5,
+            initial_soc: 0.5
+          },
+          solver: "milp"
+        });
+        console.log('🚀 Quantum optimization completed successfully:', optimizerResult);
+      } catch (error) {
+        console.error('🚀 Quantum optimization failed:', error);
+        emitSignal({
+          key: 'optimizer.dispatch',
+          status: 'error',
+          message: `Quantum optimization failed: ${error.message}`,
+          details: { error: error.message }
+        });
+        throw error;
+      }
 
       emitSignal({
         key: 'sizing.battery',

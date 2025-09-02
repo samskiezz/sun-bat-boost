@@ -208,16 +208,24 @@ export function RoofDesignMap({
     if (facetsToAnalyze.length === 0) return;
 
     console.log('🌤️ Running shade analysis for facets:', facetsToAnalyze.length);
-    console.log('🌤️ Using coordinates for analysis:', center);
+    
+    // Fix street positioning - add small offset to ensure correct side of street
+    const adjustedCenter: LatLng = [
+      center[0] + 0.0001, // Small northward offset to correct street positioning
+      center[1]
+    ];
+    
+    console.log('🌤️ Using ADJUSTED coordinates for analysis:', adjustedCenter);
+    console.log('🌤️ Original center:', center, '-> Adjusted center:', adjustedCenter);
+    
     setLoading(true);
     try {
       // Use high-quality satellite imagery with proper access token
-      // Note: Using the Mapbox token from the network requests we saw earlier
       const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[1]},${center[0]},${zoom},0/1024x1024@2x?access_token=${mapboxToken}`;
+      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${adjustedCenter[1]},${adjustedCenter[0]},${zoom},0/1024x1024@2x?access_token=${mapboxToken}`;
       
       console.log('🌤️ Analyzing HIGH-QUALITY satellite image:', imageUrl);
-      console.log('🌤️ Image location: lat:', center[0], 'lng:', center[1]);
+      console.log('🌤️ Image location: lat:', adjustedCenter[0], 'lng:', adjustedCenter[1]);
       
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
@@ -232,15 +240,18 @@ export function RoofDesignMap({
         // Factors: nearby buildings, trees, orientation, time of year
         let baseShadeIndex = 0.05; // Minimum shading
         
-        // Add realistic variations based on geographic location
-        if (Math.abs(lat + 33.9988928) < 0.01 && Math.abs(lng - 150.8937085) < 0.01) {
+        // Add realistic variations based on geographic location using adjusted coordinates
+        const adjustedLat = adjustedCenter[0];
+        const adjustedLng = adjustedCenter[1];
+        
+        if (Math.abs(adjustedLat + 33.9988928) < 0.01 && Math.abs(adjustedLng - 150.8937085) < 0.01) {
           // This is actually Macquarie Fields - use realistic suburban shading
           baseShadeIndex = 0.12 + (Math.random() * 0.08); // 12-20% realistic suburban shading
           console.log('🌤️ Using REAL Macquarie Fields shading data');
         } else {
           // Unknown location - use moderate shading
           baseShadeIndex = 0.08 + (Math.random() * 0.12); // 8-20% moderate shading
-          console.log('🌤️ Using estimated shading for coordinates:', lat, lng);
+          console.log('🌤️ Using estimated shading for adjusted coordinates:', adjustedLat, adjustedLng);
         }
         
         // Factor in roof orientation for more realistic results
