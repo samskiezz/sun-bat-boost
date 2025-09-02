@@ -736,8 +736,14 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
                 Please complete Step 1 (Location Details) to enable roof design and shade analysis.
               </div>
               <div className="text-xs text-muted-foreground">
-                Location status: {scenario.location?.postcode ? `Postcode: ${scenario.location.postcode}` : 'No location set'}
-                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓ ({scenario.location.lat}, {scenario.location.lng})</span>}
+                Location status: {scenario.location?.address ? (
+                  <span>{scenario.location.address} ({scenario.location.postcode})</span>
+                ) : scenario.location?.postcode ? (
+                  <span>Postcode: {scenario.location.postcode}</span>
+                ) : (
+                  'No location set'
+                )}
+                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓ ({scenario.location.lat.toFixed(4)}, {scenario.location.lng.toFixed(4)})</span>}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
                 Debug: lat={scenario.location?.lat} lng={scenario.location?.lng}
