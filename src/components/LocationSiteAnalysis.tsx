@@ -40,6 +40,7 @@ interface LocationData {
   network: string;
   meterType: "Single" | "TOU" | "Demand";
   exportCapKw: number;
+  existingPvKw?: number; // New: existing PV system size
   lat?: number;
   lng?: number;
 }
@@ -374,25 +375,48 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
               </div>
             </div>
             
-            <div className="mt-4">
-              <Label>Meter Type</Label>
-              <Select 
-                value={locationData.meterType} 
-                onValueChange={(value: any) => {
-                  const updated = { ...locationData, meterType: value };
-                  setLocationData(updated);
-                  onLocationUpdate?.(updated);
-                }}
-              >
-                <SelectTrigger className="bg-white/5 border-white/20 mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Single">Single Rate</SelectItem>
-                  <SelectItem value="TOU">Time of Use (TOU)</SelectItem>
-                  <SelectItem value="Demand">Demand Tariff</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Meter Type</Label>
+                <Select 
+                  value={locationData.meterType} 
+                  onValueChange={(value: any) => {
+                    const updated = { ...locationData, meterType: value };
+                    setLocationData(updated);
+                    onLocationUpdate?.(updated);
+                  }}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/20 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Single">Single Rate</SelectItem>
+                    <SelectItem value="TOU">Time of Use (TOU)</SelectItem>
+                    <SelectItem value="Demand">Demand Tariff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Existing Solar System Size (kW)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={locationData.existingPvKw || ''}
+                  onChange={(e) => {
+                    const updated = { ...locationData, existingPvKw: parseFloat(e.target.value) || 0 };
+                    setLocationData(updated);
+                    onLocationUpdate?.(updated);
+                  }}
+                  className="bg-white/5 border-white/20 mt-1"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                />
+                <div className="text-xs text-muted-foreground mt-1">
+                  Enter 0 if you don't have solar panels
+                </div>
+              </div>
             </div>
           </Glass>
         </motion.div>

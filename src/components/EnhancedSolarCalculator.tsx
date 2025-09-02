@@ -179,6 +179,7 @@ export const EnhancedSolarCalculator: React.FC = () => {
                     siteData={wizardData.siteData}
                     evData={wizardData.evData}
                     systemSize={wizardData.systemData}
+                    existingPvKw={wizardData.locationData?.existingPvKw || 0}
                     onSystemUpdate={handleSystemUpdate}
                     onNext={nextStep}
                     onPrevious={prevStep}

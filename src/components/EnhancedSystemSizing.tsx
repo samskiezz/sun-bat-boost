@@ -28,6 +28,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import HolographicGraph from './HolographicGraph';
 import { Glass } from './Glass';
+import { useQueryPoa } from '@/hooks/useQueryPoa';
+import { emitSignal } from '@/diagnostics/signals';
+import { calculateSolarRebates } from '@/utils/solarCalculations';
+import { calculateBatteryRebates } from '@/utils/rebateCalculations';
 
 interface SystemSize {
   recommendedKw: number;
@@ -59,6 +63,7 @@ interface EnhancedSystemSizingProps {
   siteData: any;
   evData?: any;
   systemSize?: SystemSize;
+  existingPvKw?: number; // New: existing PV system size
   onSystemUpdate: (system: SystemSize) => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -71,6 +76,7 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
   siteData,
   evData,
   systemSize,
+  existingPvKw = 0,
   onSystemUpdate,
   onNext,
   onPrevious,
@@ -85,6 +91,48 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
   const [vppEnabled, setVppEnabled] = useState(false);
   const [vppResults, setVppResults] = useState<SystemSize | null>(null);
   const [nonVppResults, setNonVppResults] = useState<SystemSize | null>(null);
+
+  // Track POA data with signals
+  const poaQuery = useQueryPoa({
+    lat: locationData?.latitude || 0,
+    lng: locationData?.longitude || 0,
+    tilt: siteData?.roofTilt || 20,
+    azimuth: siteData?.roofAzimuth || 0,
+    start: '2024-01-01',
+    end: '2024-12-31'
+  });
+
+  // Emit signals for diagnostics
+  useEffect(() => {
+    if (poaQuery.data) {
+      emitSignal({
+        key: 'nasa.poa',
+        status: 'ok',
+        message: `POA data loaded: ${poaQuery.data.daily?.length || 0} days`,
+        details: { 
+          annual_kwh: poaQuery.data.daily?.reduce((sum, d) => sum + d.poa_kwh, 0) || 0,
+          avg_daily: poaQuery.data.daily?.length ? 
+            poaQuery.data.daily.reduce((sum, d) => sum + d.poa_kwh, 0) / poaQuery.data.daily.length : 0
+        }
+      });
+    } else if (poaQuery.error) {
+      emitSignal({
+        key: 'nasa.poa',
+        status: 'error',
+        message: `POA fetch failed: ${poaQuery.error.message}`
+      });
+    }
+
+    // Emit roof polygon signal (mock for now)
+    if (siteData?.roofArea) {
+      emitSignal({
+        key: 'roof.polygon',
+        status: 'ok',
+        message: `Roof area: ${siteData.roofArea}m²`,
+        details: { area_m2: siteData.roofArea, max_panels: siteData.maxPanels }
+      });
+    }
+  }, [poaQuery.data, poaQuery.error, siteData]);
 
   // Auto-trigger AI sizing when component loads
   useEffect(() => {
@@ -223,77 +271,144 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     const annualUsage = (billData.quarterlyUsage || billData.monthlyUsage * 3) * 4;
     const annualBill = (billData.quarterlyBill || billData.monthlyBill * 3) * 4;
     
-    // CORRECTED: Enhanced sizing algorithm - calculate optimal system size instead of using input
+    // Calculate optimal system size based on usage and site conditions
     let sizingFactor = 1.0;
     
     // Adjust for TOU usage patterns
     if (billData.peakUsage && billData.offPeakUsage) {
       const peakRatio = billData.peakUsage / (billData.peakUsage + billData.offPeakUsage);
-      sizingFactor = peakRatio > 0.6 ? 1.3 : 1.1; // Larger system for high peak usage
+      sizingFactor = peakRatio > 0.6 ? 1.3 : 1.1;
     }
     
-    // Adjust for site conditions
+    // Adjust for site conditions using POA data if available
+    let actualGeneration = 1400; // Default kWh/kW/year
+    if (poaQuery.data?.daily) {
+      actualGeneration = poaQuery.data.daily.reduce((sum, d) => sum + d.poa_kwh, 0);
+    }
+    
     if (siteData) {
-      const shadingAdjustment = 1 + (siteData.shadingFactor * 0.5); // More panels if more shading
-      const irradianceAdjustment = siteData.solarIrradiance < 5 ? 1.2 : 1.0; // More panels for low irradiance
-      sizingFactor *= shadingAdjustment * irradianceAdjustment;
+      const shadingAdjustment = 1 + (siteData.shadingFactor * 0.5);
+      sizingFactor *= shadingAdjustment;
     }
     
     // EV adjustment
     if (evData?.hasEV) {
-      const evAnnualUsage = evData.dailyKm * 0.18 * 365; // kWh per year
-      sizingFactor *= 1 + (evAnnualUsage / annualUsage); // Scale up for EV
+      const evAnnualUsage = evData.dailyKm * 0.18 * 365;
+      sizingFactor *= 1 + (evAnnualUsage / annualUsage);
     }
     
-    // CORRECTED: Calculate optimal system size based on usage, not input
-    const baseSolarKw = (annualUsage * sizingFactor) / 1400; // 1400 kWh/kW/year average
+    // Calculate system size considering existing PV
+    const totalNeededKw = (annualUsage * sizingFactor) / actualGeneration;
+    const additionalKw = Math.max(0, totalNeededKw - existingPvKw);
     const recommendedKw = Math.min(
-      Math.round(baseSolarKw * 2) / 2, // Round to nearest 0.5kW
-      Math.floor(siteData?.maxPanels / 2.5) || 13.3 // Respect roof space limits
+      Math.round(additionalKw * 2) / 2,
+      Math.floor(siteData?.maxPanels / 2.5) || 13.3
     );
     
-    const panels = Math.ceil(recommendedKw / 0.55); // Assume 550W panels
+    const panels = Math.ceil(recommendedKw / 0.55);
     
-    // Enhanced battery sizing
+    // Enhanced battery sizing - minimum size needed
     let batterySize = 0;
     if (billData.peakUsage || evData?.hasEV) {
-      const nightUsage = billData.offPeakUsage || (annualUsage * 0.4) / 365; // 40% night usage
+      const nightUsage = billData.offPeakUsage || (annualUsage * 0.4) / 365;
       const evNightUsage = evData?.hasEV && evData.chargingHours === 'overnight' ? evData.dailyKm * 0.18 : 0;
-      batterySize = Math.round((nightUsage + evNightUsage) * 1.2); // 20% buffer
-      batterySize = Math.min(batterySize, 20); // Cap at 20kWh for residential
+      batterySize = Math.round((nightUsage + evNightUsage) * 1.0); // Minimum size
+      batterySize = Math.max(batterySize, 5); // Min 5kWh
+      batterySize = Math.min(batterySize, 20); // Max 20kWh for residential
     }
+
+    // Emit sizing.battery signal
+    emitSignal({
+      key: 'sizing.battery',
+      status: 'ok',
+      message: `Battery sized: ${batterySize}kWh minimum`,
+      details: { 
+        size_kwh: batterySize, 
+        night_usage: billData.offPeakUsage,
+        ev_usage: evData?.hasEV ? evData.dailyKm * 0.18 : 0
+      }
+    });
     
-    // Calculate savings with better methodology
-    const currentRate = annualBill / annualUsage;
-    const generationValue = recommendedKw * 1400 * currentRate * 0.8; // 80% self-consumption
-    const batteryValue = batterySize * 365 * currentRate * 0.3; // Battery arbitrage
-    const totalSavings = generationValue + batteryValue;
-    const newBill = Math.max(annualBill - totalSavings, annualBill * 0.15); // Min 15% remaining bill
+    // Calculate rebates for both VPP and non-VPP scenarios
+    const baseSystem = calculateSystemFinancials(recommendedKw, batterySize, annualUsage, annualBill, actualGeneration);
+    const vppSystem = calculateSystemFinancials(recommendedKw, batterySize, annualUsage, annualBill, actualGeneration, true);
     
     const fallbackSystem: SystemSize = {
-      recommendedKw,
+      ...baseSystem,
+      recommendedKw: existingPvKw > 0 ? recommendedKw : recommendedKw,
       panels,
       battery: batterySize,
-      estimatedGeneration: Math.round(recommendedKw * 1400),
-      confidence: 0.82, // Enhanced fallback confidence
-      aiReasoning: `Enhanced system sizing based on ${annualUsage.toLocaleString()} kWh annual usage${
-        evData?.hasEV ? ` plus ${Math.round(evData.dailyKm * 0.18 * 365)} kWh EV charging` : ''
-      }. System sized for ${siteData ? `${Math.round(siteData.shadingFactor * 100)}% shading and ` : ''}optimal self-consumption with ${batterySize > 0 ? 'battery storage for peak avoidance' : 'grid-tie export'}.`,
-      products: getRecommendedProducts(recommendedKw, batterySize),
-        financial: {
-          currentAnnualBill: annualBill,
-          newAnnualBill: newBill,
-          annualSavings: annualBill - newBill,
-          billReductionPercent: Math.round(((annualBill - newBill) / annualBill) * 100),
-          paybackYears: Math.round(((recommendedKw * 2500 + batterySize * 1200) / (annualBill - newBill)) * 10) / 10,
-          npv25Year: Math.round((annualBill - newBill) * 15 - (recommendedKw * 2500 + batterySize * 1200)),
-          irr: Math.round(((annualBill - newBill) / (recommendedKw * 2500 + batterySize * 1200)) * 100 * 10) / 10,
-          co2ReductionTonnes: Math.round((recommendedKw * 1400 * 0.82) / 1000)
-        }
+      confidence: 0.82,
+      aiReasoning: existingPvKw > 0 
+        ? `${existingPvKw}kW existing + ${recommendedKw}kW additional solar recommended for ${annualUsage.toLocaleString()} kWh annual usage${
+            evData?.hasEV ? ` plus EV charging` : ''
+          }. Battery: ${batterySize}kWh minimum size suggested for peak avoidance.`
+        : `${recommendedKw}kW solar system for ${annualUsage.toLocaleString()} kWh annual usage${
+            evData?.hasEV ? ` plus EV charging` : ''
+          }. Battery: ${batterySize}kWh minimum size suggested.`,
+      products: getRecommendedProducts(recommendedKw, batterySize)
     };
     
     setCustomSystem(fallbackSystem);
-    onSystemUpdate(fallbackSystem);
+    setNonVppResults(fallbackSystem);
+    setVppResults(vppSystem);
+    onSystemUpdate(vppEnabled ? vppSystem : fallbackSystem);
+  };
+
+  const calculateSystemFinancials = (pvKw: number, batteryKwh: number, annualUsage: number, annualBill: number, generation: number, withVpp = false): SystemSize => {
+    // Calculate rebates
+    const solarRebates = calculateSolarRebates({
+      install_date: '2025-08-01',
+      postcode: locationData?.postcode || '5000',
+      pv_dc_size_kw: pvKw,
+      stc_price_aud: 40,
+      battery_capacity_kwh: batteryKwh,
+      vpp_provider: withVpp ? 'tesla' : null
+    });
+
+    const batteryRebates = batteryKwh > 0 ? calculateBatteryRebates({
+      install_date: '2025-08-01',
+      state_or_territory: locationData?.state || 'SA',
+      has_rooftop_solar: true,
+      battery: {
+        usable_kWh: batteryKwh,
+        vpp_capable: true,
+        battery_on_approved_list: true
+      },
+      joins_vpp: withVpp
+    }) : { total_cash_incentive: 0 };
+
+    const totalRebates = solarRebates.total_rebate_aud + batteryRebates.total_cash_incentive;
+    
+    // Financial calculations
+    const currentRate = annualBill / annualUsage;
+    const generationValue = pvKw * generation * currentRate * 0.8;
+    const batteryValue = batteryKwh * 365 * currentRate * (withVpp ? 0.4 : 0.3);
+    const totalSavings = generationValue + batteryValue;
+    const newBill = Math.max(annualBill - totalSavings, annualBill * 0.1);
+    
+    const systemCost = pvKw * 2500 + batteryKwh * 1200 - totalRebates;
+    const paybackYears = systemCost > 0 ? systemCost / (annualBill - newBill) : 0;
+    
+    return {
+      recommendedKw: pvKw,
+      panels: Math.ceil(pvKw / 0.55),
+      battery: batteryKwh,
+      estimatedGeneration: Math.round(pvKw * generation),
+      confidence: 0.85,
+      aiReasoning: '',
+      products: getRecommendedProducts(pvKw, batteryKwh),
+      financial: {
+        currentAnnualBill: annualBill,
+        newAnnualBill: newBill,
+        annualSavings: annualBill - newBill,
+        billReductionPercent: Math.round(((annualBill - newBill) / annualBill) * 100),
+        paybackYears: Math.round(paybackYears * 10) / 10,
+        npv25Year: Math.round((annualBill - newBill) * 15 - systemCost),
+        irr: Math.round((totalSavings / systemCost) * 100 * 10) / 10,
+        co2ReductionTonnes: Math.round((pvKw * generation * 0.82) / 1000)
+      }
+    };
   };
 
   const getRecommendedProducts = (pvKw: number, batteryKwh: number) => {
@@ -336,6 +451,13 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     
     setCustomSystem(updated);
     onSystemUpdate(updated);
+  };
+
+  const handleVppToggle = (enabled: boolean) => {
+    setVppEnabled(enabled);
+    if (vppResults && nonVppResults) {
+      onSystemUpdate(enabled ? vppResults : nonVppResults);
+    }
   };
 
   const currentSystem = customSystem || systemSize;
@@ -429,7 +551,12 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
                 <div className="p-3 rounded-full bg-primary/20 w-fit mx-auto">
                   <Sun className="h-6 w-6 text-primary" />
                 </div>
-                <div className="text-2xl font-bold">{currentSystem.recommendedKw}kW</div>
+                <div className="text-2xl font-bold">
+                  {existingPvKw > 0 && currentSystem.recommendedKw > 0 
+                    ? `${existingPvKw}kW existing + ${currentSystem.recommendedKw}kW additional`
+                    : `${currentSystem.recommendedKw}kW`
+                  }
+                </div>
                 <div className="text-sm text-muted-foreground">Solar System</div>
                 <Badge variant="secondary">{currentSystem.panels} panels</Badge>
                 <div className="text-xs text-muted-foreground">
@@ -445,9 +572,9 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
                   <Battery className="h-6 w-6 text-secondary" />
                 </div>
                 <div className="text-2xl font-bold">{currentSystem.battery}kWh</div>
-                <div className="text-sm text-muted-foreground">Battery Storage</div>
+                <div className="text-sm text-muted-foreground">Minimum Size Suggested</div>
                 <Badge variant={currentSystem.battery > 0 ? "default" : "secondary"}>
-                  {currentSystem.battery > 0 ? "Minimum Size Suggested" : "Not Required"}
+                  {currentSystem.battery > 0 ? "Recommended" : "Not Required"}
                 </Badge>
                 {currentSystem.products.battery && (
                   <>
@@ -572,11 +699,11 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
           </div>
           <Switch
             checked={vppEnabled}
-            onCheckedChange={setVppEnabled}
+            onCheckedChange={handleVppToggle}
           />
         </div>
         
-        {vppEnabled && (
+        {vppEnabled && vppResults && nonVppResults && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg border border-gray-300 bg-gray-50/50">
@@ -584,11 +711,15 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Annual Savings:</span>
-                    <span className="font-medium">${currentSystem.financial.annualSavings.toLocaleString()}</span>
+                    <span className="font-medium">${nonVppResults.financial.annualSavings.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Payback:</span>
-                    <span className="font-medium">{currentSystem.financial.paybackYears} years</span>
+                    <span className="font-medium">{nonVppResults.financial.paybackYears} years</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bill Reduction:</span>
+                    <span className="font-medium">{nonVppResults.financial.billReductionPercent}%</span>
                   </div>
                 </div>
               </div>
@@ -599,18 +730,24 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
                   <div className="flex justify-between">
                     <span>Annual Savings:</span>
                     <span className="font-medium text-green-600">
-                      ${Math.round(currentSystem.financial.annualSavings * 1.15).toLocaleString()}
+                      ${vppResults.financial.annualSavings.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Payback:</span>
                     <span className="font-medium text-green-600">
-                      {Math.round(currentSystem.financial.paybackYears * 0.85 * 10) / 10} years
+                      {vppResults.financial.paybackYears} years
                     </span>
                   </div>
                   <div className="flex justify-between">
+                    <span>Bill Reduction:</span>
+                    <span className="font-medium text-green-600">{vppResults.financial.billReductionPercent}%</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span>VPP Bonus:</span>
-                    <span className="font-medium text-purple-600">+$800/year</span>
+                    <span className="font-medium text-purple-600">
+                      +${Math.round((vppResults.financial.annualSavings - nonVppResults.financial.annualSavings))}/year
+                    </span>
                   </div>
                 </div>
               </div>
@@ -618,7 +755,7 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
             
             <div className="text-xs text-muted-foreground p-3 bg-purple-50/30 rounded-lg">
               <strong>VPP Benefits:</strong> Virtual Power Plant participation provides additional revenue 
-              through grid services, peak demand response, and energy trading optimization.
+              through grid services, peak demand response, and energy trading optimization. Rebate differences included.
             </div>
           </div>
         )}
