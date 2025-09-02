@@ -211,7 +211,7 @@ export const SystemHealthDashboard = () => {
         .select('table_name, last_updated')
         .order('last_updated', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const hoursOld = lastUpdate 
         ? (Date.now() - new Date(lastUpdate.last_updated).getTime()) / (1000 * 60 * 60)
@@ -230,17 +230,19 @@ export const SystemHealthDashboard = () => {
       const { data: productCounts } = await supabase
         .from('pv_modules')
         .select('id')
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       const { data: batteryCounts } = await supabase
         .from('batteries')
         .select('id')
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       checks.push({
         service: 'Product Data',
-        status: (!productCounts && !batteryCounts) ? 'error' : 'healthy',
-        message: 'Product catalogs available',
+        status: (!productCounts && !batteryCounts) ? 'warning' : 'healthy',
+        message: productCounts || batteryCounts ? 'Product catalogs available' : 'No product data found',
         lastChecked: new Date()
       });
 
@@ -249,9 +251,17 @@ export const SystemHealthDashboard = () => {
       console.error('Health check failed:', error);
       toast({
         title: "Error",
-        description: "Health check failed",
+        description: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
+      
+      // Add a fallback health check entry
+      setHealthChecks([{
+        service: 'System Health Monitor',
+        status: 'error',
+        message: `Health check system failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        lastChecked: new Date()
+      }]);
     } finally {
       setLoading(false);
     }
