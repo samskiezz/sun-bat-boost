@@ -1,7 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState } from "react";
 import ReadinessGateGuard from "@/components/ReadinessGateGuard";
@@ -18,8 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Battery, Sparkles, Zap } from "lucide-react";
 import featureFlags, { type AppMode } from "@/config/featureFlags";
 import "@/ai/bootstrap";
-
-const queryClient = new QueryClient();
 
 const EnergyApp = () => {
   const [appMode, setAppMode] = useState<AppMode>("lite");
@@ -74,21 +71,19 @@ const EnergyApp = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <ReadinessGateGuard>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<EnergyApp />} />
-            <Route path="/system" element={<SystemManager />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </ReadinessGateGuard>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <ReadinessGateGuard>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<EnergyApp />} />
+          <Route path="/system" element={<SystemManager />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </ReadinessGateGuard>
+  </TooltipProvider>
 );
 
 export default App;
