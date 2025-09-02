@@ -158,6 +158,26 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
     return null;
   };
 
+  const geocodeAddress = async (address: string) => {
+    try {
+      // Use OpenStreetMap Nominatim for free geocoding
+      const encodedAddress = encodeURIComponent(`${address}, Australia`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+      return null;
+    }
+  };
+
   const handleLocationUpdate = useCallback((locationData: any) => {
     // If postcode is provided but no coordinates, estimate them
     if (locationData.postcode && !locationData.lat && !locationData.lng) {
@@ -209,16 +229,45 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
     });
   }, []);
 
-  const handleOCRExtraction = useCallback((data: ExtractedBillData) => {
+  const handleOCRExtraction = useCallback(async (data: ExtractedBillData) => {
+    let locationData: {
+      address?: string;
+      postcode?: string;
+      lat?: number;
+      lng?: number;
+    } = {
+      address: data.address,
+      postcode: data.postcode
+    };
+
+    // If we have a full address, try to geocode it for accurate coordinates
+    if (data.address) {
+      const coords = await geocodeAddress(data.address);
+      if (coords) {
+        locationData = { ...locationData, ...coords };
+      }
+    }
+
     // Update scenario with extracted data
     setScenario(prev => ({
       ...prev,
       location: {
         ...prev.location,
-        address: data.address,
-        postcode: data.postcode
+        ...locationData
       }
     }));
+
+    // Emit coordinates for POA when address is geocoded
+    if (locationData.lat && locationData.lng) {
+      setTimeout(() => {
+        emitSignal({
+          key: 'nasa.poa',
+          status: 'ok', 
+          message: 'Address geocoded successfully',
+          details: { lat: locationData.lat, lng: locationData.lng }
+        });
+      }, 1000);
+    }
   }, []);
 
   const handleAddressExtracted = useCallback((address: string, postcode?: string) => {
