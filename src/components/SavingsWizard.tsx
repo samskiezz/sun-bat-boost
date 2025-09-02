@@ -340,14 +340,27 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   }, []);
 
   const handleAutoDesign = async () => {
+    console.log('🚀 Starting AI Optimization with REAL data');
+    console.log('🚀 Current location:', scenario.location);
+    console.log('🚀 Roof analysis data:', panelFit);
+    console.log('🚀 Shade analysis data:', shadeAnalysis);
+    
+    if (!scenario.location?.lat || !scenario.location?.lng) {
+      console.error('🚀 ERROR: No coordinates available for optimization');
+      return;
+    }
+    
     setProcessing(true);
     
     try {
-      // Use roof analysis data if available, otherwise use defaults
-      const systemKw = panelFit?.totalAdjustedKw || scenario.currentSystem?.solarKw || 10;
-      const batterykWh = scenario.currentSystem?.batteryKwh || 15;
+      // Use REAL roof analysis data if available
+      const actualSolarKw = panelFit?.totalAdjustedKw || roofFacets.reduce((sum, f) => sum + f.kwCapacity, 0) || 10;
+      const batterykWh = scenario.currentSystem?.batteryKwh || Math.min(27, actualSolarKw * 2);
       
-      // Get POA data from NASA
+      console.log('🚀 Using REAL system sizing:', { actualSolarKw, batterykWh });
+      
+      // Get REAL POA data from NASA using ACTUAL coordinates
+      console.log('🚀 Fetching NASA POA data for coordinates:', scenario.location.lat, scenario.location.lng);
       const poaData = await getPoa({
         lat: scenario.location.lat!,
         lng: scenario.location.lng!,
@@ -357,21 +370,25 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         end: new Date().toISOString().split('T')[0]
       });
 
-      // Emit POA signal
+      console.log('🚀 NASA POA data received:', poaData);
+
+      // Emit POA signal with REAL data
       emitSignal({
         key: 'nasa.poa',
         status: 'ok',
         message: `POA data received: ${poaData.daily?.length || 0} days`,
         details: { 
           avgPoa: poaData.daily?.reduce((sum, d) => sum + d.poa_kwh, 0) / (poaData.daily?.length || 1),
-          days: poaData.daily?.length || 0
+          days: poaData.daily?.length || 0,
+          coordinates: { lat: scenario.location.lat, lng: scenario.location.lng }
         }
       });
 
-      // Run quantum optimization
+      // Run REAL quantum optimization with actual data
+      console.log('🚀 Running quantum optimization...');
       const optimizerResult = await runOptimizer({
         prices: Array(24).fill(billData.avgRate || 0.25),
-        pv: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(0.5),
+        pv: poaData.hourly?.map(h => h.poa_kwh || 0) || Array(24).fill(actualSolarKw * 0.2),
         load: billData.hourlyUsage || Array(24).fill(2.5),
         constraints: {
           battery_capacity_kwh: batterykWh,
@@ -381,21 +398,27 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         solver: "milp"
       });
 
+      console.log('🚀 Optimization result:', optimizerResult);
+
       emitSignal({
         key: 'sizing.battery',
         status: 'ok',
         message: `Optimization complete: ${optimizerResult.schedule?.length || 0} time steps`,
         details: { 
           schedule: optimizerResult.schedule?.length || 0,
-          optimal: optimizerResult.constraints_satisfied
+          optimal: optimizerResult.constraints_satisfied,
+          actualSolarKw,
+          batterykWh
         }
       });
 
-      // Calculate financial metrics using roof analysis
-      const recommendedSolarKw = panelFit?.totalAdjustedKw || scenario.currentSystem?.solarKw || 10;
-      const recommendedBatteryKwh = scenario.currentSystem?.batteryKwh || Math.min(27, recommendedSolarKw * 2);
+      // Calculate REAL financial metrics using actual roof analysis
+      const recommendedSolarKw = actualSolarKw;
+      const recommendedBatteryKwh = batterykWh;
       
       const annualGeneration = (poaData.daily?.reduce((sum, d) => sum + d.poa_kwh, 0) || 0) * 365 * recommendedSolarKw;
+      
+      console.log('🚀 Calculated annual generation:', annualGeneration, 'kWh');
       
       // Apply shade factor if available
       const shadeFactor = shadeAnalysis ? (1 - shadeAnalysis.overallShadeIndex) : 1;
