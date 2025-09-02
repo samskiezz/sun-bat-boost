@@ -73,12 +73,10 @@ export const SystemHealthDashboard = () => {
           });
         }
       } catch (error) {
-        // In development, this is expected if ml-svc is not running
-        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
         checks.push({
           service: 'FastAPI Backend',
-          status: isDev ? 'warning' : 'error',
-          message: isDev ? 'Backend not running (dev mode)' : 'Backend server unreachable',
+          status: 'error',
+          message: 'Backend server unreachable',
           lastChecked: new Date()
         });
       }
@@ -113,11 +111,10 @@ export const SystemHealthDashboard = () => {
           });
         }
       } catch (error) {
-        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
         checks.push({
           service: 'NASA POWER API',
-          status: isDev ? 'warning' : 'error',
-          message: isDev ? 'Requires backend service (dev mode)' : 'NASA POWER service unavailable',
+          status: 'error',
+          message: 'NASA POWER service unavailable',
           lastChecked: new Date()
         });
       }
@@ -167,11 +164,10 @@ export const SystemHealthDashboard = () => {
             });
           }
         } catch (error) {
-          const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app');
           checks.push({
             service: `Optimizer: ${name}`,
-            status: isDev ? 'warning' : 'error',
-            message: isDev ? 'Requires backend service (dev mode)' : (error instanceof Error ? error.message : 'Solver failed'),
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Solver failed',
             lastChecked: new Date()
           });
         }
