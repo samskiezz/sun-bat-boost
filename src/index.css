@@ -148,17 +148,19 @@
 .glass-card {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.25); /* Much stronger background */
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-glass);
   border-radius: calc(var(--radius) + 8px);
   transition: var(--transition-smooth);
+  color: hsl(var(--card-foreground));
 }
 
 .dark .glass-card {
-  background: rgba(0, 0, 0, 0.3); /* Dark glassmorphic background */
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-glass);
+  color: hsl(var(--card-foreground));
 }
 
 .hover-glass:hover {
