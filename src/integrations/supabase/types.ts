@@ -1473,6 +1473,36 @@ export type Database = {
           },
         ]
       }
+      system_health: {
+        Row: {
+          created_at: string
+          id: string
+          last_checked: string
+          message: string | null
+          response_time_ms: number | null
+          service_name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_checked?: string
+          message?: string | null
+          response_time_ms?: number | null
+          service_name: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_checked?: string
+          message?: string | null
+          response_time_ms?: number | null
+          service_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
       tariff_optimizations: {
         Row: {
           created_at: string
