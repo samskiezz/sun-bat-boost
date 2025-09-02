@@ -299,9 +299,15 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     }
     
     // Adjust for site conditions using POA data if available
-    let actualGeneration = 1400; // Default kWh/kW/year
-    if (poaQuery.data?.daily) {
-      actualGeneration = poaQuery.data.daily.reduce((sum, d) => sum + d.poa_kwh, 0);
+    let actualGeneration = 1400; // Default kWh/kW/year for Australia
+    if (poaQuery.data?.daily && poaQuery.data.daily.length > 0) {
+      // Calculate annual kWh/kW from daily POA data
+      const totalPoaKwh = poaQuery.data.daily.reduce((sum, d) => sum + d.poa_kwh, 0);
+      const daysInData = poaQuery.data.daily.length;
+      const dailyAverage = totalPoaKwh / daysInData;
+      actualGeneration = Math.round(dailyAverage * 365); // Annual kWh/kW
+      actualGeneration = Math.min(actualGeneration, 1800); // Cap at reasonable max
+      actualGeneration = Math.max(actualGeneration, 1000); // Floor at reasonable min
     }
     
     if (siteData) {
@@ -318,9 +324,13 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     // Calculate system size considering existing PV
     const totalNeededKw = (annualUsage * sizingFactor) / actualGeneration;
     const additionalKw = Math.max(0, totalNeededKw - existingPvKw);
+    
+    // Cap system size to reasonable residential limits
+    const maxSystemKw = siteData?.maxPanels ? Math.floor(siteData.maxPanels / 2.5) : 13.3;
     const recommendedKw = Math.min(
-      Math.round(additionalKw * 2) / 2,
-      Math.floor(siteData?.maxPanels / 2.5) || 13.3
+      Math.round(additionalKw * 4) / 4, // Round to 0.25kW increments
+      maxSystemKw,
+      15 // Hard cap at 15kW for residential
     );
     
     const panels = Math.ceil(recommendedKw / 0.55);
@@ -328,11 +338,12 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     // Enhanced battery sizing - minimum size needed
     let batterySize = 0;
     if (billData.peakUsage || evData?.hasEV) {
-      const nightUsage = billData.offPeakUsage || (annualUsage * 0.4) / 365;
+      const dailyUsage = annualUsage / 365;
+      const nightUsage = billData.offPeakUsage ? (billData.offPeakUsage * 4) / 365 : dailyUsage * 0.4;
       const evNightUsage = evData?.hasEV && evData.chargingHours === 'overnight' ? evData.dailyKm * 0.18 : 0;
-      batterySize = Math.round((nightUsage + evNightUsage) * 1.0); // Minimum size
-      batterySize = Math.max(batterySize, 5); // Min 5kWh
-      batterySize = Math.min(batterySize, 20); // Max 20kWh for residential
+      batterySize = Math.round((nightUsage + evNightUsage) * 1.5); // 1.5x for buffer
+      batterySize = Math.max(batterySize, 6); // Min 6kWh
+      batterySize = Math.min(batterySize, 15); // Max 15kWh for residential
     }
 
     // Emit sizing.battery signal

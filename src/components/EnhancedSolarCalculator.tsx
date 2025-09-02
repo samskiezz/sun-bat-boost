@@ -79,18 +79,18 @@ export const EnhancedSolarCalculator: React.FC = () => {
     console.log('System sizing updated:', systemData);
   }, []);
 
-  // Mock bill data - this would normally come from OCR or user input
+  // Realistic Australian household bill data
   const billData = {
     monthlyUsage: 850,
-    monthlyBill: 350,
+    monthlyBill: 280,
     quarterlyUsage: 2550,
-    quarterlyBill: 1050,
-    peakUsage: 1530,
-    offPeakUsage: 1020,
-    peakRate: 0.35,
+    quarterlyBill: 840,
+    peakUsage: 850, // Quarterly peak usage
+    offPeakUsage: 1700, // Quarterly off-peak usage  
+    peakRate: 0.32,
     offPeakRate: 0.18,
     dailySupply: 95,
-    averageRate: 0.28
+    averageRate: 0.27
   };
 
   const progress = ((getCurrentStepIndex() + 1) / STEPS.length) * 100;
