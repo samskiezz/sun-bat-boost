@@ -179,47 +179,49 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   };
 
   const handleLocationUpdate = useCallback((locationData: any) => {
-    console.log('🗺️ Location update received:', locationData);
+    console.log('🗺️ Location update received (from LocationAutoFill):', locationData);
+    console.log('🗺️ BLOCKING postcode estimation since we should have OCR geocoded coordinates');
     
-    // Only use postcode estimation if we don't already have coordinates
-    if (locationData.postcode && !locationData.lat && !locationData.lng) {
-      console.log('📍 No coordinates provided, estimating from postcode:', locationData.postcode);
-      const coords = estimateCoordinatesFromPostcode(locationData.postcode);
-      console.log('📍 Estimated coordinates:', coords);
-      if (coords) {
-        locationData = { ...locationData, ...coords };
-        console.log('📍 Updated locationData with estimated coords:', locationData);
-      }
-    } else if (locationData.lat && locationData.lng) {
-      console.log('📍 Using provided coordinates:', locationData.lat, locationData.lng);
-    }
-
+    // NEVER override coordinates if they already exist in state
     setScenario(prev => {
+      const currentCoords = { lat: prev.location?.lat, lng: prev.location?.lng };
+      console.log('🗺️ Current coordinates in state:', currentCoords);
+      
+      const newLocation = {
+        ...prev.location,
+        ...locationData
+      };
+      
+      // If we already have geocoded coordinates from OCR, keep them
+      if (currentCoords.lat && currentCoords.lng) {
+        console.log('🗺️ PRESERVING existing geocoded coordinates:', currentCoords);
+        newLocation.lat = currentCoords.lat;
+        newLocation.lng = currentCoords.lng;
+      }
+      
       const newScenario = {
         ...prev,
-        location: {
-          ...prev.location,
-          ...locationData
-        }
+        location: newLocation
       };
-      console.log('📍 New scenario location:', newScenario.location);
+      console.log('🗺️ Final location after handleLocationUpdate:', newScenario.location);
       return newScenario;
     });
     
-    // Emit coordinates for POA when location is updated
-    if (locationData.lat && locationData.lng) {
-      console.log('📍 Emitting POA signal with coordinates:', locationData.lat, locationData.lng);
-      setTimeout(() => {
-        emitSignal({
-          key: 'nasa.poa',
-          status: 'ok', 
-          message: 'Location coordinates available',
-          details: { lat: locationData.lat, lng: locationData.lng }
-        });
-      }, 1000);
-    } else {
-      console.log('📍 No coordinates available for POA signal');
-    }
+    // Only emit POA if we don't already have coordinates
+    setScenario(prev => {
+      if (prev.location?.lat && prev.location?.lng) {
+        console.log('🗺️ Using existing coordinates for POA:', prev.location.lat, prev.location.lng);
+        setTimeout(() => {
+          emitSignal({
+            key: 'nasa.poa',
+            status: 'ok', 
+            message: 'Using existing geocoded coordinates',
+            details: { lat: prev.location.lat, lng: prev.location.lng }
+          });
+        }, 1000);
+      }
+      return prev;
+    });
   }, []);
 
   const handleRoofAnalysisComplete = useCallback((facets, analysis) => {
@@ -263,6 +265,7 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       console.log('📍 Geocoding result:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
+        console.log('📍 Using geocoded coordinates for address:', coords);
       }
     }
 
@@ -273,27 +276,36 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       console.log('📍 Postcode estimation result:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
+        console.log('📍 Using estimated coordinates for postcode:', coords);
       }
     }
 
-    console.log('📍 Final locationData from OCR:', locationData);
+    console.log('📍 Final locationData from OCR (BEFORE setState):', locationData);
 
-    // Update scenario with extracted data
+    // Update scenario with extracted data - FORCE the geocoded coordinates
     setScenario(prev => {
+      const newLocation = {
+        ...prev.location,
+        address: locationData.address,
+        postcode: locationData.postcode,
+        // FORCE these coordinates to override any postcode estimates
+        lat: locationData.lat,
+        lng: locationData.lng
+      };
+      
+      console.log('📍 Setting scenario with FORCED coordinates:', newLocation);
+      
       const newScenario = {
         ...prev,
-        location: {
-          ...prev.location,
-          ...locationData
-        }
+        location: newLocation
       };
-      console.log('📍 Updated scenario from OCR:', newScenario.location);
+      console.log('📍 Updated scenario from OCR (AFTER setState):', newScenario.location);
       return newScenario;
     });
 
     // Emit coordinates for POA when address is geocoded
     if (locationData.lat && locationData.lng) {
-      console.log('📍 Emitting POA signal from OCR with coordinates:', locationData.lat, locationData.lng);
+      console.log('📍 Emitting POA signal from OCR with CORRECT coordinates:', locationData.lat, locationData.lng);
       setTimeout(() => {
         emitSignal({
           key: 'nasa.poa',
