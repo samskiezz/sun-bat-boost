@@ -318,10 +318,12 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       
       // Get extracted system data from OCR history if available
       const extractedData = ocrHistory.find(item => item.systemSize || item.panels || item.batteries);
-      const existingSolar = scenario.currentSetup.pvSize > 0 ? scenario.currentSetup.pvSize : 
-                           (extractedData?.systemSize?.value || 0);
-      const batterySize = extractedData?.batteries?.find(b => b.capacity_kwh > 20)?.capacity_kwh || 
-                         extractedData?.batteries?.[0]?.capacity_kwh || 16.2;
+      
+      // Use actual extracted values with proper fallbacks
+      const existingSolar = extractedData?.systemSize?.value || scenario.currentSetup.pvSize || 0;
+      const totalBatteryCapacity = extractedData?.batteries?.reduce((total, battery) => total + battery.capacity_kwh, 0) || 0;
+      const batterySize = totalBatteryCapacity > 0 ? totalBatteryCapacity : 
+                         extractedData?.batteries?.[0]?.capacity_kwh || 0;
       
       // Determine if this is existing solar or new system
       const hasExistingSolar = existingSolar > 0 || scenario.currentSetup.currentSystem === 'solar' || scenario.currentSetup.currentSystem === 'solar-battery';
@@ -329,7 +331,7 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       setScenario(prev => ({
         ...prev,
         recommendations: {
-          pvSize: existingSolar || 8.8,
+          pvSize: existingSolar,
           batterySize: batterySize,
           batteryPower: Math.min(batterySize * 0.5, 10), // Conservative C-rate
           planSwitch: 'Origin Solar Boost',
