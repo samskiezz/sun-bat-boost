@@ -343,6 +343,50 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       // Determine if this is existing solar or new system
       const hasExistingSolar = existingSolar > 0 || scenario.currentSetup.currentSystem === 'solar' || scenario.currentSetup.currentSystem === 'solar-battery';
       
+      // Calculate proper financial metrics
+      const dailyUsage = (scenario.currentSetup.monthlyUsage || 850) / 30;
+      const annualUsage = dailyUsage * 365;
+      const currentAnnualBill = annualUsage * 0.25; // Assume $0.25/kWh average rate
+      
+      // Battery cost calculation (conservative estimate)
+      const batteryCostPerKWh = 800; // AUD per kWh installed
+      const totalBatteryCost = batterySize * batteryCostPerKWh;
+      
+      // TOU savings calculation
+      const peakHours = 6; // Hours of peak pricing
+      const peakRate = 0.45; // Peak rate $/kWh
+      const offPeakRate = 0.18; // Off-peak rate $/kWh
+      const peakAvoidanceKWh = Math.min(batterySize * 0.9 * 365, annualUsage * 0.4); // 90% efficiency, 40% peak usage
+      const touSavings = peakAvoidanceKWh * (peakRate - offPeakRate);
+      
+      // Solar export value with battery storage
+      const solarGeneration = existingSolar * 4.5 * 365; // Annual generation
+      const exportRate = 0.08; // Feed-in tariff $/kWh
+      const selfConsumptionIncrease = Math.min(batterySize * 365 * 0.9, solarGeneration * 0.4); // Battery enables more self-consumption
+      const exportValueIncrease = selfConsumptionIncrease * (0.25 - exportRate); // Value of avoided purchase vs export
+      
+      // Total annual savings
+      const totalAnnualSavings = touSavings + exportValueIncrease + 280; // Include plan switch savings
+      
+      // Payback calculation
+      const paybackYears = totalBatteryCost / totalAnnualSavings;
+      
+      // NPV calculation (7% discount rate, 25 years)
+      const discountRate = 0.07;
+      let npv = -totalBatteryCost;
+      for (let year = 1; year <= 25; year++) {
+        npv += totalAnnualSavings / Math.pow(1 + discountRate, year);
+      }
+      
+      // IRR calculation (simplified approximation)
+      const irr = ((totalAnnualSavings / totalBatteryCost) * 100).toFixed(1);
+      
+      // System performance metrics
+      const selfConsumption = Math.min(85, 60 + (batterySize / existingSolar) * 10); // Battery improves self-consumption
+      const exportPercent = 100 - selfConsumption;
+      const batteryCycles = Math.round(peakAvoidanceKWh / batterySize); // Annual cycles
+      const co2Reduction = (solarGeneration * 0.85).toFixed(1); // kg CO2 per kWh grid electricity
+      
       setScenario(prev => ({
         ...prev,
         recommendations: {
@@ -361,6 +405,18 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
             'Plan switch saves additional $280/year',
             'Expected 310 cycles/year within warranty'
           ]
+        },
+        results: {
+          annualSavings: Math.round(totalAnnualSavings),
+          paybackYears: parseFloat(paybackYears.toFixed(1)),
+          npv: Math.round(npv),
+          irr: parseFloat(irr),
+          billBefore: Math.round(currentAnnualBill),
+          billAfter: Math.round(currentAnnualBill - totalAnnualSavings),
+          selfConsumption: Math.round(selfConsumption),
+          exportPercent: Math.round(exportPercent),
+          batteryCycles: batteryCycles,
+          co2Reduction: parseFloat(co2Reduction)
         }
       }));
       setCurrentStep('results');
