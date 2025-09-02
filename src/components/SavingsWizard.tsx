@@ -614,12 +614,26 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       </div>
 
       {/* Roof Design Map */}
-      {scenario.location?.lat && scenario.location?.lng && (
+      {scenario.location?.lat && scenario.location?.lng ? (
         <RoofDesignMap
           center={[scenario.location.lat, scenario.location.lng]}
           zoom={20}
           onRoofAnalysisComplete={handleRoofAnalysisComplete}
         />
+      ) : (
+        <Card className="glass-card">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Please complete Step 1 (Location Details) to enable roof design and shade analysis.
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Location status: {scenario.location?.postcode ? `Postcode: ${scenario.location.postcode}` : 'No location set'}
+                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓</span>}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
