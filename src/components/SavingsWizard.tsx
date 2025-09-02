@@ -328,34 +328,49 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       console.log("🌞 Fetching NASA POA data...");
       const { data: poaData } = await supabase.functions.invoke('nasa-power-poa', {
         body: {
-          lat: locationData?.lat || -33.8688,
-          lng: locationData?.lng || 151.2093,
+          lat: locationData?.lat || -34.9285, // Adelaide coordinates for SA 5066
+          lng: locationData?.lng || 138.6007,
           tilt: 20,
           azimuth: 0,
-          system_kw: existingSolar
+          start: '2024-01-01',
+          end: '2024-12-31'
         }
       });
       
       // 2. Run quantum optimization for battery sizing
       console.log("🔋 Running quantum battery optimization...");
       const dailyUsage = (scenario.currentSetup.monthlyUsage || 850) / 30;
+      
+      // Generate realistic hourly profiles
+      const hourlyPrices = Array.from({length: 24}, (_, h) => 
+        h >= 16 && h <= 21 ? 0.45 : h >= 22 || h <= 6 ? 0.18 : 0.25
+      );
+      const hourlyPV = poaData?.hourly?.map(h => h.poa_wm2 * existingSolar / 1000) || 
+        Array.from({length: 24}, (_, h) => 
+          Math.max(0, Math.sin((h - 6) * Math.PI / 12) * existingSolar)
+        );
+      const hourlyLoad = Array.from({length: 24}, () => dailyUsage / 24);
+      
       const { data: optimizerData } = await supabase.functions.invoke('quantum-dispatch', {
         body: {
-          solver: 'qaoa', // Use quantum algorithm
-          time_steps: 24,
-          battery_capacity_kwh: extractedBatteryCapacity || 30,
-          solar_capacity_kw: existingSolar,
-          load_profile: Array(24).fill(dailyUsage / 24), // Simplified load profile
-          solar_profile: poaData?.hourly || Array(24).fill(existingSolar * 0.2), // Use POA data
-          electricity_price: Array(24).fill(0.25).map((p, i) => 
-            i >= 16 && i <= 21 ? 0.45 : i >= 22 || i <= 6 ? 0.18 : p // Peak/off-peak pricing
-          )
+          prices: hourlyPrices,
+          pv: hourlyPV,
+          load: hourlyLoad,
+          constraints: {
+            P_ch_max: (extractedBatteryCapacity || 30) * 0.5, // 0.5C charge rate
+            P_dis_max: (extractedBatteryCapacity || 30), // 1C discharge rate
+            soc_min: 0.1,
+            soc_max: 0.95,
+            eta_ch: 0.95,
+            eta_dis: 0.90
+          },
+          solver: 'qaoa' // Use quantum algorithm
         }
       });
       
       // 3. Calculate optimal battery size from quantum results
-      const optimalBatterySize = optimizerData?.battery_schedule ? 
-        Math.max(...optimizerData.battery_schedule) : 
+      const optimalBatterySize = optimizerData?.schedule ? 
+        Math.max(...optimizerData.schedule.map(s => s.charge_power + s.discharge_power)) : 
         Math.max(24, Math.min(existingSolar * 1.5, dailyUsage * 0.8));
       
       const batterySize = Math.round(optimalBatterySize * 2) / 2; // Round to nearest 0.5kWh
@@ -367,10 +382,17 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       const totalBatteryCost = batterySize * batteryCostPerKWh;
       
       // Use quantum optimization results for savings calculation
-      const dailySavings = optimizerData?.objective || 5.87; // Daily savings from quantum optimization
+      const dailySavings = Math.abs(optimizerData?.objective_value || 5.87); // Daily savings from quantum optimization
       const annualQuantumSavings = dailySavings * 365;
       const planSwitchSavings = 280;
       const totalAnnualSavings = annualQuantumSavings + planSwitchSavings;
+      
+      console.log("🚀 Optimization complete:", { 
+        solver: optimizerData?.metadata?.solver,
+        objective: optimizerData?.objective_value,
+        batterySize,
+        annualSavings: totalAnnualSavings 
+      });
       
       // Enhanced financial calculations
       const paybackYears = totalBatteryCost / totalAnnualSavings;
@@ -382,7 +404,8 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
       const irr = ((totalAnnualSavings / totalBatteryCost) * 100);
       
       // Performance metrics from POA and quantum data
-      const solarGeneration = poaData?.annual_kwh || existingSolar * 4.5 * 365;
+      const solarGeneration = poaData?.daily?.reduce((sum, day) => sum + day.poa_kwh * existingSolar, 0) || 
+        existingSolar * 4.5 * 365;
       const selfConsumption = Math.min(85, 60 + (batterySize / existingSolar) * 10);
       const exportPercent = 100 - selfConsumption;
       const batteryCycles = Math.round((annualQuantumSavings / dailySavings) / (batterySize / 10)); // Estimate cycles

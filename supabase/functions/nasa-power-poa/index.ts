@@ -40,13 +40,21 @@ serve(async (req) => {
     }
 
     // Validate parameters
-    if (!lat || !lng || !start || !end) {
+    if (!lat || !lng) {
       return new Response(JSON.stringify({ 
-        error: "Missing required parameters: lat, lng, start, end" 
+        error: "Missing required parameters: lat, lng",
+        received: { lat, lng, start, end }
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
+    }
+
+    if (!start || !end) {
+      // Use default date range if not provided
+      start = '2024-01-01';
+      end = '2024-12-31';
+      console.log('Using default date range:', { start, end });
     }
 
     console.log(`Generating POA data for location: ${lat}, ${lng}, tilt: ${tilt}, azimuth: ${azimuth}`);
