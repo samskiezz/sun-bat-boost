@@ -181,15 +181,17 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   const handleLocationUpdate = useCallback((locationData: any) => {
     console.log('🗺️ Location update received:', locationData);
     
-    // If postcode is provided but no coordinates, estimate them
+    // Only use postcode estimation if we don't already have coordinates
     if (locationData.postcode && !locationData.lat && !locationData.lng) {
-      console.log('📍 Estimating coordinates for postcode:', locationData.postcode);
+      console.log('📍 No coordinates provided, estimating from postcode:', locationData.postcode);
       const coords = estimateCoordinatesFromPostcode(locationData.postcode);
       console.log('📍 Estimated coordinates:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
-        console.log('📍 Updated locationData with coords:', locationData);
+        console.log('📍 Updated locationData with estimated coords:', locationData);
       }
+    } else if (locationData.lat && locationData.lng) {
+      console.log('📍 Using provided coordinates:', locationData.lat, locationData.lng);
     }
 
     setScenario(prev => {
