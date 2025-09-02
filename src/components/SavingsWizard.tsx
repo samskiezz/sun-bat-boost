@@ -411,25 +411,32 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           <div className="space-y-4">
             <div>
               <Label>Current Solar System</Label>
-              <Select 
-                value={scenario.currentSystem?.type || "none"} 
-                onValueChange={(value) => {
-                  handleSystemUpdate('type', value);
-                  // Set existing solar to 0 if "none" selected
-                  if (value === 'none') {
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <Button
+                  variant={scenario.currentSystem?.type === 'none' ? "default" : "outline"}
+                  onClick={() => {
+                    handleSystemUpdate('type', 'none');
                     handleSystemUpdate('solarKw', 0);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Do you have solar?" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Solar System</SelectItem>
-                  <SelectItem value="solar">Existing Solar</SelectItem>
-                  <SelectItem value="solar-battery">Solar + Battery Upgrade</SelectItem>
-                </SelectContent>
-              </Select>
+                  }}
+                  className="h-auto py-3 px-4 text-sm"
+                >
+                  No Solar System
+                </Button>
+                <Button
+                  variant={scenario.currentSystem?.type === 'solar' ? "default" : "outline"}
+                  onClick={() => handleSystemUpdate('type', 'solar')}
+                  className="h-auto py-3 px-4 text-sm"
+                >
+                  Existing Solar
+                </Button>
+                <Button
+                  variant={scenario.currentSystem?.type === 'solar-battery' ? "default" : "outline"}
+                  onClick={() => handleSystemUpdate('type', 'solar-battery')}
+                  className="h-auto py-3 px-4 text-sm"
+                >
+                  Solar + Battery
+                </Button>
+              </div>
             </div>
 
             {scenario.currentSystem?.type !== 'none' && (
