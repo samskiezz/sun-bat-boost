@@ -1,0 +1,10 @@
+services:
+  api:
+    build: ./ml-svc
+    ports: 
+      - "8000:8000"
+    environment:
+      - CACHE_DIR=/cache
+    volumes:
+      - ./ml-svc:/app
+      - ./cache:/cache

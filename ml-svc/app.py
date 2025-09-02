@@ -1,5 +1,5 @@
 # FastAPI ML Training Service - Real ML with no-op guards
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -15,6 +15,11 @@ from data.schema import TrainRequest, PredictRequest
 import onnxruntime as ort
 import numpy as np
 import json
+
+# New imports for NASA POWER and quantum optimization
+from ingest.nasa_power import cached_hourly
+from features.solar_features import compute_poa
+from routers import quantum as quantum_router
 
 app = FastAPI(title="Solar ML Service", version="1.0.0")
 
@@ -258,6 +263,24 @@ def list_models():
 def prometheus_metrics():
     """Prometheus metrics endpoint"""
     return Response(generate_latest(), media_type="text/plain")
+
+@app.get("/features/poa")
+def poa(lat: float, lng: float, tilt: float = Query(20), azimuth: float = Query(0),
+        start: str = Query(...), end: str = Query(...)):
+    """Get plane-of-array irradiance from NASA POWER data with pvlib physics"""
+    try:
+        hourly = cached_hourly(lat, lng, start, end)
+        h, d = compute_poa(lat, lng, tilt, azimuth, hourly)
+        return {
+            "hourly": h.to_dict(orient="records"), 
+            "daily": d.to_dict(orient="records"), 
+            "meta": {"source": "NASA", "cached": True}
+        }
+    except Exception as e:
+        raise HTTPException(500, f"POA calculation failed: {str(e)}")
+
+# Include quantum optimization router
+app.include_router(quantum_router.router, prefix="/quantum")
 
 @app.get("/healthz")
 def health_check():

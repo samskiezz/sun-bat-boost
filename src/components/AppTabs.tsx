@@ -1,20 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Battery, Sparkles, FileText } from "lucide-react";
+import { Calculator, Battery, Sparkles, FileText, Zap } from "lucide-react";
 
-type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator";
+type Tab = "Rebates Calculator" | "How much can I save?" | "Battery ROI Calculator" | "Optimizers";
 
 interface AppTabsProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  showOptimizers?: boolean;
 }
 
-export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
+export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange, showOptimizers = false }) => {
   const tabs = [
     { id: "Rebates Calculator" as Tab, label: "Rebates Calculator", icon: Calculator },
     { id: "How much can I save?" as Tab, label: "How Much Can I Save?", icon: Sparkles },
     { id: "Battery ROI Calculator" as Tab, label: "Battery ROI Calculator", icon: Battery }
   ];
+
+  // Add Optimizers tab if Pro mode
+  if (showOptimizers) {
+    tabs.push({ id: "Optimizers" as Tab, label: "Optimizers", icon: Zap });
+  }
 
   return (
     <div className="sticky top-0 z-20 mb-6">
@@ -41,6 +47,7 @@ export const AppTabs: React.FC<AppTabsProps> = ({ activeTab, onTabChange }) => {
                 {tab.id === "Rebates Calculator" && "Rebates"}
                 {tab.id === "How much can I save?" && "Savings"}
                 {tab.id === "Battery ROI Calculator" && "Battery ROI"}
+                {tab.id === "Optimizers" && "Optimizers"}
               </span>
               
               {activeTab === tab.id && (
