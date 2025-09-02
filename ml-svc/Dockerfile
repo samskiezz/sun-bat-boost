@@ -19,8 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create directories for artifacts and baselines
-RUN mkdir -p artifacts baselines
+# Create directories for artifacts and cache
+RUN mkdir -p artifacts baselines /tmp/nasa-cache
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV CACHE_DIR=/tmp/nasa-cache
+ENV PORT=8000
 
 # Expose port
 EXPOSE 8000
