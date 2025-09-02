@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { emitSignal } from "@/diagnostics/signals";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,13 @@ import { WaitingFor } from "@/diagnostics/WaitingFor";
 export default function SampleOptimizerIntegration() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Auto-run MILP optimizer on mount to emit signal
+    if (!result && !loading) {
+      runOptimizer("milp");
+    }
+  }, []);
 
   const runOptimizer = async (solver: "milp" | "qaoa" | "anneal") => {
     setLoading(true);

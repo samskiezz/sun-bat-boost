@@ -242,6 +242,24 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
         }
       };
 
+      // Emit sizing.battery signal
+      emitSignal({
+        key: 'sizing.battery',
+        status: 'ok',
+        message: `Battery sized: ${newSystem.battery}kWh minimum`,
+        details: { 
+          size_kwh: newSystem.battery,
+          confidence: data.rationale.confidence,
+          reasoning: data.rationale.battery_reasoning || 'Minimum size suggested'
+        },
+        impact: [{
+          field: "batteryBenefit",
+          delta: data.financial.battery_savings || 500,
+          unit: "$",
+          explanation: "Annual savings from battery"
+        }]
+      });
+
       setCustomSystem(newSystem);
       onSystemUpdate(newSystem);
 

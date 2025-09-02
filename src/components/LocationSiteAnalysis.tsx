@@ -32,6 +32,7 @@ import { getDnspByPostcode, getDefaultMeterType, type DnspDetails } from '@/util
 import { Glass } from './Glass';
 import InteractiveMap from './InteractiveMap';
 import AddressOCRScanner from './AddressOCRScanner';
+import { emitSignal } from '@/diagnostics/signals';
 
 interface LocationData {
   address: string;
@@ -229,6 +230,26 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
       
       setSiteAnalysis(analysis);
       onSiteUpdate?.(analysis);
+      
+      // Emit roof.polygon signal when site analysis completes
+      emitSignal({
+        key: "roof.polygon", 
+        status: "ok",
+        message: `Site analysis complete - ${analysis.maxPanels} max panels`,
+        details: {
+          roof_area_m2: analysis.roofArea,
+          max_panels: analysis.maxPanels,
+          shading_factor: analysis.shadingFactor,
+          tilt_degrees: analysis.roofTilt,
+          azimuth_degrees: analysis.roofAzimuth
+        },
+        impact: [{
+          field: "systemSize",
+          delta: analysis.maxPanels * 0.4, // Assuming 400W panels
+          unit: "kW",
+          explanation: "Maximum system size based on roof analysis"
+        }]
+      });
       
       toast({
         title: "Site Analysis Complete",

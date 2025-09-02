@@ -10,8 +10,8 @@ export default function SamplePoaIntegration() {
   const sydneyLat = -33.8688;
   const sydneyLng = 151.2093;
   
-  const startDate = toAEST(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
   const endDate = toAEST(new Date());
+  const startDate = toAEST(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
   
   const { data, error, isLoading } = useQueryPoa({
     lat: sydneyLat,
