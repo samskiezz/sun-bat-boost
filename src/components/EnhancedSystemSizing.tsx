@@ -301,13 +301,14 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
     // Adjust for site conditions using POA data if available
     let actualGeneration = 1400; // Default kWh/kW/year for Australia
     if (poaQuery.data?.daily && poaQuery.data.daily.length > 0) {
-      // Calculate annual kWh/kW from daily POA data
+      // POA data is in kWh/m²/day - convert to system generation
       const totalPoaKwh = poaQuery.data.daily.reduce((sum, d) => sum + d.poa_kwh, 0);
       const daysInData = poaQuery.data.daily.length;
       const dailyAverage = totalPoaKwh / daysInData;
-      actualGeneration = Math.round(dailyAverage * 365); // Annual kWh/kW
-      actualGeneration = Math.min(actualGeneration, 1800); // Cap at reasonable max
-      actualGeneration = Math.max(actualGeneration, 1000); // Floor at reasonable min
+      // Convert POA irradiance to system generation (assuming ~19% system efficiency)
+      actualGeneration = Math.round(dailyAverage * 365 * 0.19 * 1000); // Annual kWh/kW
+      actualGeneration = Math.min(actualGeneration, 1600); // Cap at reasonable max
+      actualGeneration = Math.max(actualGeneration, 1200); // Floor at reasonable min
     }
     
     if (siteData) {
@@ -321,29 +322,31 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
       sizingFactor *= 1 + (evAnnualUsage / annualUsage);
     }
     
-    // Calculate system size considering existing PV
-    const totalNeededKw = (annualUsage * sizingFactor) / actualGeneration;
+    // Calculate realistic system size considering existing PV
+    const offsetTarget = 0.8; // Target 80% offset, not 100%+
+    const totalNeededKw = (annualUsage * offsetTarget) / actualGeneration;
     const additionalKw = Math.max(0, totalNeededKw - existingPvKw);
     
-    // Cap system size to reasonable residential limits
-    const maxSystemKw = siteData?.maxPanels ? Math.floor(siteData.maxPanels / 2.5) : 13.3;
+    // Cap system size to realistic residential limits (6-13kW typical)
+    const maxSystemKw = siteData?.maxPanels ? Math.min(Math.floor(siteData.maxPanels / 18), 13) : 10;
     const recommendedKw = Math.min(
-      Math.round(additionalKw * 4) / 4, // Round to 0.25kW increments
+      Math.max(Math.round(additionalKw * 4) / 4, 5), // Min 5kW, round to 0.25kW increments
       maxSystemKw,
-      15 // Hard cap at 15kW for residential
+      13 // Hard cap at 13kW for residential
     );
     
     const panels = Math.ceil(recommendedKw / 0.55);
     
-    // Enhanced battery sizing - minimum size needed
+    // Realistic battery sizing based on actual needs
     let batterySize = 0;
     if (billData.peakUsage || evData?.hasEV) {
       const dailyUsage = annualUsage / 365;
-      const nightUsage = billData.offPeakUsage ? (billData.offPeakUsage * 4) / 365 : dailyUsage * 0.4;
-      const evNightUsage = evData?.hasEV && evData.chargingHours === 'overnight' ? evData.dailyKm * 0.18 : 0;
-      batterySize = Math.round((nightUsage + evNightUsage) * 1.5); // 1.5x for buffer
+      // Estimate evening/night usage (typically 40% of daily usage)
+      const nightUsage = dailyUsage * 0.4;
+      const evNightUsage = evData?.hasEV && evData.chargingHours === 'overnight' ? Math.min(evData.dailyKm * 0.18, 25) : 0;
+      batterySize = Math.round((nightUsage + evNightUsage) * 0.8); // Cover 80% of night usage
       batterySize = Math.max(batterySize, 6); // Min 6kWh
-      batterySize = Math.min(batterySize, 15); // Max 15kWh for residential
+      batterySize = Math.min(batterySize, 13); // Max 13kWh for residential
     }
 
     // Emit sizing.battery signal
@@ -409,15 +412,24 @@ export const EnhancedSystemSizing: React.FC<EnhancedSystemSizingProps> = ({
 
     const totalRebates = solarRebates.total_rebate_aud + batteryRebates.total_cash_incentive;
     
-    // Financial calculations
+    // Realistic financial calculations
     const currentRate = annualBill / annualUsage;
-    const generationValue = pvKw * generation * currentRate * 0.8;
-    const batteryValue = batteryKwh * 365 * currentRate * (withVpp ? 0.4 : 0.3);
-    const totalSavings = generationValue + batteryValue;
-    const newBill = Math.max(annualBill - totalSavings, annualBill * 0.1);
+    const exportRate = 0.08; // Typical feed-in tariff
     
-    const systemCost = pvKw * 2500 + batteryKwh * 1200 - totalRebates;
-    const paybackYears = systemCost > 0 ? systemCost / (annualBill - newBill) : 0;
+    // Solar generation value (self-consumption + exports)
+    const annualGeneration = pvKw * generation;
+    const selfConsumption = Math.min(annualGeneration, annualUsage * 0.7); // 70% self-consumption typical
+    const exports = Math.max(0, annualGeneration - selfConsumption);
+    const solarValue = selfConsumption * currentRate + exports * exportRate;
+    
+    // Battery value (peak avoidance)
+    const batteryValue = batteryKwh > 0 ? batteryKwh * 200 * (withVpp ? 1.5 : 1.0) : 0; // Annual value
+    
+    const totalSavings = solarValue + batteryValue;
+    const newBill = Math.max(annualBill - totalSavings, annualBill * 0.15); // Keep minimum connection costs
+    
+    const systemCost = pvKw * 2800 + batteryKwh * 1400 - totalRebates;
+    const paybackYears = systemCost > 0 ? systemCost / Math.max(totalSavings, 100) : 0;
     
     return {
       recommendedKw: pvKw,
