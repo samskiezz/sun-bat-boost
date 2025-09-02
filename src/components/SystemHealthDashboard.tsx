@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Server, Database, Zap, Clock, Globe, Cpu } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { API_BASE } from '@/lib/config';
 import { nowAEST, toAEST } from '@/utils/timeAEST';
 
 interface HealthCheck {
@@ -43,61 +42,60 @@ export const SystemHealthDashboard = () => {
         responseTime: supabaseTime
       });
 
-      // Check FastAPI Backend Health
+      // Check FastAPI Backend Health (now using Supabase edge function)
       try {
         const backendStart = Date.now();
-        const response = await fetch(`${API_BASE}/health`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
+        const { data, error } = await supabase.functions.invoke('system-health', {
+          body: {}
         });
         const backendTime = Date.now() - backendStart;
         
-        if (response.ok) {
-          const data = await response.json();
+        if (!error && data) {
           checks.push({
-            service: 'FastAPI Backend',
+            service: 'Backend Services',
             status: 'healthy',
-            message: `Backend operational (${data.status || 'running'})`,
+            message: `All services operational via Supabase`,
             lastChecked: new Date(),
             responseTime: backendTime
           });
         } else {
           checks.push({
-            service: 'FastAPI Backend',
+            service: 'Backend Services',
             status: 'error',
-            message: `HTTP ${response.status} - ${response.statusText}`,
+            message: error?.message || 'Backend services unreachable',
             lastChecked: new Date(),
             responseTime: backendTime
           });
         }
       } catch (error) {
         checks.push({
-          service: 'FastAPI Backend',
+          service: 'Backend Services',
           status: 'error',
           message: 'Backend server unreachable',
           lastChecked: new Date()
         });
       }
 
-      // Check NASA POWER Integration
+      // Check NASA POWER Integration (now using Supabase edge function)
       try {
         const nasaStart = Date.now();
-        const response = await fetch(`${API_BASE}/features/poa?lat=-33.8688&lng=151.2093&tilt=20&azimuth=0&start=2025-01-02&end=2025-01-02`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
+        const { data, error } = await supabase.functions.invoke('nasa-power-poa', {
+          body: {
+            lat: -33.8688,
+            lng: 151.2093,
+            tilt: 20,
+            azimuth: 0,
+            start: '2025-01-02',
+            end: '2025-01-02'
           }
         });
         const nasaTime = Date.now() - nasaStart;
         
-        if (response.ok) {
-          const data = await response.json();
+        if (!error && data?.daily?.length > 0) {
           checks.push({
             service: 'NASA POWER API',
-            status: data?.daily?.length > 0 ? 'healthy' : 'warning',
-            message: `POA data available (${data?.daily?.length || 0} days)`,
+            status: 'healthy',
+            message: `POA data available (${data.daily.length} days)`,
             lastChecked: new Date(),
             responseTime: nasaTime
           });
@@ -105,7 +103,7 @@ export const SystemHealthDashboard = () => {
           checks.push({
             service: 'NASA POWER API',
             status: 'error',
-            message: `API Error: HTTP ${response.status}`,
+            message: error?.message || 'NASA POWER service error',
             lastChecked: new Date(),
             responseTime: nasaTime
           });
@@ -119,7 +117,7 @@ export const SystemHealthDashboard = () => {
         });
       }
 
-      // Check Quantum Dispatch Optimizers
+      // Check Quantum Dispatch Optimizers (now using Supabase edge function)
       const quantumSolvers = [
         { name: 'Classical MILP', solver: 'milp' },
         { name: 'Quantum QAOA', solver: 'qaoa' },
@@ -129,28 +127,22 @@ export const SystemHealthDashboard = () => {
       for (const { name, solver } of quantumSolvers) {
         try {
           const quantumStart = Date.now();
-          const response = await fetch(`${API_BASE}/quantum/dispatch`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
+          const { data, error } = await supabase.functions.invoke('quantum-dispatch', {
+            body: {
               prices: [0.3, 0.25, 0.5],
               pv: [0, 0.5, 1.2],
               load: [0.6, 0.7, 0.8],
               constraints: { P_ch_max: 5, P_dis_max: 5, soc_min: 0.1, soc_max: 1, eta_ch: 0.95, eta_dis: 0.95, export_cap: 5 },
               solver
-            })
+            }
           });
           const quantumTime = Date.now() - quantumStart;
           
-          if (response.ok) {
-            const result = await response.json();
+          if (!error && data?.schedule) {
             checks.push({
               service: `Optimizer: ${name}`,
-              status: (result?.schedule || result?.bitstring) ? 'healthy' : 'warning',
-              message: result?.schedule ? 'Solver operational' : 'Solver response incomplete',
+              status: 'healthy',
+              message: `${solver.toUpperCase()} solver operational`,
               lastChecked: new Date(),
               responseTime: quantumTime
             });
@@ -158,7 +150,7 @@ export const SystemHealthDashboard = () => {
             checks.push({
               service: `Optimizer: ${name}`,
               status: 'error',
-              message: `HTTP ${response.status} - Solver error`,
+              message: error?.message || 'Solver response incomplete',
               lastChecked: new Date(),
               responseTime: quantumTime
             });
@@ -319,7 +311,7 @@ export const SystemHealthDashboard = () => {
 
   const getServiceIcon = (service: string) => {
     if (service.includes('Database')) return <Database className="h-4 w-4 text-blue-500" />;
-    if (service.includes('FastAPI')) return <Server className="h-4 w-4 text-green-500" />;
+    if (service.includes('Backend')) return <Server className="h-4 w-4 text-green-500" />;
     if (service.includes('NASA')) return <Globe className="h-4 w-4 text-blue-400" />;
     if (service.includes('Optimizer') || service.includes('Quantum')) return <Cpu className="h-4 w-4 text-purple-500" />;
     if (service.includes('Time')) return <Clock className="h-4 w-4 text-orange-500" />;
