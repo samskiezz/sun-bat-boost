@@ -16,6 +16,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Glass } from './Glass';
 import { useDropzone } from 'react-dropzone';
+import { masterOCRPipeline } from '@/utils/masterOCRPipeline';
+import { processSmartDocument } from '@/utils/smartDocumentProcessor';
+import { toast } from 'sonner';
 
 interface ExtractedField {
   label: string;
@@ -24,32 +27,131 @@ interface ExtractedField {
   editable: boolean;
 }
 
+interface QuoteData {
+  panels: Array<{
+    brand: string;
+    model: string;
+    watts?: number;
+    quantity?: number;
+    confidence: number;
+  }>;
+  batteries: Array<{
+    brand: string;
+    model: string;
+    capacity_kwh?: number;
+    quantity?: number;
+    confidence: number;
+  }>;
+  inverters: Array<{
+    brand: string;
+    model: string;
+    kw?: number;
+    confidence: number;
+  }>;
+  systemSize?: {
+    value: number;
+    unit: string;
+    confidence: number;
+  };
+  totalCost?: {
+    value: number;
+    confidence: number;
+  };
+}
+
 export const BillsQuotesOCR: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
+  const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
-    // Simulate OCR processing
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const newFiles = acceptedFiles.filter(file => 
+      !uploadedFiles.some(existing => existing.name === file.name)
+    );
+    
+    if (newFiles.length === 0) {
+      toast.error('File(s) already uploaded');
+      return;
+    }
+    
+    setUploadedFiles(prev => [...prev, ...newFiles]);
     setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      // Mock extracted data
-      setExtractedData([
-        { label: 'NMI', value: '6305917159', confidence: 0.95, editable: false },
-        { label: 'Retailer', value: 'Origin Energy', confidence: 0.98, editable: true },
-        { label: 'Plan Name', value: 'Go Variable', confidence: 0.87, editable: true },
-        { label: 'Daily Supply Charge', value: 98.45, confidence: 0.92, editable: true },
-        { label: 'Peak Rate (c/kWh)', value: 28.6, confidence: 0.89, editable: true },
-        { label: 'Off-Peak Rate (c/kWh)', value: 22.1, confidence: 0.91, editable: true },
-        { label: 'Feed-in Tariff (c/kWh)', value: 8.2, confidence: 0.76, editable: true },
-        { label: 'Total kWh (Peak)', value: 425, confidence: 0.94, editable: true },
-        { label: 'Total kWh (Off-Peak)', value: 318, confidence: 0.93, editable: true },
-        { label: 'Billing Period', value: '2024-01-15 to 2024-02-14', confidence: 0.96, editable: true },
-      ]);
-    }, 2000);
-  }, []);
+
+    for (const file of newFiles) {
+      console.log(`🔍 Processing ${file.name}...`);
+      
+      try {
+        // Determine if it's likely a bill or proposal based on filename/type
+        const isProposal = file.name.toLowerCase().includes('proposal') || 
+                          file.name.toLowerCase().includes('quote') ||
+                          file.name.toLowerCase().includes('solar');
+        
+        if (isProposal) {
+          // Process as solar proposal/quote
+          console.log(`📄 Processing proposal: ${file.name}`);
+          const result = await processSmartDocument(file);
+          
+          if (result.success && result.extractedData) {
+            const { panels = [], batteries = [], inverters = [], systemSize, totalCost } = result.extractedData;
+            
+            console.log(`✅ Found: ${panels.length} panels, ${batteries.length} batteries, ${inverters.length} inverters`);
+            
+            setQuoteData({
+              panels: panels.map(p => ({
+                brand: p.suggestedMatch?.brand || 'Unknown',
+                model: p.suggestedMatch?.model || p.description,
+                watts: p.watts || p.suggestedMatch?.watts,
+                quantity: p.quantity,
+                confidence: p.confidence
+              })),
+              batteries: batteries.map(b => ({
+                brand: b.suggestedMatch?.brand || 'Unknown',
+                model: b.suggestedMatch?.model || b.description,
+                capacity_kwh: b.capacity_kwh || b.suggestedMatch?.capacity_kwh,
+                quantity: b.quantity,
+                confidence: b.confidence
+              })),
+              inverters: inverters.map(i => ({
+                brand: i.suggestedMatch?.brand || 'Unknown',
+                model: i.suggestedMatch?.model || i.description,
+                kw: i.kw || i.suggestedMatch?.kw,
+                confidence: i.confidence
+              })),
+              systemSize,
+              totalCost
+            });
+            
+            toast.success(`Successfully extracted ${panels.length + batteries.length + inverters.length} products from proposal`);
+          } else {
+            console.error('❌ Failed to extract proposal data:', result.error);
+            toast.error(`Failed to process proposal: ${result.error || 'No products detected'}`);
+          }
+        } else {
+          // Process as electricity bill (mock for now)
+          console.log(`📊 Processing bill: ${file.name}`);
+          setExtractedData([
+            { label: 'NMI', value: '6305917159', confidence: 0.95, editable: false },
+            { label: 'Retailer', value: 'Origin Energy', confidence: 0.98, editable: true },
+            { label: 'Plan Name', value: 'Go Variable', confidence: 0.87, editable: true },
+            { label: 'Daily Supply Charge', value: 98.45, confidence: 0.92, editable: true },
+            { label: 'Peak Rate (c/kWh)', value: 28.6, confidence: 0.89, editable: true },
+            { label: 'Off-Peak Rate (c/kWh)', value: 22.1, confidence: 0.91, editable: true },
+            { label: 'Feed-in Tariff (c/kWh)', value: 8.2, confidence: 0.76, editable: true },
+            { label: 'Total kWh (Peak)', value: 425, confidence: 0.94, editable: true },
+            { label: 'Total kWh (Off-Peak)', value: 318, confidence: 0.93, editable: true },
+            { label: 'Billing Period', value: '2024-01-15 to 2024-02-14', confidence: 0.96, editable: true },
+          ]);
+          toast.success('Successfully extracted bill data');
+        }
+      } catch (error) {
+        console.error(`❌ Error processing ${file.name}:`, error);
+        toast.error(`Error processing ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
+    setProcessing(false);
+  }, [uploadedFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -203,13 +305,127 @@ export const BillsQuotesOCR: React.FC = () => {
           
           <TabsContent value="quote-data">
             <Glass className="p-6">
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-40" />
-                <h3 className="text-lg font-medium mb-2">No Quote Data</h3>
-                <p className="text-muted-foreground">
-                  Upload a solar quote or proposal to extract system details
-                </p>
-              </div>
+              {!quoteData ? (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-40" />
+                  <h3 className="text-lg font-medium mb-2">No Quote Data</h3>
+                  <p className="text-muted-foreground">
+                    Upload a solar quote or proposal to extract system details
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold">Extracted Quote Information</h3>
+                    </div>
+                    <Button variant="outline" size="sm" className="bg-white/5 border-white/20">
+                      <Download className="w-4 h-4 mr-1" />
+                      Export Quote
+                    </Button>
+                  </div>
+
+                  {/* System Overview */}
+                  {(quoteData.systemSize || quoteData.totalCost) && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {quoteData.systemSize && (
+                        <div className="p-3 rounded-lg bg-white/5">
+                          <Label className="text-sm font-medium">System Size</Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-lg font-semibold">{quoteData.systemSize.value} {quoteData.systemSize.unit}</span>
+                            <Badge variant="default" className="text-xs">
+                              {Math.round(quoteData.systemSize.confidence * 100)}%
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {quoteData.totalCost && (
+                        <div className="p-3 rounded-lg bg-white/5">
+                          <Label className="text-sm font-medium">Total Cost</Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-lg font-semibold">${quoteData.totalCost.value.toLocaleString()}</span>
+                            <Badge variant="default" className="text-xs">
+                              {Math.round(quoteData.totalCost.confidence * 100)}%
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Solar Panels */}
+                  {quoteData.panels.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-primary">Solar Panels ({quoteData.panels.length})</h4>
+                      {quoteData.panels.map((panel, index) => (
+                        <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">{panel.brand} {panel.model}</span>
+                            <Badge variant={panel.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
+                              {Math.round(panel.confidence * 100)}%
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {panel.watts && <span>{panel.watts}W • </span>}
+                            {panel.quantity && <span>Qty: {panel.quantity}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Batteries */}
+                  {quoteData.batteries.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-primary">Battery Storage ({quoteData.batteries.length})</h4>
+                      {quoteData.batteries.map((battery, index) => (
+                        <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">{battery.brand} {battery.model}</span>
+                            <Badge variant={battery.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
+                              {Math.round(battery.confidence * 100)}%
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {battery.capacity_kwh && <span>{battery.capacity_kwh}kWh • </span>}
+                            {battery.quantity && <span>Qty: {battery.quantity}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Inverters */}
+                  {quoteData.inverters.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-primary">Inverters ({quoteData.inverters.length})</h4>
+                      {quoteData.inverters.map((inverter, index) => (
+                        <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">{inverter.brand} {inverter.model}</span>
+                            <Badge variant={inverter.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
+                              {Math.round(inverter.confidence * 100)}%
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {inverter.kw && <span>{inverter.kw}kW</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex gap-3">
+                    <Button className="bg-gradient-primary text-white">
+                      Use for System Design
+                    </Button>
+                    <Button variant="outline" className="bg-white/5 border-white/20">
+                      Compare Products
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Glass>
           </TabsContent>
         </Tabs>
