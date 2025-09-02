@@ -91,9 +91,11 @@ export const BillsQuotesOCR: React.FC = () => {
           // Process as solar proposal/quote
           console.log(`📄 Processing proposal: ${file.name}`);
           const result = await processSmartDocument(file);
+          console.log(`📊 Processing result:`, result);
           
           if (result.success && result.extractedData) {
             const { panels = [], batteries = [], inverters = [], systemSize, totalCost } = result.extractedData;
+            console.log(`📋 Extracted data:`, { panels, batteries, inverters, systemSize, totalCost });
             
             console.log(`✅ Found: ${panels.length} panels, ${batteries.length} batteries, ${inverters.length} inverters`);
             
@@ -222,7 +224,7 @@ export const BillsQuotesOCR: React.FC = () => {
       </Glass>
 
       {/* Extracted Data */}
-      {extractedData.length > 0 && (
+      {(extractedData.length > 0 || quoteData) && (
         <Tabs defaultValue="bill-data" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/20">
             <TabsTrigger value="bill-data" className="data-[state=active]:bg-white/20">
