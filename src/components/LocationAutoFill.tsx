@@ -134,7 +134,7 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
   return (
     <Glass className={`p-6 ${className}`}>
       <CardHeader className="px-0 pt-0">
-        <CardTitle className="flex items-center gap-2 text-lg">
+        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <MapPin className="w-5 h-5 text-primary" />
           Your Location & Meter Details
         </CardTitle>
@@ -150,7 +150,7 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
               value={postcode}
               onChange={(e) => setPostcode(e.target.value)}
               placeholder="e.g. 2211"
-              className="bg-white/5 border-white/20"
+              className="bg-background border-border"
               onKeyDown={(e) => e.key === 'Enter' && handlePostcodeLookup()}
             />
           </div>
@@ -178,33 +178,33 @@ export const LocationAutoFill: React.FC<LocationAutoFillProps> = ({
 
         {/* Location Summary */}
         {dnspResult && (
-          <div className="space-y-4 p-4 rounded-xl bg-white/5 border border-white/20">
+          <div className="space-y-4 p-4 rounded-xl bg-muted border border-border">
             <div className="text-sm">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-white/70">Location:</span>
-                <span className="text-white font-medium">{postcode}, {dnspResult.state}</span>
+                <span className="text-muted-foreground">Location:</span>
+                <span className="text-foreground font-medium">{postcode}, {dnspResult.state}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-white/70">Network:</span>
-                <span className="text-white font-medium">{dnspResult.network}</span>
+                <span className="text-muted-foreground">Network:</span>
+                <span className="text-foreground font-medium">{dnspResult.network}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-white/70">Export Cap:</span>
-                <span className="text-white font-medium">{dnspResult.export_cap_kw}kW</span>
+                <span className="text-muted-foreground">Export Cap:</span>
+                <span className="text-foreground font-medium">{dnspResult.export_cap_kw}kW</span>
               </div>
               {dnspResult.overlap_pct && (
                 <div className="flex justify-between items-center">
-                  <span className="text-white/70">Coverage:</span>
-                  <span className="text-white font-medium">{(dnspResult.overlap_pct * 100).toFixed(1)}%</span>
+                  <span className="text-muted-foreground">Coverage:</span>
+                  <span className="text-foreground font-medium">{(dnspResult.overlap_pct * 100).toFixed(1)}%</span>
                 </div>
               )}
             </div>
 
             {/* Meter Type Selection */}
             <div>
-              <Label htmlFor="meter-type" className="text-white/90">Meter Type</Label>
+              <Label htmlFor="meter-type" className="text-foreground">Meter Type</Label>
               <Select value={meterType} onValueChange={handleMeterTypeChange}>
-                <SelectTrigger className="bg-white/5 border-white/20 text-white mt-1">
+                <SelectTrigger className="bg-background border-border text-foreground mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
