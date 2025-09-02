@@ -179,24 +179,34 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   };
 
   const handleLocationUpdate = useCallback((locationData: any) => {
+    console.log('🗺️ Location update received:', locationData);
+    
     // If postcode is provided but no coordinates, estimate them
     if (locationData.postcode && !locationData.lat && !locationData.lng) {
+      console.log('📍 Estimating coordinates for postcode:', locationData.postcode);
       const coords = estimateCoordinatesFromPostcode(locationData.postcode);
+      console.log('📍 Estimated coordinates:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
+        console.log('📍 Updated locationData with coords:', locationData);
       }
     }
 
-    setScenario(prev => ({
-      ...prev,
-      location: {
-        ...prev.location,
-        ...locationData
-      }
-    }));
+    setScenario(prev => {
+      const newScenario = {
+        ...prev,
+        location: {
+          ...prev.location,
+          ...locationData
+        }
+      };
+      console.log('📍 New scenario location:', newScenario.location);
+      return newScenario;
+    });
     
     // Emit coordinates for POA when location is updated
     if (locationData.lat && locationData.lng) {
+      console.log('📍 Emitting POA signal with coordinates:', locationData.lat, locationData.lng);
       setTimeout(() => {
         emitSignal({
           key: 'nasa.poa',
@@ -205,6 +215,8 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           details: { lat: locationData.lat, lng: locationData.lng }
         });
       }, 1000);
+    } else {
+      console.log('📍 No coordinates available for POA signal');
     }
   }, []);
 
@@ -230,6 +242,8 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   }, []);
 
   const handleOCRExtraction = useCallback(async (data: ExtractedBillData) => {
+    console.log('📄 OCR extraction received:', data);
+    
     let locationData: {
       address?: string;
       postcode?: string;
@@ -242,23 +256,42 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
     // If we have a full address, try to geocode it for accurate coordinates
     if (data.address) {
+      console.log('📍 Geocoding address:', data.address);
       const coords = await geocodeAddress(data.address);
+      console.log('📍 Geocoding result:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
       }
     }
 
-    // Update scenario with extracted data
-    setScenario(prev => ({
-      ...prev,
-      location: {
-        ...prev.location,
-        ...locationData
+    // If no address or geocoding failed, try postcode estimation
+    if (!locationData.lat && !locationData.lng && locationData.postcode) {
+      console.log('📍 Trying postcode estimation for:', locationData.postcode);
+      const coords = estimateCoordinatesFromPostcode(locationData.postcode);
+      console.log('📍 Postcode estimation result:', coords);
+      if (coords) {
+        locationData = { ...locationData, ...coords };
       }
-    }));
+    }
+
+    console.log('📍 Final locationData from OCR:', locationData);
+
+    // Update scenario with extracted data
+    setScenario(prev => {
+      const newScenario = {
+        ...prev,
+        location: {
+          ...prev.location,
+          ...locationData
+        }
+      };
+      console.log('📍 Updated scenario from OCR:', newScenario.location);
+      return newScenario;
+    });
 
     // Emit coordinates for POA when address is geocoded
     if (locationData.lat && locationData.lng) {
+      console.log('📍 Emitting POA signal from OCR with coordinates:', locationData.lat, locationData.lng);
       setTimeout(() => {
         emitSignal({
           key: 'nasa.poa',
@@ -267,6 +300,8 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           details: { lat: locationData.lat, lng: locationData.lng }
         });
       }, 1000);
+    } else {
+      console.log('📍 No coordinates available from OCR for POA signal');
     }
   }, []);
 
@@ -683,7 +718,11 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       </div>
 
       {/* Roof Design Map */}
-      {scenario.location?.lat && scenario.location?.lng ? (
+      {(() => {
+        console.log('🗺️ Map render check - scenario.location:', scenario.location);
+        console.log('🗺️ Has lat?', !!scenario.location?.lat, 'Has lng?', !!scenario.location?.lng);
+        return scenario.location?.lat && scenario.location?.lng;
+      })() ? (
         <RoofDesignMap
           center={[scenario.location.lat, scenario.location.lng]}
           zoom={20}
@@ -698,7 +737,10 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
               </div>
               <div className="text-xs text-muted-foreground">
                 Location status: {scenario.location?.postcode ? `Postcode: ${scenario.location.postcode}` : 'No location set'}
-                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓</span>}
+                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓ ({scenario.location.lat}, {scenario.location.lng})</span>}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Debug: lat={scenario.location?.lat} lng={scenario.location?.lng}
               </div>
             </div>
           </CardContent>
