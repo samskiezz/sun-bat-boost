@@ -146,7 +146,27 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   const getCurrentStepIndex = () => STEPS.findIndex(step => step.id === currentStep);
   const progress = ((getCurrentStepIndex() + 1) / STEPS.length) * 100;
 
+  const estimateCoordinatesFromPostcode = (postcode: string) => {
+    const pc = parseInt(postcode);
+    // Rough Australian postcode to coordinates mapping
+    if (pc >= 2000 && pc <= 2999) return { lat: -33.8688, lng: 151.2093 }; // Sydney
+    if (pc >= 3000 && pc <= 3999) return { lat: -37.8136, lng: 144.9631 }; // Melbourne  
+    if (pc >= 4000 && pc <= 4999) return { lat: -27.4698, lng: 153.0251 }; // Brisbane
+    if (pc >= 5000 && pc <= 5999) return { lat: -34.9285, lng: 138.6007 }; // Adelaide
+    if (pc >= 6000 && pc <= 6999) return { lat: -31.9505, lng: 115.8605 }; // Perth
+    if (pc >= 7000 && pc <= 7999) return { lat: -42.8821, lng: 147.3272 }; // Hobart
+    return null;
+  };
+
   const handleLocationUpdate = useCallback((locationData: any) => {
+    // If postcode is provided but no coordinates, estimate them
+    if (locationData.postcode && !locationData.lat && !locationData.lng) {
+      const coords = estimateCoordinatesFromPostcode(locationData.postcode);
+      if (coords) {
+        locationData = { ...locationData, ...coords };
+      }
+    }
+
     setScenario(prev => ({
       ...prev,
       location: {
