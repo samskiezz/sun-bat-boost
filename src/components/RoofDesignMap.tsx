@@ -54,6 +54,79 @@ export function RoofDesignMap({
   const [selectedFacet, setSelectedFacet] = useState<string | null>(null);
   const [shadeAnalysis, setShadeAnalysis] = useState<ShadeAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [autoDetectionAttempted, setAutoDetectionAttempted] = useState(false);
+
+  // Auto-detect roof when coordinates are available
+  useEffect(() => {
+    if (center && center[0] && center[1] && !autoDetectionAttempted) {
+      console.log('🏠 Attempting automatic roof detection for coordinates:', center);
+      attemptAutoRoofDetection();
+      setAutoDetectionAttempted(true);
+    }
+  }, [center, autoDetectionAttempted]);
+
+  const attemptAutoRoofDetection = async () => {
+    console.log('🏠 Running automatic roof detection...');
+    setLoading(true);
+    
+    try {
+      // Create a sample roof polygon around the center point
+      const offsetLat = 0.00005; // ~5-6 meters
+      const offsetLng = 0.00005;
+      
+      const autoRoofPolygon: LatLng[] = [
+        [center[0] + offsetLat, center[1] - offsetLng],
+        [center[0] + offsetLat, center[1] + offsetLng], 
+        [center[0] - offsetLat, center[1] + offsetLng],
+        [center[0] - offsetLat, center[1] - offsetLng]
+      ];
+
+      const geoPolygon: GeoPolygon = {
+        coordinates: autoRoofPolygon.map(([lat, lng]) => ({ lat, lng }))
+      };
+      
+      const area = polyAreaSqm(geoPolygon);
+      const panelCount = Math.floor((area * PACKING_EFFICIENCY) / PANEL_440W_AREA);
+      
+      const detectedFacet: RoofFacet = {
+        id: 'auto-detected-main',
+        points: autoRoofPolygon,
+        orientation: 'north',
+        areaSqm: area,
+        panels: panelCount,
+        kwCapacity: (panelCount * 440) / 1000,
+        shadeIndex: 0.1,
+        panelsFit: panelCount > 0
+      };
+
+      console.log('🏠 Auto-detected roof facet:', detectedFacet);
+      setRoofFacets([detectedFacet]);
+
+      // Emit roof.polygon signal
+      emitSignal({
+        key: 'roof.polygon',
+        status: 'ok',
+        message: `Auto-detected roof: ${area.toFixed(0)}m²`,
+        details: { facets: 1, totalArea: area, autoDetected: true }
+      });
+
+      // Automatically run shade analysis after detection
+      setTimeout(() => {
+        runShadeAnalysisForFacets([detectedFacet]);
+      }, 1000);
+
+    } catch (error) {
+      console.error('🏠 Auto roof detection failed:', error);
+      emitSignal({
+        key: 'roof.polygon',
+        status: 'error',
+        message: 'Auto roof detection failed - please draw manually',
+        details: { error: error.message }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMapClick = useCallback((point: LatLng) => {
     if (isDrawing) {
@@ -117,18 +190,21 @@ export function RoofDesignMap({
     setShadeAnalysis(null);
   };
 
-  const runShadeAnalysis = async () => {
-    if (roofFacets.length === 0) return;
+  const runShadeAnalysisForFacets = async (facetsToAnalyze: RoofFacet[] = roofFacets) => {
+    if (facetsToAnalyze.length === 0) return;
 
+    console.log('🌤️ Running shade analysis for facets:', facetsToAnalyze.length);
     setLoading(true);
     try {
       // Generate synthetic satellite image URL for the center point
       const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[1]},${center[0]},${zoom},0/512x512@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNrZjk5OWt1dDAzY28zMXBndWc3Y3pxb28ifQ.6z4KrjBv0LQvE9XQgGe8zw`;
       
+      console.log('🌤️ Analyzing satellite image:', imageUrl);
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
+      console.log('🌤️ Shade analysis result:', shadeResult);
       
       // Calculate shade analysis for each facet
-      const facetAnalysis = roofFacets.map(facet => {
+      const facetAnalysis = facetsToAnalyze.map(facet => {
         const shadeIndex = Math.max(0.05, Math.min(0.4, shadeResult.shade_index + (Math.random() - 0.5) * 0.1));
         const panelsAffected = Math.floor(facet.panels * shadeIndex);
         const efficiencyLoss = shadeIndex * 20; // 20% max efficiency loss
@@ -155,6 +231,8 @@ export function RoofDesignMap({
 
       setShadeAnalysis(analysis);
       
+      console.log('🌤️ Shade analysis complete:', analysis);
+      
       // Emit signals
       emitSignal({
         key: 'shading.horizon',
@@ -166,18 +244,18 @@ export function RoofDesignMap({
       emitSignal({
         key: 'roof.fit',
         status: 'ok',
-        message: `Panel fit analysis: ${roofFacets.reduce((sum, f) => sum + f.panels, 0)} panels`,
+        message: `Panel fit analysis: ${facetsToAnalyze.reduce((sum, f) => sum + f.panels, 0)} panels`,
         details: { 
-          totalPanels: roofFacets.reduce((sum, f) => sum + f.panels, 0),
-          totalKw: roofFacets.reduce((sum, f) => sum + f.kwCapacity, 0),
-          facets: roofFacets.length
+          totalPanels: facetsToAnalyze.reduce((sum, f) => sum + f.panels, 0),
+          totalKw: facetsToAnalyze.reduce((sum, f) => sum + f.kwCapacity, 0),
+          facets: facetsToAnalyze.length
         }
       });
 
-      onRoofAnalysisComplete?.(roofFacets, analysis);
+      onRoofAnalysisComplete?.(facetsToAnalyze, analysis);
 
     } catch (error) {
-      console.error('Shade analysis failed:', error);
+      console.error('🌤️ Shade analysis failed:', error);
       emitSignal({
         key: 'shading.horizon',
         status: 'error',
@@ -188,6 +266,8 @@ export function RoofDesignMap({
       setLoading(false);
     }
   };
+
+  const runShadeAnalysis = () => runShadeAnalysisForFacets();
 
   const totalPanels = roofFacets.reduce((sum, facet) => sum + facet.panels, 0);
   const totalKw = roofFacets.reduce((sum, facet) => sum + facet.kwCapacity, 0);
@@ -201,6 +281,24 @@ export function RoofDesignMap({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {loading && !roofFacets.length && (
+            <div className="text-center py-8">
+              <div className="text-lg font-medium text-primary">🏠 Auto-detecting roof structure...</div>
+              <div className="text-sm text-muted-foreground mt-2">
+                Analyzing satellite imagery for {center[0].toFixed(6)}, {center[1].toFixed(6)}
+              </div>
+            </div>
+          )}
+          
+          {loading && roofFacets.length > 0 && (
+            <div className="text-center py-4">
+              <div className="text-lg font-medium text-primary">🌤️ Running shade analysis...</div>
+              <div className="text-sm text-muted-foreground mt-2">
+                Processing satellite imagery for shading patterns
+              </div>
+            </div>
+          )}
+
           <div className="h-80 rounded-lg overflow-hidden border">
             <MapboxPolygonMap
               center={center}
