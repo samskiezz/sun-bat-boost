@@ -8,12 +8,11 @@ import ReadinessGateGuard from "@/components/ReadinessGateGuard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SystemManager from "./pages/SystemManager";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/layout/AppShell";
+import DiagnosticsDrawer from "@/diagnostics/DiagnosticsDrawer";
 import HowMuchCanISave from "@/modules/HowMuchCanISave";
 import BatteryRoi from "@/modules/BatteryRoi";
 import RebatesCalculatorModule from "@/modules/RebatesCalculator";
-import AppModeSwitch from "@/components/AppModeSwitch";
-import AESTClock from "@/components/AESTClock";
 import DispatchOptimizer from "@/components/Optimizers/DispatchOptimizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Battery, Sparkles, Zap } from "lucide-react";
@@ -27,57 +26,50 @@ const EnergyApp = () => {
   const flags = featureFlags(appMode);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90">
-      <AppModeSwitch onChange={setAppMode} />
-      <AESTClock />
-      
-      <div className="max-w-7xl mx-auto">
-        <TopBar />
+    <AppShell>
+      <Tabs defaultValue="savings" className="w-full">
+        <TabsList className={`grid w-full ${flags.dispatchOptimizer ? 'grid-cols-4' : 'grid-cols-3'} mb-8 bg-white/10 backdrop-blur-xl border border-white/20`}>
+          <TabsTrigger value="rebates" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" />
+            Rebates Calculator
+          </TabsTrigger>
+          <TabsTrigger value="savings" className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            How much can I save?
+          </TabsTrigger>
+          <TabsTrigger value="battery" className="flex items-center gap-2">
+            <Battery className="w-4 h-4" />
+            Battery ROI Calculator
+          </TabsTrigger>
+          {flags.dispatchOptimizer && (
+            <TabsTrigger value="optimizers" className="flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              Optimizers
+            </TabsTrigger>
+          )}
+        </TabsList>
         
-        <div className="p-6">
-          <Tabs defaultValue="savings" className="w-full">
-            <TabsList className={`grid w-full ${flags.dispatchOptimizer ? 'grid-cols-4' : 'grid-cols-3'} mb-8 bg-white/10 backdrop-blur-xl border border-white/20`}>
-              <TabsTrigger value="rebates" className="flex items-center gap-2">
-                <Calculator className="w-4 h-4" />
-                Rebates Calculator
-              </TabsTrigger>
-              <TabsTrigger value="savings" className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                How much can I save?
-              </TabsTrigger>
-              <TabsTrigger value="battery" className="flex items-center gap-2">
-                <Battery className="w-4 h-4" />
-                Battery ROI Calculator
-              </TabsTrigger>
-              {flags.dispatchOptimizer && (
-                <TabsTrigger value="optimizers" className="flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Optimizers
-                </TabsTrigger>
-              )}
-            </TabsList>
-            
-            <TabsContent value="rebates" className="mt-0">
-              <RebatesCalculatorModule />
-            </TabsContent>
-            
-            <TabsContent value="savings" className="mt-0">
-              <HowMuchCanISave />
-            </TabsContent>
-            
-            <TabsContent value="battery" className="mt-0">
-              <BatteryRoi />
-            </TabsContent>
-            
-            {flags.dispatchOptimizer && (
-              <TabsContent value="optimizers" className="mt-0">
-                <DispatchOptimizer mode={appMode} />
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-      </div>
-    </div>
+        <TabsContent value="rebates" className="mt-0">
+          <RebatesCalculatorModule />
+        </TabsContent>
+        
+        <TabsContent value="savings" className="mt-0">
+          <HowMuchCanISave />
+        </TabsContent>
+        
+        <TabsContent value="battery" className="mt-0">
+          <BatteryRoi />
+        </TabsContent>
+        
+        {flags.dispatchOptimizer && (
+          <TabsContent value="optimizers" className="mt-0">
+            <DispatchOptimizer mode={appMode} />
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {flags.diagnostics && <DiagnosticsDrawer />}
+    </AppShell>
   );
 };
 

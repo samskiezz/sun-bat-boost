@@ -7,11 +7,13 @@ export const featureFlags = (mode: AppMode) => ({
   roiPdf: true,
 
   // Pro features
+  diagnostics: mode === "pro",
   nasaIrradiance: mode === "pro",
   poaPhysics: mode === "pro",
   dispatchOptimizer: mode === "pro",
   quantumQAOA: mode === "pro",
   quantumAnneal: mode === "pro",
+  explainability: mode === "pro",
   forecastUncertainty: mode === "pro",
   ausComplianceGuards: mode === "pro",
   scenarioShareLinks: mode === "pro",
