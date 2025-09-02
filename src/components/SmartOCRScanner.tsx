@@ -29,7 +29,7 @@ interface ExtractedBillData {
 }
 
 interface SmartOCRScannerProps {
-  onExtraction: (data: ExtractedBillData) => void;
+  onExtraction: (data: ExtractedBillData, systemData?: any) => void;
   onProcessing: (processing: boolean) => void;
 }
 
@@ -389,7 +389,34 @@ export default function SmartOCRScanner({ onExtraction, onProcessing }: SmartOCR
             billData.estimatedSolarSize = aiData.estimatedSolarSize;
             billData.solarCreditAmount = aiData.solarCreditAmount;
 
-            onExtraction(billData);
+            // Try to extract system data for proposals/quotes
+            let systemData = null;
+            try {
+              const { processSmartDocument } = await import('@/utils/smartDocumentProcessor');
+              const productResult = await processSmartDocument(file);
+              
+              if (productResult.success && productResult.extractedData && 
+                  (productResult.extractedData.panels?.length > 0 || productResult.extractedData.batteries?.length > 0)) {
+                systemData = {
+                  systemSize: productResult.extractedData.systemSize,
+                  panels: productResult.extractedData.panels,
+                  batteries: productResult.extractedData.batteries,
+                  inverters: productResult.extractedData.inverters
+                };
+                
+                // Update billData with detected solar system
+                if (productResult.extractedData.systemSize?.value > 0) {
+                  billData.hasSolar = true;
+                  billData.estimatedSolarSize = productResult.extractedData.systemSize.value;
+                }
+                
+                console.log('📋 Extracted system data from proposal:', systemData);
+              }
+            } catch (error) {
+              console.log('No system data extracted, continuing with bill data only');
+            }
+
+            onExtraction(billData, systemData);
             
             toast({
               title: "AI Analysis Complete",

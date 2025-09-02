@@ -159,23 +159,29 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
   const [locationData, setLocationData] = useState<any>(null);
 
   // Handle OCR extraction results
-  const handleOCRExtraction = useCallback((data: ExtractedBillData) => {
+  const handleOCRExtraction = useCallback((data: ExtractedBillData, fullOCRData?: any) => {
     setOcrExtracted(true);
     
+    // Store full OCR data including system specs
+    if (fullOCRData) {
+      setOCRHistory(prev => [...prev, fullOCRData]);
+    }
+    
     // Check if solar system was detected and update the scenario accordingly
-    if (data.hasSolar) {
+    if (data.hasSolar || fullOCRData?.systemSize?.value > 0) {
+      const detectedSolar = fullOCRData?.systemSize?.value || data.estimatedSolarSize;
       setScenario(prev => ({
         ...prev,
         currentSetup: {
           ...prev.currentSetup,
-          currentSystem: data.estimatedSolarSize && data.estimatedSolarSize > 0 ? 'solar' : 'solar',
-          pvSize: data.estimatedSolarSize || 6.6, // Default to 6.6kW if size not determined
+          currentSystem: detectedSolar > 0 ? 'solar' : 'solar',
+          pvSize: detectedSolar || 6.6,
         }
       }));
       
       toast({
         title: "Solar System Detected!",
-        description: `Found ${data.estimatedSolarSize ? data.estimatedSolarSize + 'kW' : ''} solar system from your bill`,
+        description: `Found ${detectedSolar ? detectedSolar + 'kW' : ''} solar system from your proposal`,
       });
     } else {
       toast({
@@ -306,19 +312,35 @@ export const SavingsWizard: React.FC<SavingsWizardProps> = ({ onApplyToROI, clas
 
   const handleAutoDesign = () => {
     setProcessing(true);
-    // Simulate ML optimization
+    // Use extracted OCR data if available
     setTimeout(() => {
       setProcessing(false);
+      
+      // Get extracted system data from OCR history if available
+      const extractedData = ocrHistory.find(item => item.systemSize || item.panels || item.batteries);
+      const existingSolar = scenario.currentSetup.pvSize > 0 ? scenario.currentSetup.pvSize : 
+                           (extractedData?.systemSize?.value || 0);
+      const batterySize = extractedData?.batteries?.find(b => b.capacity_kwh > 20)?.capacity_kwh || 
+                         extractedData?.batteries?.[0]?.capacity_kwh || 16.2;
+      
+      // Determine if this is existing solar or new system
+      const hasExistingSolar = existingSolar > 0 || scenario.currentSetup.currentSystem === 'solar' || scenario.currentSetup.currentSystem === 'solar-battery';
+      
       setScenario(prev => ({
         ...prev,
         recommendations: {
-          pvSize: 8.8,
-          batterySize: 16.2,
-          batteryPower: 6.4,
+          pvSize: existingSolar || 8.8,
+          batterySize: batterySize,
+          batteryPower: Math.min(batterySize * 0.5, 10), // Conservative C-rate
           planSwitch: 'Origin Solar Boost',
-          rationale: [
+          rationale: hasExistingSolar ? [
+            existingSolar > 0 ? `${existingSolar}kW solar system existing` : 'Solar system detected from proposal',
+            `${batterySize}kWh battery recommended for TOU optimization`,
+            'Plan switch saves additional $280/year',
+            'Battery sized for existing solar generation'
+          ] : [
             'Optimal PV size for roof space and shading',
-            'Battery sized for 80% TOU avoidance',
+            'Battery sized for 80% TOU avoidance', 
             'Plan switch saves additional $280/year',
             'Expected 310 cycles/year within warranty'
           ]
