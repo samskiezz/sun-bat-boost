@@ -129,48 +129,48 @@ export const SystemHealthDashboard = () => {
         }
       }
 
-      // Check AEST Time System
-      try {
-        const aestNow = nowAEST();
-        const testDate = toAEST('2025-01-01');
-        const isValidAEST = aestNow instanceof Date && testDate instanceof Date;
-        
-        checks.push({
-          service: 'AEST Time System',
-          status: isValidAEST ? 'healthy' : 'error',
-          message: isValidAEST ? `AEST time working (${aestNow.toLocaleTimeString()})` : 'Time utilities failed',
-          lastChecked: new Date()
-        });
-      } catch (error) {
-        checks.push({
-          service: 'AEST Time System',
-          status: 'error',
-          message: 'Time zone calculations failed',
-          lastChecked: new Date()
-        });
-      }
+        # Check AEST Time System
+        try {
+          const aestNow = nowAEST();
+          const testDate = toAEST('2025-01-01');
+          const isValidAEST = aestNow instanceof Date && testDate instanceof Date;
+          
+          checks.push({
+            service: 'AEST Time System',
+            status: isValidAEST ? 'healthy' : 'error',
+            message: isValidAEST ? `AEST time working` : 'Time utilities failed',
+            lastChecked: new Date()
+          });
+        } catch (error) {
+          checks.push({
+            service: 'AEST Time System',
+            status: 'error',
+            message: 'Time zone calculations failed',
+            lastChecked: new Date()
+          });
+        }
 
-      // Check Feature Flags System
-      try {
-        const { featureFlags } = await import('@/config/featureFlags');
-        const liteFlags = featureFlags('lite');
-        const proFlags = featureFlags('pro');
-        const isValid = typeof liteFlags === 'object' && typeof proFlags === 'object';
-        
-        checks.push({
-          service: 'Feature Flags System',
-          status: isValid ? 'healthy' : 'error',
-          message: isValid ? `Lite/Pro modes configured` : 'Feature flags failed',
-          lastChecked: new Date()
-        });
-      } catch (error) {
-        checks.push({
-          service: 'Feature Flags System',
-          status: 'error',
-          message: 'Feature flags system unavailable',
-          lastChecked: new Date()
-        });
-      }
+        // Check Feature Flags System
+        try {
+          const { featureFlags } = await import('@/config/featureFlags');
+          const liteFlags = featureFlags('lite');
+          const proFlags = featureFlags('pro');
+          const isValid = typeof liteFlags === 'object' && typeof proFlags === 'object';
+          
+          checks.push({
+            service: 'Feature Flags System',
+            status: isValid ? 'healthy' : 'error',
+            message: isValid ? `Lite/Pro modes configured` : 'Feature flags failed',
+            lastChecked: new Date()
+          });
+        } catch (error) {
+          checks.push({
+            service: 'Feature Flags System',
+            status: 'error',
+            message: 'Feature flags system unavailable',
+            lastChecked: new Date()
+          });
+        }
 
       // Check Edge Functions
       const functions = [
