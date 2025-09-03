@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, MapPin, Zap, Search } from "lucide-react";
-import { MapboxPolygonMap } from "./MapboxPolygonMap";
+import { GooglePolygonMap } from "./GooglePolygonMap";
 
 type LatLng = [number, number];
 
@@ -114,7 +114,7 @@ export function PolygonMonitorTab() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="col-span-2">
         <div className="h-[460px] w-full rounded-2xl overflow-hidden shadow">
-          <MapboxPolygonMap
+          <GooglePolygonMap
             center={center}
             zoom={zoom}
             onMapClick={onMapClick}

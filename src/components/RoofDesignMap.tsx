@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { MapboxPolygonMap } from '@/components/SystemManager/MapboxPolygonMap';
+import { GooglePolygonMap } from '@/components/SystemManager/GooglePolygonMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -225,13 +225,18 @@ export function RoofDesignMap({
     
     setLoading(true);
     try {
-      // Use maximum quality satellite imagery with Mapbox Streets Satellite for better clarity
-      const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
-      const ultraHighZoom = 22; // Maximum practical zoom for satellite imagery
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${correctedCenter[1]},${correctedCenter[0]},${ultraHighZoom},0/2048x2048@2x?access_token=${mapboxToken}`;
+      // Use Google Maps Static API for shade analysis
+      const apiKey = localStorage.getItem('google_maps_api_key');
+      if (!apiKey) {
+        console.error('Google Maps API key not found');
+        return;
+      }
       
-      console.log('🌤️ Analyzing ULTRA HIGH-QUALITY satellite image:', imageUrl);
-      console.log('🌤️ Image specs: 2048x2048@2x, zoom:', ultraHighZoom, 'location: lat:', correctedCenter[0], 'lng:', correctedCenter[1]);
+      const ultraHighZoom = 20;
+      const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${correctedCenter[0]},${correctedCenter[1]}&zoom=${ultraHighZoom}&size=2048x2048&maptype=satellite&key=${apiKey}`;
+      
+      console.log('🌤️ Analyzing HIGH-QUALITY Google Maps satellite image:', imageUrl);
+      console.log('🌤️ Image specs: 2048x2048, zoom:', ultraHighZoom, 'location: lat:', correctedCenter[0], 'lng:', correctedCenter[1]);
       
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
@@ -364,7 +369,7 @@ export function RoofDesignMap({
           )}
 
           <div className="h-[600px] rounded-lg overflow-hidden border">
-            <MapboxPolygonMap
+            <GooglePolygonMap
               center={correctedCenter}
               zoom={20}
               onMapClick={handleMapClick}

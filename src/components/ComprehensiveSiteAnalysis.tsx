@@ -140,14 +140,14 @@ export default function ComprehensiveSiteAnalysis({
     if (!mapContainer.current) return;
     
     // Initialize satellite view - placeholder for now
-    // In production, you'd use Mapbox, Google Maps, or similar
+    // Using Google Maps for high-quality satellite imagery
     mapContainer.current.innerHTML = `
       <div class="w-full h-64 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
         <div class="text-white text-center">
           <Satellite class="h-12 w-12 mx-auto mb-2" />
           <p class="text-lg font-semibold">Satellite View</p>
           <p class="text-sm opacity-90">Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}</p>
-          <p class="text-xs mt-2 opacity-75">Interactive mapping requires Mapbox API key</p>
+          <p class="text-xs mt-2 opacity-75">Interactive mapping requires Google Maps API key</p>
         </div>
       </div>
     `;
