@@ -63,14 +63,32 @@ export function MapboxPolygonMap({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      style: {
+        version: 8,
+        sources: {
+          'satellite': {
+            type: 'raster',
+            tiles: [
+              `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}@2x?access_token=${mapboxToken}`
+            ],
+            tileSize: 256
+          }
+        },
+        layers: [
+          {
+            id: 'satellite',
+            type: 'raster',
+            source: 'satellite'
+          }
+        ]
+      },
       center: [center[1], center[0]],
-      zoom: Math.min(zoom, 22),
+      zoom: Math.min(zoom, 19),
       pitch: 0,
       bearing: 0,
       antialias: true,
       fadeDuration: 0,
-      maxZoom: 22,
+      maxZoom: 19,
       minZoom: 1,
       preserveDrawingBuffer: true,
       refreshExpiredTiles: true,
