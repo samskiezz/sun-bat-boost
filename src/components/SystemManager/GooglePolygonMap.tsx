@@ -43,65 +43,75 @@ export function GooglePolygonMap({
   useEffect(() => {
     if (!isLoaded || !mapContainer.current || !apiKey) return;
 
+    // Double-check that Google Maps API is fully available
+    if (typeof window === 'undefined' || !window.google || !window.google.maps || !window.google.maps.Map) {
+      console.log('Google Maps API not fully loaded yet');
+      return;
+    }
+
     console.log('Initializing map with center:', center, 'zoom:', zoom);
 
-    map.current = new google.maps.Map(mapContainer.current, {
-      center: { lat: center[0], lng: center[1] },
-      zoom: Math.min(zoom, 21), // Google Maps satellite max zoom
-      mapTypeId: google.maps.MapTypeId.HYBRID, // Better visibility with labels
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: true,
-      scaleControl: true,
-      streetViewControl: false,
-      rotateControl: false,
-      fullscreenControl: true,
-      gestureHandling: 'auto',
-      // Remove restrictions to avoid issues
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'off' }]
-        }
-      ]
-    });
+    try {
+      map.current = new google.maps.Map(mapContainer.current, {
+        center: { lat: center[0], lng: center[1] },
+        zoom: Math.min(zoom, 21), // Google Maps satellite max zoom
+        mapTypeId: google.maps.MapTypeId.SATELLITE, // Use SATELLITE instead of HYBRID for now
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: true,
+        scaleControl: true,
+        streetViewControl: false,
+        rotateControl: false,
+        fullscreenControl: true,
+        gestureHandling: 'auto',
+        // Remove restrictions to avoid issues
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      });
 
-    // Add a center marker to verify correct location
-    const centerMarker = new google.maps.Marker({
-      position: { lat: center[0], lng: center[1] },
-      map: map.current,
-      title: 'Map Center',
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#ff0000',
-        fillOpacity: 0.8,
-        strokeColor: '#ffffff',
-        strokeWeight: 2
-      }
-    });
-
-    // Handle map clicks for polygon drawing
-    if (onMapClick && isDrawing) {
-      const clickListener = map.current.addListener('click', (e: google.maps.MapMouseEvent) => {
-        if (e.latLng) {
-          const lat = e.latLng.lat();
-          const lng = e.latLng.lng();
-          console.log('Map clicked at:', lat, lng);
-          onMapClick([lat, lng]);
+      // Add a center marker to verify correct location
+      const centerMarker = new google.maps.Marker({
+        position: { lat: center[0], lng: center[1] },
+        map: map.current,
+        title: 'Map Center',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#ff0000',
+          fillOpacity: 0.8,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
         }
       });
 
+      // Handle map clicks for polygon drawing
+      if (onMapClick && isDrawing) {
+        const clickListener = map.current.addListener('click', (e: google.maps.MapMouseEvent) => {
+          if (e.latLng) {
+            const lat = e.latLng.lat();
+            const lng = e.latLng.lng();
+            console.log('Map clicked at:', lat, lng);
+            onMapClick([lat, lng]);
+          }
+        });
+
+        return () => {
+          google.maps.event.removeListener(clickListener);
+          centerMarker.setMap(null);
+        };
+      }
+
       return () => {
-        google.maps.event.removeListener(clickListener);
         centerMarker.setMap(null);
       };
+    } catch (error) {
+      console.error('Error initializing Google Maps:', error);
     }
-
-    return () => {
-      centerMarker.setMap(null);
-    };
   }, [isLoaded, apiKey, center, zoom, onMapClick, isDrawing]);
 
   // Update polygon visualization
