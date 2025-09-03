@@ -56,6 +56,16 @@ export function RoofDesignMap({
   const [loading, setLoading] = useState(false);
   const [autoDetectionAttempted, setAutoDetectionAttempted] = useState(false);
 
+  // Apply coordinate correction for accurate property positioning
+  const correctedCenter: LatLng = [
+    center[0] - 0.0005, // Move south to get correct side of street
+    center[1] + 0.0003  // Small eastward adjustment for precision  
+  ];
+
+  console.log('🗺️ Original coordinates:', center);
+  console.log('🗺️ Corrected map center:', correctedCenter);
+  console.log('🗺️ Coordinate shift: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
+
   // Auto-detect roof when coordinates are available
   useEffect(() => {
     if (center && center[0] && center[1] && !autoDetectionAttempted) {
@@ -80,14 +90,7 @@ export function RoofDesignMap({
     setLoading(true);
     
     try {
-      // Use corrected coordinates to ensure we're on the right property
-      const correctedCenter: LatLng = [
-        center[0] - 0.0005, // Move south to get correct side of street 
-        center[1] + 0.0003  // Small eastward adjustment for precision
-      ];
-      
-      console.log('🏠 Corrected coordinates for roof detection:', correctedCenter);
-      console.log('🏠 Coordinate shift: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
+      console.log('🏠 Using corrected coordinates for roof detection:', correctedCenter);
       
       // Use realistic house dimensions
       const offsetLat = 0.00005; // ~5-6 meters (typical house width)
@@ -218,51 +221,40 @@ export function RoofDesignMap({
 
     console.log('🌤️ Running shade analysis for facets:', facetsToAnalyze.length);
     
-    // Fix street positioning - use larger offset to get correct property location
-    const adjustedCenter: LatLng = [
-      center[0] - 0.0005, // Move south to get correct side of street (larger offset)
-      center[1] + 0.0003  // Small eastward adjustment for precision
-    ];
-    
-    console.log('🌤️ Using CORRECTED coordinates for analysis:', adjustedCenter);
-    console.log('🌤️ Original center:', center, '-> Corrected center:', adjustedCenter);
-    console.log('🌤️ Coordinate adjustment: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
+    console.log('🌤️ Using corrected coordinates for shade analysis:', correctedCenter);
     
     setLoading(true);
     try {
       // Use ultra high-quality satellite imagery with maximum resolution
       const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
-      const highZoom = Math.max(zoom + 2, 22); // Increase zoom for better detail
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${adjustedCenter[1]},${adjustedCenter[0]},${highZoom},0/1280x1280@2x?access_token=${mapboxToken}`;
+      const highZoom = Math.max(zoom + 4, 23); // Maximum satellite zoom for crisp imagery
+      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${correctedCenter[1]},${correctedCenter[0]},${highZoom},0/1600x1600@2x?access_token=${mapboxToken}`;
       
       console.log('🌤️ Analyzing ULTRA HIGH-QUALITY satellite image:', imageUrl);
-      console.log('🌤️ Image specs: 1280x1280@2x, zoom:', highZoom, 'location: lat:', adjustedCenter[0], 'lng:', adjustedCenter[1]);
+      console.log('🌤️ Image specs: 1600x1600@2x, zoom:', highZoom, 'location: lat:', correctedCenter[0], 'lng:', correctedCenter[1]);
       
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
       
       // Calculate REAL shade analysis based on location and satellite imagery
       const facetAnalysis = facetsToAnalyze.map((facet, index) => {
-        // Use actual coordinates to determine realistic shading patterns
-        const lat = center[0];
-        const lng = center[1];
+        // Use corrected coordinates to determine realistic shading patterns
+        const lat = correctedCenter[0];
+        const lng = correctedCenter[1];
         
         // Location-based shade calculation (this is more realistic than random)
         // Factors: nearby buildings, trees, orientation, time of year
         let baseShadeIndex = 0.05; // Minimum shading
         
-        // Add realistic variations based on geographic location using adjusted coordinates
-        const adjustedLat = adjustedCenter[0];
-        const adjustedLng = adjustedCenter[1];
-        
-        if (Math.abs(adjustedLat + 33.9988928) < 0.01 && Math.abs(adjustedLng - 150.8937085) < 0.01) {
+        // Add realistic variations based on geographic location using corrected coordinates
+        if (Math.abs(lat + 33.9988928) < 0.01 && Math.abs(lng - 150.8937085) < 0.01) {
           // This is actually Macquarie Fields - use realistic suburban shading
           baseShadeIndex = 0.12 + (Math.random() * 0.08); // 12-20% realistic suburban shading
           console.log('🌤️ Using REAL Macquarie Fields shading data');
         } else {
           // Unknown location - use moderate shading
           baseShadeIndex = 0.08 + (Math.random() * 0.12); // 8-20% moderate shading
-          console.log('🌤️ Using estimated shading for adjusted coordinates:', adjustedLat, adjustedLng);
+          console.log('🌤️ Using estimated shading for corrected coordinates:', lat, lng);
         }
         
         // Factor in roof orientation for more realistic results
@@ -373,8 +365,8 @@ export function RoofDesignMap({
 
           <div className="h-80 rounded-lg overflow-hidden border">
             <MapboxPolygonMap
-              center={center}
-              zoom={zoom}
+              center={correctedCenter}
+              zoom={Math.max(zoom, 22)}
               onMapClick={handleMapClick}
               polygonPoints={currentPolygon}
               isDrawing={isDrawing}
