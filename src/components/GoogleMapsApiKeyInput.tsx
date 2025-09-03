@@ -9,7 +9,7 @@ interface GoogleMapsApiKeyInputProps {
 }
 
 export function GoogleMapsApiKeyInput({ onApiKeySubmit, className = "" }: GoogleMapsApiKeyInputProps) {
-  const [apiKey, setApiKey] = useState('AIzaSyA-qML7oRaEk8gdf0JF6vaOXkZjFZlJn-g');
+  const [apiKey, setApiKey] = useState('');
 
   const handleSubmit = () => {
     if (apiKey.trim()) {
