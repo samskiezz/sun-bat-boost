@@ -30,7 +30,7 @@ export function GooglePolygonMap({
   const markers = useRef<google.maps.Marker[]>([]);
   
   const [apiKey, setApiKey] = useState<string | null>(() => 
-    localStorage.getItem('google_maps_api_key')
+    localStorage.getItem('google_maps_api_key') || 'AIzaSyA-qML7oRaEk8gdf0JF6vaOXkZjFZlJn-g'
   );
   const [showApiKeyInput, setShowApiKeyInput] = useState(!apiKey);
   
