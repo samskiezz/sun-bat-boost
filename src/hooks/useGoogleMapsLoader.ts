@@ -17,7 +17,7 @@ export const useGoogleMapsLoader = ({ apiKey, libraries = ['places', 'geometry']
     }
 
     // Check if Google Maps is already loaded
-    if (window.google && window.google.maps) {
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
       setIsLoaded(true);
       return;
     }

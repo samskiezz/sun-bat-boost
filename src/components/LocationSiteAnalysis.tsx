@@ -696,9 +696,8 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
             <InteractiveMap 
               lat={locationData.lat}
               lng={locationData.lng}
-              address={locationData.address}
-              onLocationSelect={(lat, lng, addr) => {
-                const updated = { ...locationData, lat, lng, address: addr };
+              onLocationSelect={({ lat, lng, address }) => {
+                const updated = { ...locationData, lat, lng, address };
                 setLocationData(updated);
                 onLocationUpdate?.(updated);
               }}
