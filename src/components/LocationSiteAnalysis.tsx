@@ -171,9 +171,43 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
       const dnspDetails = await getDnspByPostcode(postcode);
       const defaultMeterType = getDefaultMeterType(dnspDetails.state);
       
-      // Simulate geocoding for lat/lng
-      const lat = -33.8688 + (Math.random() - 0.5) * 2;
-      const lng = 151.2093 + (Math.random() - 0.5) * 2;
+      // Real geocoding for precise coordinates
+      let lat, lng;
+      try {
+        const geocodeResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${localStorage.getItem('google_maps_api_key')}`
+        );
+        const geocodeData = await geocodeResponse.json();
+        
+        if (geocodeData.results && geocodeData.results.length > 0) {
+          const location = geocodeData.results[0].geometry.location;
+          lat = location.lat;
+          lng = location.lng;
+          console.log('🎯 Geocoded coordinates:', { lat, lng, address: fullAddress });
+        } else {
+          throw new Error('No geocoding results found');
+        }
+      } catch (geocodeError) {
+        console.warn('Geocoding failed, using postcode estimate:', geocodeError);
+        // Fallback to postcode-based estimation only if geocoding fails
+        const pc = parseInt(postcode);
+        if (pc >= 2000 && pc <= 2999) {
+          lat = -33.8688; lng = 151.2093; // Sydney
+        } else if (pc >= 3000 && pc <= 3999) {
+          lat = -37.8136; lng = 144.9631; // Melbourne
+        } else if (pc >= 4000 && pc <= 4999) {
+          lat = -27.4698; lng = 153.0251; // Brisbane/Queensland
+        } else if (pc >= 5000 && pc <= 5999) {
+          lat = -34.9285; lng = 138.6007; // Adelaide
+        } else if (pc >= 6000 && pc <= 6999) {
+          lat = -31.9505; lng = 115.8605; // Perth
+        } else if (pc >= 7000 && pc <= 7999) {
+          lat = -42.8821; lng = 147.3272; // Hobart
+        } else {
+          lat = -33.8688; lng = 151.2093; // Default to Sydney
+        }
+        console.log('🗺️ Using postcode estimate:', { lat, lng, postcode });
+      }
       
       const location: LocationData = {
         address: fullAddress,
