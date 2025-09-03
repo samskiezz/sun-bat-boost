@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type LatLng = [number, number];
 
@@ -29,6 +31,8 @@ export function MapboxPolygonMap({
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   // Fetch Mapbox token
   useEffect(() => {
@@ -44,7 +48,8 @@ export function MapboxPolygonMap({
         }
       } catch (err) {
         console.error('Failed to fetch Mapbox token:', err);
-        setError('Failed to load map. Please ensure Mapbox token is configured.');
+        setError('Mapbox token not configured in Supabase');
+        setShowTokenInput(true);
       }
     };
     fetchToken();
@@ -58,10 +63,11 @@ export function MapboxPolygonMap({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12', // High-res satellite imagery
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
       center: [center[1], center[0]], // Mapbox uses [lng, lat]
-      zoom: zoom,
-      pitch: 0, // Top-down view for polygon drawing
+      zoom: Math.min(zoom, 22), // Cap at max practical satellite zoom
+      pitch: 0,
+      maxZoom: 22, // Prevent over-zooming beyond satellite data
     });
 
     // Wait for map to fully load before enabling interactions
@@ -225,12 +231,35 @@ export function MapboxPolygonMap({
     });
   }, [isPolygonClosed, polygonPoints]);
 
-  if (error) {
+  const handleTokenSubmit = () => {
+    if (tokenInput.trim()) {
+      setMapboxToken(tokenInput.trim());
+      mapboxgl.accessToken = tokenInput.trim();
+      setError(null);
+      setShowTokenInput(false);
+    }
+  };
+
+  if (error && showTokenInput) {
     return (
-      <div className={`${className} flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300`}>
-        <div className="text-center p-4">
-          <div className="text-red-500 mb-2">⚠️ Map Error</div>
-          <div className="text-sm text-gray-600">{error}</div>
+      <div className={`${className} flex items-center justify-center bg-muted rounded-lg border-2 border-dashed border-muted-foreground/20`}>
+        <div className="text-center p-6 space-y-4 max-w-md">
+          <div className="text-destructive mb-2">🗺️ Mapbox Token Required</div>
+          <div className="text-sm text-muted-foreground mb-4">
+            {error}. Get your token from <a href="https://mapbox.com" target="_blank" rel="noopener" className="text-primary underline">mapbox.com</a>
+          </div>
+          <div className="space-y-2">
+            <Input
+              type="text"
+              placeholder="pk.eyJ1Ij..."
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <Button onClick={handleTokenSubmit} disabled={!tokenInput.trim()} size="sm">
+              Load Map
+            </Button>
+          </div>
         </div>
       </div>
     );
