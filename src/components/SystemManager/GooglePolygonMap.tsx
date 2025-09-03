@@ -29,9 +29,11 @@ export function GooglePolygonMap({
   const polyline = useRef<google.maps.Polyline | null>(null);
   const markers = useRef<google.maps.Marker[]>([]);
   
-  const [apiKey, setApiKey] = useState<string | null>(() => 
-    localStorage.getItem('google_maps_api_key')
-  );
+  const [apiKey, setApiKey] = useState<string | null>(() => {
+    const stored = localStorage.getItem('google_maps_api_key');
+    console.log('🗝️ Loading API key from storage:', stored ? stored.substring(0, 10) + '...' : 'not found');
+    return stored;
+  });
   const [showApiKeyInput, setShowApiKeyInput] = useState(!apiKey);
   
   const { isLoaded, loadError } = useGoogleMapsLoader({ 

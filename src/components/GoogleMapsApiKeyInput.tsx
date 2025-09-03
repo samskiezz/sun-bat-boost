@@ -15,7 +15,10 @@ export function GoogleMapsApiKeyInput({ onApiKeySubmit, className = "" }: Google
     if (apiKey.trim()) {
       // Store in localStorage for persistence
       localStorage.setItem('google_maps_api_key', apiKey.trim());
+      console.log('🗝️ API Key stored:', apiKey.trim().substring(0, 10) + '...');
       onApiKeySubmit(apiKey.trim());
+      // Force page refresh to reinitialize all Google Maps components
+      window.location.reload();
     }
   };
 
