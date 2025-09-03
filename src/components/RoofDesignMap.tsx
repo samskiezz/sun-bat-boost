@@ -225,13 +225,13 @@ export function RoofDesignMap({
     
     setLoading(true);
     try {
-      // Use ultra high-quality satellite imagery with maximum resolution
+      // Use maximum quality satellite imagery with Mapbox Streets Satellite for better clarity
       const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
-      const highZoom = Math.max(zoom + 4, 23); // Maximum satellite zoom for crisp imagery
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${correctedCenter[1]},${correctedCenter[0]},${highZoom},0/1600x1600@2x?access_token=${mapboxToken}`;
+      const ultraHighZoom = 22; // Maximum practical zoom for satellite imagery
+      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${correctedCenter[1]},${correctedCenter[0]},${ultraHighZoom},0/2048x2048@2x?access_token=${mapboxToken}`;
       
       console.log('🌤️ Analyzing ULTRA HIGH-QUALITY satellite image:', imageUrl);
-      console.log('🌤️ Image specs: 1600x1600@2x, zoom:', highZoom, 'location: lat:', correctedCenter[0], 'lng:', correctedCenter[1]);
+      console.log('🌤️ Image specs: 2048x2048@2x, zoom:', ultraHighZoom, 'location: lat:', correctedCenter[0], 'lng:', correctedCenter[1]);
       
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
