@@ -56,15 +56,10 @@ export function RoofDesignMap({
   const [loading, setLoading] = useState(false);
   const [autoDetectionAttempted, setAutoDetectionAttempted] = useState(false);
 
-  // Apply coordinate correction for accurate property positioning
-  const correctedCenter: LatLng = [
-    center[0] - 0.0005, // Move south to get correct side of street
-    center[1] + 0.0003  // Small eastward adjustment for precision  
-  ];
-
-  console.log('🗺️ Original coordinates:', center);
-  console.log('🗺️ Corrected map center:', correctedCenter);
-  console.log('🗺️ Coordinate shift: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
+  // Use exact coordinates provided - no corrections needed
+  const correctedCenter: LatLng = [center[0], center[1]];
+  
+  console.log('🏠 RoofDesignMap - Using exact coordinates:', correctedCenter);
 
   // Auto-detect roof when coordinates are available
   useEffect(() => {

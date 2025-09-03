@@ -43,10 +43,12 @@ export function GooglePolygonMap({
   useEffect(() => {
     if (!isLoaded || !mapContainer.current || !apiKey) return;
 
+    console.log('Initializing map with center:', center, 'zoom:', zoom);
+
     map.current = new google.maps.Map(mapContainer.current, {
       center: { lat: center[0], lng: center[1] },
       zoom: Math.min(zoom, 21), // Google Maps satellite max zoom
-      mapTypeId: google.maps.MapTypeId.SATELLITE,
+      mapTypeId: google.maps.MapTypeId.HYBRID, // Better visibility with labels
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: true,
@@ -55,12 +57,28 @@ export function GooglePolygonMap({
       rotateControl: false,
       fullscreenControl: true,
       gestureHandling: 'auto',
-      restriction: {
-        latLngBounds: new google.maps.LatLngBounds(
-          new google.maps.LatLng(-85, -180),
-          new google.maps.LatLng(85, 180)
-        ),
-        strictBounds: false
+      // Remove restrictions to avoid issues
+      styles: [
+        {
+          featureType: 'poi',
+          elementType: 'labels',
+          stylers: [{ visibility: 'off' }]
+        }
+      ]
+    });
+
+    // Add a center marker to verify correct location
+    const centerMarker = new google.maps.Marker({
+      position: { lat: center[0], lng: center[1] },
+      map: map.current,
+      title: 'Map Center',
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#ff0000',
+        fillOpacity: 0.8,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
       }
     });
 
@@ -70,14 +88,20 @@ export function GooglePolygonMap({
         if (e.latLng) {
           const lat = e.latLng.lat();
           const lng = e.latLng.lng();
+          console.log('Map clicked at:', lat, lng);
           onMapClick([lat, lng]);
         }
       });
 
       return () => {
         google.maps.event.removeListener(clickListener);
+        centerMarker.setMap(null);
       };
     }
+
+    return () => {
+      centerMarker.setMap(null);
+    };
   }, [isLoaded, apiKey, center, zoom, onMapClick, isDrawing]);
 
   // Update polygon visualization
@@ -163,7 +187,18 @@ export function GooglePolygonMap({
   if (showApiKeyInput || !apiKey) {
     return (
       <div className={`${className} flex items-center justify-center`}>
-        <GoogleMapsApiKeyInput onApiKeySubmit={handleApiKeySubmit} />
+        <div className="max-w-md w-full">
+          <GoogleMapsApiKeyInput onApiKeySubmit={handleApiKeySubmit} />
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-semibold text-sm mb-2">🔧 API Setup Required:</h4>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div>1. Get API key from <a href="https://console.cloud.google.com/google/maps-apis" target="_blank" className="text-blue-600 underline">Google Cloud Console</a></div>
+              <div>2. Enable: Maps JavaScript API, Geocoding API, Static Maps API</div>
+              <div>3. Add billing to your Google Cloud project</div>
+              <div>4. Set HTTP referrers (optional): *.sandbox.lovable.dev/*</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -171,12 +206,18 @@ export function GooglePolygonMap({
   if (loadError) {
     return (
       <div className={`${className} flex items-center justify-center bg-muted rounded-lg border-2 border-dashed border-muted-foreground/20`}>
-        <div className="text-center p-6">
+        <div className="text-center p-6 max-w-md">
           <div className="text-destructive mb-2">⚠️ Google Maps Error</div>
-          <div className="text-sm text-muted-foreground">{loadError}</div>
+          <div className="text-sm text-muted-foreground mb-4">{loadError}</div>
+          <div className="text-xs text-gray-500 mb-4">
+            Common fixes:
+            <br />• Enable billing in Google Cloud Console
+            <br />• Enable required APIs (Maps JavaScript, Geocoding, Static Maps)
+            <br />• Check API key restrictions
+          </div>
           <button 
             onClick={() => setShowApiKeyInput(true)}
-            className="mt-2 text-primary underline text-sm"
+            className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded text-sm"
           >
             Update API Key
           </button>
