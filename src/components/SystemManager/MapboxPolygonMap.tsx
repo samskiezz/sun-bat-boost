@@ -63,21 +63,18 @@ export function MapboxPolygonMap({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-v9', // Highest quality satellite imagery without street overlay
-      center: [center[1], center[0]], // Mapbox uses [lng, lat]
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [center[1], center[0]],
       zoom: Math.min(zoom, 22),
       pitch: 0,
+      bearing: 0,
+      antialias: true,
+      fadeDuration: 0,
       maxZoom: 22,
-      transformRequest: (url, resourceType) => {
-        // Request high-DPI tiles for better quality
-        if (resourceType === 'Tile' && url.startsWith('https://api.mapbox.com')) {
-          return {
-            url: url.replace(/(\?|&)access_token=/, '@2x$1access_token=')
-          };
-        }
-      },
-      renderWorldCopies: false,
-      preserveDrawingBuffer: true, // Better quality rendering
+      minZoom: 1,
+      preserveDrawingBuffer: true,
+      refreshExpiredTiles: true,
+      trackResize: true
     });
 
     // Wait for map to fully load before enabling interactions

@@ -363,10 +363,10 @@ export function RoofDesignMap({
             </div>
           )}
 
-          <div className="h-96 rounded-lg overflow-hidden border">
+          <div className="h-[600px] rounded-lg overflow-hidden border">
             <MapboxPolygonMap
               center={correctedCenter}
-              zoom={24}
+              zoom={20}
               onMapClick={handleMapClick}
               polygonPoints={currentPolygon}
               isDrawing={isDrawing}
