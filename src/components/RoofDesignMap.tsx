@@ -80,15 +80,24 @@ export function RoofDesignMap({
     setLoading(true);
     
     try {
-      // Use MUCH SMALLER and MORE ACCURATE roof polygon based on actual property size
-      const offsetLat = 0.00002; // ~2-3 meters (more realistic house size)
-      const offsetLng = 0.00002;
+      // Use corrected coordinates to ensure we're on the right property
+      const correctedCenter: LatLng = [
+        center[0] - 0.0005, // Move south to get correct side of street 
+        center[1] + 0.0003  // Small eastward adjustment for precision
+      ];
+      
+      console.log('🏠 Corrected coordinates for roof detection:', correctedCenter);
+      console.log('🏠 Coordinate shift: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
+      
+      // Use realistic house dimensions
+      const offsetLat = 0.00005; // ~5-6 meters (typical house width)
+      const offsetLng = 0.00005;
       
       const autoRoofPolygon: LatLng[] = [
-        [center[0] + offsetLat, center[1] - offsetLng],
-        [center[0] + offsetLat, center[1] + offsetLng], 
-        [center[0] - offsetLat, center[1] + offsetLng],
-        [center[0] - offsetLat, center[1] - offsetLng]
+        [correctedCenter[0] + offsetLat, correctedCenter[1] - offsetLng],
+        [correctedCenter[0] + offsetLat, correctedCenter[1] + offsetLng], 
+        [correctedCenter[0] - offsetLat, correctedCenter[1] + offsetLng],
+        [correctedCenter[0] - offsetLat, correctedCenter[1] - offsetLng]
       ];
 
       const geoPolygon: GeoPolygon = {
@@ -209,23 +218,25 @@ export function RoofDesignMap({
 
     console.log('🌤️ Running shade analysis for facets:', facetsToAnalyze.length);
     
-    // Fix street positioning - add small offset to ensure correct side of street
+    // Fix street positioning - use larger offset to get correct property location
     const adjustedCenter: LatLng = [
-      center[0] + 0.0001, // Small northward offset to correct street positioning
-      center[1]
+      center[0] - 0.0005, // Move south to get correct side of street (larger offset)
+      center[1] + 0.0003  // Small eastward adjustment for precision
     ];
     
-    console.log('🌤️ Using ADJUSTED coordinates for analysis:', adjustedCenter);
-    console.log('🌤️ Original center:', center, '-> Adjusted center:', adjustedCenter);
+    console.log('🌤️ Using CORRECTED coordinates for analysis:', adjustedCenter);
+    console.log('🌤️ Original center:', center, '-> Corrected center:', adjustedCenter);
+    console.log('🌤️ Coordinate adjustment: Δlat:', -0.0005, 'Δlng:', 0.0003, '(~55m south, 33m east)');
     
     setLoading(true);
     try {
-      // Use high-quality satellite imagery with proper access token
+      // Use ultra high-quality satellite imagery with maximum resolution
       const mapboxToken = 'pk.eyJ1Ijoic2Ftc2tpZXp6IiwiYSI6ImNtZXk4amN2ODFmeXUycm9hNHVndXk3aGgifQ.II0X9pbGI3R0-PDW-PxULg';
-      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${adjustedCenter[1]},${adjustedCenter[0]},${zoom},0/1024x1024@2x?access_token=${mapboxToken}`;
+      const highZoom = Math.max(zoom + 2, 22); // Increase zoom for better detail
+      const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${adjustedCenter[1]},${adjustedCenter[0]},${highZoom},0/1280x1280@2x?access_token=${mapboxToken}`;
       
-      console.log('🌤️ Analyzing HIGH-QUALITY satellite image:', imageUrl);
-      console.log('🌤️ Image location: lat:', adjustedCenter[0], 'lng:', adjustedCenter[1]);
+      console.log('🌤️ Analyzing ULTRA HIGH-QUALITY satellite image:', imageUrl);
+      console.log('🌤️ Image specs: 1280x1280@2x, zoom:', highZoom, 'location: lat:', adjustedCenter[0], 'lng:', adjustedCenter[1]);
       
       const shadeResult = await cvShadeMask(imageUrl, { azimuth: 45, elevation: 60 });
       console.log('🌤️ Shade analysis result:', shadeResult);
