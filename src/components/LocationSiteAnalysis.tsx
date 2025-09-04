@@ -181,8 +181,15 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
           throw new Error('Google Maps API key not found in localStorage');
         }
         
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`;
-        console.log('🎯 Geocoding request for:', fullAddress);
+        // Force exact address format for house number precision
+        // Parse address components from fullAddress
+        const addressParts = fullAddress.split(' ');
+        const houseNumber = addressParts[0]; // First part should be house number
+        const streetParts = addressParts.slice(1).join(' ');
+        
+        const preciseAddress = `${houseNumber} ${streetParts}, Australia`;
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(preciseAddress)}&key=${apiKey}`;
+        console.log('🎯 Geocoding request for PRECISE address:', preciseAddress);
         
         const geocodeResponse = await fetch(geocodeUrl);
         const geocodeData = await geocodeResponse.json();
