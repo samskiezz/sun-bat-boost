@@ -77,19 +77,28 @@ export function GooglePolygonMap({
       });
 
       // Add a center marker to verify correct location
-      const centerMarker = new google.maps.Marker({
-        position: { lat: center[0], lng: center[1] },
-        map: map.current,
-        title: 'Map Center',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#ff0000',
-          fillOpacity: 0.8,
-          strokeColor: '#ffffff',
-          strokeWeight: 2
-        }
-      });
+      let centerMarker: google.maps.Marker | null = null;
+      try {
+        console.log('🎯 Creating center marker at:', center);
+        centerMarker = new google.maps.Marker({
+          position: { lat: center[0], lng: center[1] },
+          map: map.current,
+          title: 'Map Center',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#ff0000',
+            fillOpacity: 0.8,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+          }
+        });
+        console.log('✅ Marker created successfully');
+      } catch (markerError) {
+        console.error('❌ Failed to create marker:', markerError);
+        console.log('🔍 API Key validity check needed');
+        // Continue without marker - map will still work
+      }
 
       // Handle map clicks for polygon drawing
       if (onMapClick && isDrawing) {
@@ -104,12 +113,12 @@ export function GooglePolygonMap({
 
         return () => {
           google.maps.event.removeListener(clickListener);
-          centerMarker.setMap(null);
+          if (centerMarker) centerMarker.setMap(null);
         };
       }
 
       return () => {
-        centerMarker.setMap(null);
+        if (centerMarker) centerMarker.setMap(null);
       };
     } catch (error) {
       console.error('Error initializing Google Maps:', error);
