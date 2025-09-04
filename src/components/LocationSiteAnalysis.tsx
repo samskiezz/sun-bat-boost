@@ -173,17 +173,35 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
       
       // Real geocoding for precise coordinates
       let lat, lng;
+      const apiKey = localStorage.getItem('google_maps_api_key');
+      console.log('🔑 Google Maps API key available:', !!apiKey);
+      
       try {
-        const geocodeResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${localStorage.getItem('google_maps_api_key')}`
-        );
+        if (!apiKey) {
+          throw new Error('Google Maps API key not found in localStorage');
+        }
+        
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`;
+        console.log('🎯 Geocoding request for:', fullAddress);
+        
+        const geocodeResponse = await fetch(geocodeUrl);
         const geocodeData = await geocodeResponse.json();
+        
+        console.log('🎯 Geocoding response:', geocodeData);
         
         if (geocodeData.results && geocodeData.results.length > 0) {
           const location = geocodeData.results[0].geometry.location;
           lat = location.lat;
           lng = location.lng;
-          console.log('🎯 Geocoded coordinates:', { lat, lng, address: fullAddress });
+          const formattedAddress = geocodeData.results[0].formatted_address;
+          console.log('🎯 SUCCESS - Geocoded coordinates:', { lat, lng, address: fullAddress, googleResult: formattedAddress });
+          
+          // Check if the geocoded address matches our house number
+          if (formattedAddress.includes('29') && formattedAddress.toLowerCase().includes('cranberry')) {
+            console.log('✅ Confirmed: Geocoded address matches house number 29');
+          } else {
+            console.warn('⚠️ WARNING: Geocoded address may not match house number 29:', formattedAddress);
+          }
         } else {
           throw new Error('No geocoding results found');
         }
