@@ -63,6 +63,7 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
 
   // Handle calculations with real formData based logic
   const handleCalculate = async () => {
+    console.log('🧮 Starting rebate calculation with data:', formData);
     setCalculating(true);
     try {
       // Use real calculation based on form data
@@ -84,6 +85,8 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
           formData.batterySize === 0 ? "Battery system qualifies for additional rebates" : null
         ].filter(Boolean)
       };
+      
+      console.log('💰 Calculated results:', calculatedResults);
       
       setResults({
         rebateResults: {
@@ -118,8 +121,10 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
         timestamp: Date.now()
       }));
       
+      console.log('✅ Rebate calculation completed successfully');
+      
     } catch (error) {
-      console.error('Calculation failed:', error);
+      console.error('❌ Calculation failed:', error);
     } finally {
       setCalculating(false);
     }
@@ -229,21 +234,24 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
       />
 
       {/* Rebate Results */}
-      {roiData && (
+      {(results || roiData) && (
         <div className="grid md:grid-cols-3 gap-6">
           <MetricTile
             title="Government Rebates"
-            value={roiData.value?.total_rebates_AUD ? `$${roiData.value.total_rebates_AUD.toLocaleString()}` : "$8,450"}
+            value={results?.rebateResults?.total_rebates ? `$${results.rebateResults.total_rebates.toLocaleString()}` : 
+                   roiData?.value?.total_rebates_AUD ? `$${roiData.value.total_rebates_AUD.toLocaleString()}` : "$8,450"}
             subtitle="STC + State incentives"
           />
           <MetricTile
             title="VPP Bonuses"
-            value={roiData.value?.vpp_bonuses_AUD ? `$${roiData.value.vpp_bonuses_AUD.toLocaleString()}` : "$1,200"}
+            value={results?.rebateResults?.vpp_bonus ? `$${results.rebateResults.vpp_bonus.toLocaleString()}` :
+                   roiData?.value?.vpp_bonuses_AUD ? `$${roiData.value.vpp_bonuses_AUD.toLocaleString()}` : "$1,200"}
             subtitle="Virtual power plant incentives"
           />
           <MetricTile
             title="Total Savings"
-            value={roiData.value?.total_savings_AUD ? `$${roiData.value.total_savings_AUD.toLocaleString()}` : "$9,650"}
+            value={results?.rebateResults ? `$${(results.rebateResults.total_rebates + (results.rebateResults.vpp_bonus || 0)).toLocaleString()}` :
+                   roiData?.value?.total_savings_AUD ? `$${roiData.value.total_savings_AUD.toLocaleString()}` : "$9,650"}
             subtitle="All rebates & incentives"
           />
         </div>

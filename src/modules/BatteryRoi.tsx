@@ -262,15 +262,21 @@ export default function BatteryRoi() {
 
   const nextStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
+    console.log(`🔄 Moving from step ${currentStep} (${currentIndex}) to next step`);
     if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1].id as Step);
+      const nextStepId = steps[currentIndex + 1].id as Step;
+      console.log(`✅ Advancing to step: ${nextStepId}`);
+      setCurrentStep(nextStepId);
     }
   };
 
   const prevStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
+    console.log(`🔄 Moving back from step ${currentStep} (${currentIndex}) to previous step`);
     if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1].id as Step);
+      const prevStepId = steps[currentIndex - 1].id as Step;
+      console.log(`✅ Going back to step: ${prevStepId}`);
+      setCurrentStep(prevStepId);
     }
   };
 
@@ -281,6 +287,7 @@ export default function BatteryRoi() {
   };
 
   const calculateROI = () => {
+    console.log('🧮 Starting Battery ROI calculation with data:', formData);
     setCurrentStep('results');
   };
 
@@ -758,20 +765,54 @@ export default function BatteryRoi() {
           </Button>
           
           {currentStep === 'site' ? (
-            <Button onClick={calculateROI} className="bg-gradient-to-r from-primary to-secondary">
-              Calculate ROI
-              <Calculator className="w-4 h-4 ml-2" />
+            <Button 
+              onClick={calculateROI} 
+              className={cn(tokens.buttonPrimary, "text-lg px-8 py-3 font-semibold")}
+              disabled={isCalculating}
+            >
+              {isCalculating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Calculating ROI...
+                </>
+              ) : (
+                <>
+                  Calculate ROI
+                  <Calculator className="w-4 h-4 ml-2" />
+                </>
+              )}
             </Button>
           ) : (
             <Button
               onClick={nextStep}
               disabled={currentStep === 'method' && !inputMethod}
-              className="bg-gradient-to-r from-primary to-secondary"
+              className={cn(tokens.buttonPrimary)}
             >
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
-          )}
+           )}
+        </div>
+      )}
+      
+      {/* Navigation - Show final actions when on results */}
+      {currentStep === 'results' && (
+        <div className="flex justify-center space-x-4">
+          <Button
+            onClick={prevStep}
+            variant="outline"
+            className="bg-white/5 border-white/20"
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Back to Edit
+          </Button>
+          <Button
+            onClick={() => console.log('Get quote for system:', formData)}
+            className={cn(tokens.buttonPrimary, "text-lg px-8 py-3 font-semibold")}
+          >
+            Get Quote
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
         </div>
       )}
     </div>

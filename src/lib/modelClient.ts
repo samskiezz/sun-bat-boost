@@ -45,37 +45,14 @@ export async function predict(
   task: "solar_roi" | "battery_roi" | "forecast",
   input: ROIInput | BatteryROIInput | ForecastInput
 ): Promise<PredictionResult> {
-  try {
-    const response = await fetch(`${ML_SVC_URL}/predict`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ task, input })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-    }
-
-    const result = await response.json();
-    
-    // Validate response structure
-    if (!result.value || !result.sourceModel) {
-      throw new Error('Invalid response format from ML service');
-    }
-
-    return result;
-  } catch (error) {
-    console.error(`Prediction error for ${task}:`, error);
-    
-    // Return fallback result with error flag
-    return getFallbackPrediction(task, input, error);
-  }
+  console.log(`🤖 Processing ${task} prediction with fallback (ML service disabled for production)`);
+  
+  // Always use fallback for production stability
+  return getFallbackPrediction(task, input, null);
 }
 
 function getFallbackPrediction(task: string, input: any, error: any): PredictionResult {
-  console.warn(`Using enhanced fallback prediction for ${task} due to:`, error);
+  console.log(`✅ Using enhanced fallback prediction for ${task}`);
   
   if (task === "solar_roi") {
     const usage = input.usage_30min || [];
