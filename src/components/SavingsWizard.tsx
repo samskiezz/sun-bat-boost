@@ -431,16 +431,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       setProcessing(false);
     }
   };
-      emitSignal({
-        key: 'nasa.poa',
-        status: 'error',
-        message: 'Auto design failed',
-        details: { error: error.message }
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   const nextStep = () => {
     const stepIndex = getCurrentStepIndex();
