@@ -1,19 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import OCRScanner from './OCRScanner';
 import { LocationAutoFill } from './LocationAutoFill';
 import { RoofDesignMap } from './RoofDesignMap';
-import { getPoa } from '@/api/nasa';
-import { runOptimizer } from '@/api/optimizer';
 import { emitSignal, getMissing } from '@/diagnostics/signals';
 import { calculateSystemFit, AU_SOLAR_BRANDS } from '@/utils/panelFitting';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,7 +47,6 @@ interface ExtractedBillData {
   offpeakRate?: number;
   feedInTariff?: number;
   hourlyUsage?: number[];
-  // Solar detection fields
   solarExportKwh?: number;
   solarFeedInRate?: number;
   solarCreditAmount?: number;
@@ -148,7 +142,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
   const estimateCoordinatesFromPostcode = (postcode: string) => {
     const pc = parseInt(postcode);
-    // Rough Australian postcode to coordinates mapping
     if (pc >= 2000 && pc <= 2999) return { lat: -33.8688, lng: 151.2093 }; // Sydney
     if (pc >= 3000 && pc <= 3999) return { lat: -37.8136, lng: 144.9631 }; // Melbourne  
     if (pc >= 4000 && pc <= 4999) return { lat: -27.4698, lng: 153.0251 }; // Brisbane
@@ -160,7 +153,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
   const geocodeAddress = async (address: string) => {
     try {
-      // Use OpenStreetMap Nominatim for free geocoding
       const encodedAddress = encodeURIComponent(`${address}, Australia`);
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`);
       const data = await response.json();
@@ -179,48 +171,23 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   };
 
   const handleLocationUpdate = useCallback((locationData: any) => {
-    console.log('🗺️ Location update received (from LocationAutoFill):', locationData);
-    console.log('🗺️ BLOCKING postcode estimation since we should have OCR geocoded coordinates');
-    
-    // NEVER override coordinates if they already exist in state
     setScenario(prev => {
       const currentCoords = { lat: prev.location?.lat, lng: prev.location?.lng };
-      console.log('🗺️ Current coordinates in state:', currentCoords);
       
       const newLocation = {
         ...prev.location,
         ...locationData
       };
       
-      // If we already have geocoded coordinates from OCR, keep them
       if (currentCoords.lat && currentCoords.lng) {
-        console.log('🗺️ PRESERVING existing geocoded coordinates:', currentCoords);
         newLocation.lat = currentCoords.lat;
         newLocation.lng = currentCoords.lng;
       }
       
-      const newScenario = {
+      return {
         ...prev,
         location: newLocation
       };
-      console.log('🗺️ Final location after handleLocationUpdate:', newScenario.location);
-      return newScenario;
-    });
-    
-    // Only emit POA if we don't already have coordinates
-    setScenario(prev => {
-      if (prev.location?.lat && prev.location?.lng) {
-        console.log('🗺️ Using existing coordinates for POA:', prev.location.lat, prev.location.lng);
-        setTimeout(() => {
-          emitSignal({
-            key: 'nasa.poa',
-            status: 'ok', 
-            message: 'Using existing geocoded coordinates',
-            details: { lat: prev.location.lat, lng: prev.location.lng }
-          });
-        }, 1000);
-      }
-      return prev;
     });
   }, []);
 
@@ -228,7 +195,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
     setRoofFacets(facets);
     setShadeAnalysis(analysis);
     
-    // Calculate panel fit
     const fit = calculateSystemFit(facets.map(f => ({
       areaSqm: f.areaSqm,
       orientation: f.orientation,
@@ -246,8 +212,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   }, []);
 
   const handleOCRExtraction = useCallback(async (data: ExtractedBillData) => {
-    console.log('📄 OCR extraction received:', data);
-    
     let locationData: {
       address?: string;
       postcode?: string;
@@ -258,54 +222,32 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
       postcode: data.postcode
     };
 
-    // If we have a full address, try to geocode it for accurate coordinates
     if (data.address) {
-      console.log('📍 Geocoding address:', data.address);
       const coords = await geocodeAddress(data.address);
-      console.log('📍 Geocoding result:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
-        console.log('📍 Using geocoded coordinates for address:', coords);
       }
     }
 
-    // If no address or geocoding failed, try postcode estimation
     if (!locationData.lat && !locationData.lng && locationData.postcode) {
-      console.log('📍 Trying postcode estimation for:', locationData.postcode);
       const coords = estimateCoordinatesFromPostcode(locationData.postcode);
-      console.log('📍 Postcode estimation result:', coords);
       if (coords) {
         locationData = { ...locationData, ...coords };
-        console.log('📍 Using estimated coordinates for postcode:', coords);
       }
     }
 
-    console.log('📍 Final locationData from OCR (BEFORE setState):', locationData);
-
-    // Update scenario with extracted data - FORCE the geocoded coordinates
-    setScenario(prev => {
-      const newLocation = {
+    setScenario(prev => ({
+      ...prev,
+      location: {
         ...prev.location,
         address: locationData.address,
         postcode: locationData.postcode,
-        // FORCE these coordinates to override any postcode estimates
         lat: locationData.lat,
         lng: locationData.lng
-      };
-      
-      console.log('📍 Setting scenario with FORCED coordinates:', newLocation);
-      
-      const newScenario = {
-        ...prev,
-        location: newLocation
-      };
-      console.log('📍 Updated scenario from OCR (AFTER setState):', newScenario.location);
-      return newScenario;
-    });
+      }
+    }));
 
-    // Emit coordinates for POA when address is geocoded
     if (locationData.lat && locationData.lng) {
-      console.log('📍 Emitting POA signal from OCR with CORRECT coordinates:', locationData.lat, locationData.lng);
       setTimeout(() => {
         emitSignal({
           key: 'nasa.poa',
@@ -314,14 +256,7 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           details: { lat: locationData.lat, lng: locationData.lng }
         });
       }, 1000);
-    } else {
-      console.log('📍 No coordinates available from OCR for POA signal');
     }
-  }, []);
-
-  const handleAddressExtracted = useCallback((address: string, postcode?: string) => {
-    // Handle address extraction from OCR
-    console.log('Address extracted:', address, postcode);
   }, []);
 
   const handleSystemUpdate = useCallback((field: string, value: any) => {
@@ -335,46 +270,31 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   }, []);
 
   const handleEVUpdate = useCallback((evData: any) => {
-    // Handle EV data updates
     console.log('EV data updated:', evData);
   }, []);
 
   const handleAutoDesign = async () => {
-    console.log('🚀 Starting AI Optimization with REAL data');
-    console.log('🚀 Current location:', scenario.location);
-    console.log('🚀 Roof analysis data:', panelFit);
-    console.log('🚀 Shade analysis data:', shadeAnalysis);
-    
     setProcessing(true);
     
     try {
-      // Use fallback calculations since ML service is disabled
-      const actualSolarKw = panelFit?.totalAdjustedKw || roofFacets.reduce((sum, f) => sum + f.kwCapacity, 0) || 10;
-      const batterykWh = scenario.currentSystem?.batteryKwh || Math.min(27, actualSolarKw * 2);
+      // Use fallback calculations
+      const actualSolarKw = panelFit?.totalAdjustedKw || 10;
+      const batterykWh = Math.min(27, actualSolarKw * 2);
       
-      console.log('🚀 Using calculated system sizing:', { actualSolarKw, batterykWh });
-      
-      // Mock POA data for fallback
       const mockPoaData = {
         daily: Array.from({ length: 30 }, (_, i) => ({ poa_kwh: 4.5 + Math.sin(i / 10) * 0.5 })),
         hourly: Array.from({ length: 24 }, (_, i) => ({ poa_kwh: actualSolarKw * 0.2 * (0.5 + Math.sin(i / 4) * 0.5) }))
       };
       
-      console.log('🚀 Using fallback POA data for calculations');
-
-      // Calculate REAL financial metrics using roof analysis
       const recommendedSolarKw = actualSolarKw;
       const recommendedBatteryKwh = batterykWh;
       
       const annualGeneration = (mockPoaData.daily?.reduce((sum, d) => sum + d.poa_kwh, 0) || 0) * 365 * recommendedSolarKw;
       
-      console.log('🚀 Calculated annual generation:', annualGeneration, 'kWh');
-      
-      // Apply shade factor if available
       const shadeFactor = shadeAnalysis ? (1 - shadeAnalysis.overallShadeIndex) : 1;
       const adjustedGeneration = annualGeneration * shadeFactor;
       
-      const selfConsumption = 0.74; // 74% assumption
+      const selfConsumption = 0.74;
       const exportEnergy = adjustedGeneration * (1 - selfConsumption);
       const gridOffset = adjustedGeneration * selfConsumption;
       
@@ -422,11 +342,10 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         }
       }));
 
-      console.log('✅ Auto-design completed successfully');
       nextStep();
 
     } catch (error) {
-      console.error('❌ Auto design failed:', error);
+      console.error('Auto design failed:', error);
     } finally {
       setProcessing(false);
     }
@@ -435,7 +354,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
   const nextStep = () => {
     const stepIndex = getCurrentStepIndex();
     
-    // For auto-design step, check if all signals are ready
     if (currentStep === 'auto-design') {
       const missing = getMissing(['nasa.poa', 'roof.polygon', 'roof.fit', 'sizing.battery']);
       if (missing.length > 0) {
@@ -458,7 +376,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
   const renderCurrentSetup = () => (
     <div className="space-y-6">
-      {/* Bill Analysis */}
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -471,7 +388,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </CardContent>
       </Card>
 
-      {/* Location */}
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -487,7 +403,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </CardContent>
       </Card>
 
-      {/* Current System */}
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -558,7 +473,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
               </motion.div>
             )}
 
-            {/* EV Section */}
             <div className="pt-4 border-t">
               <div className="flex items-center gap-3 mb-4">
                 <Car className="w-5 h-5 text-primary" />
@@ -701,12 +615,7 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </div>
       </div>
 
-      {/* Roof Design Map */}
-      {(() => {
-        console.log('🗺️ Map render check - scenario.location:', scenario.location);
-        console.log('🗺️ Has lat?', !!scenario.location?.lat, 'Has lng?', !!scenario.location?.lng);
-        return scenario.location?.lat && scenario.location?.lng;
-      })() ? (
+      {scenario.location?.lat && scenario.location?.lng ? (
         <RoofDesignMap
           center={[scenario.location.lat, scenario.location.lng]}
           zoom={20}
@@ -718,22 +627,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
             <div className="text-center space-y-4">
               <div className="text-sm text-muted-foreground">
                 Please complete Step 1 (Location Details) to enable roof design and shade analysis.
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Location status: {(() => {
-                  console.log('🏠 Current scenario.location:', scenario.location);
-                  if (scenario.location?.address) {
-                    return `${scenario.location.address} (${scenario.location.postcode})`;
-                  } else if (scenario.location?.postcode) {
-                    return `Postcode: ${scenario.location.postcode}`;
-                  } else {
-                    return 'No location set';
-                  }
-                })()}
-                {scenario.location?.lat && <span className="ml-2">Coordinates: ✓ ({scenario.location.lat.toFixed(4)}, {scenario.location.lng.toFixed(4)})</span>}
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Debug: lat={scenario.location?.lat} lng={scenario.location?.lng}
               </div>
             </div>
           </CardContent>
@@ -757,7 +650,7 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
               <div className="space-y-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="text-sm text-muted-foreground">
-                  Running quantum optimization algorithms...
+                  Running optimization algorithms...
                 </p>
               </div>
             )}
@@ -769,195 +662,121 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
   const renderResults = () => (
     <div className="space-y-6">
-      {scenario.recommendations && (
+      {scenario.recommendations && scenario.results && (
         <>
-          <div className="space-y-6">
-            {/* System Recommendations */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="text-center">
-                <CardContent className="pt-6">
-                  <Sun className="h-8 w-8 mx-auto mb-2 text-orange-500" />
-                  <div className="text-2xl font-bold">{scenario.recommendations?.solarKw?.toFixed(2)} kW</div>
-                  <div className="text-sm text-muted-foreground">Solar System</div>
-                </CardContent>
-              </Card>
-              <Card className="text-center">
-                <CardContent className="pt-6">
-                  <Battery className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <div className="text-2xl font-bold">{scenario.recommendations?.batteryKwh} kWh</div>
-                  <div className="text-sm text-muted-foreground">Battery Storage</div>
-                </CardContent>
-              </Card>
-              <Card className="text-center">
-                <CardContent className="pt-6">
-                  <Zap className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-                  <div className="text-2xl font-bold">{scenario.recommendations?.batteryPowerKw?.toFixed(0)} kW</div>
-                  <div className="text-sm text-muted-foreground">Battery Power</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Why This Recommendation */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Why This Recommendation?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>{scenario.recommendations?.solarKw?.toFixed(1)}kW solar system {scenario.currentSystem?.type === 'none' ? 'new installation' : 'existing'}</li>
-                  <li>{scenario.recommendations?.batteryKwh}kWh battery optimized using quantum algorithms</li>
-                  <li>NASA POA analysis shows {((scenario.results?.systemPerformance?.annualGeneration || 0) / 1000).toFixed(1)}MWh annual generation</li>
-                  <li>Battery sized for optimal self-consumption and peak avoidance</li>
-                  {panelFit && (
-                    <li>{panelFit.fitMessage}</li>
-                  )}
-                  {shadeAnalysis && (
-                    <li>Shade analysis shows {(shadeAnalysis.overallShadeIndex * 100).toFixed(1)}% average shading impact</li>
-                  )}
-                </ul>
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <Sun className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+                <div className="text-2xl font-bold">{scenario.recommendations.solarKw.toFixed(2)} kW</div>
+                <div className="text-sm text-muted-foreground">Solar System</div>
               </CardContent>
             </Card>
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <Battery className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+                <div className="text-2xl font-bold">{scenario.recommendations.batteryKwh} kWh</div>
+                <div className="text-sm text-muted-foreground">Battery Storage</div>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <Zap className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+                <div className="text-2xl font-bold">{scenario.recommendations.batteryPowerKw.toFixed(0)} kW</div>
+                <div className="text-sm text-muted-foreground">Battery Power</div>
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Financial Impact */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Financial Impact</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">
-                      ${scenario.results?.annualSavings.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Annual Savings</div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Financial Impact</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    ${scenario.results.annualSavings.toLocaleString()}
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {scenario.results?.paybackYears.toFixed(1)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Years Payback</div>
+                  <div className="text-sm text-muted-foreground">Annual Savings</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary">
+                    {scenario.results.paybackYears.toFixed(1)}
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      ${scenario.results?.npv25.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">25-Year NPV</div>
+                  <div className="text-sm text-muted-foreground">Years Payback</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    ${scenario.results.npv25.toLocaleString()}
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-purple-600">
-                      {scenario.results?.irr.toFixed(1)}%
+                  <div className="text-sm text-muted-foreground">25-Year NPV</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {scenario.results.irr.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">IRR</div>
+                </div>
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium mb-3">Bill Comparison</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Current Bill (Annual)</span>
+                      <span>${scenario.results.currentAnnualBill.toLocaleString()}</span>
                     </div>
-                    <div className="text-sm text-muted-foreground">IRR</div>
+                    <div className="flex justify-between">
+                      <span>With Solar + Battery</span>
+                      <span>${scenario.results.newAnnualBill.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-medium text-green-600">
+                      <span>Annual Savings</span>
+                      <span>${scenario.results.annualSavings.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
 
-                <Separator className="my-6" />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium mb-3">Bill Comparison</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Current Bill (Annual)</span>
-                        <span>${scenario.results?.currentAnnualBill.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>With Solar + Battery</span>
-                        <span>${scenario.results?.newAnnualBill.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-medium text-green-600">
-                        <span>Annual Savings</span>
-                        <span>${scenario.results?.annualSavings.toLocaleString()}</span>
-                      </div>
+                <div>
+                  <h4 className="font-medium mb-3">System Performance</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Self-Consumption</span>
+                      <span>{scenario.results.selfConsumption.toFixed(0)}%</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-3">System Performance</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Self-Consumption</span>
-                        <span>{scenario.results?.selfConsumption.toFixed(0)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Export to Grid</span>
-                        <span>{scenario.results?.exportPercentage.toFixed(0)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Battery Cycles/Year</span>
-                        <span>{scenario.results?.systemPerformance?.batteryUsage}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>CO₂ Reduction</span>
-                        <span>{scenario.results?.co2Reduction.toFixed(1)}t</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span>Export to Grid</span>
+                      <span>{scenario.results.exportPercentage.toFixed(0)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>CO₂ Reduction</span>
+                      <span>{scenario.results.co2Reduction.toFixed(1)}t</span>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Top Australian Solar Brands */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recommended Australian Brands</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2">🔆 Solar Panels</h4>
-                    <div className="space-y-1">
-                      {AU_SOLAR_BRANDS.panels.slice(0, 3).map((brand, i) => (
-                        <div key={i} className="text-xs">
-                          <div className="font-medium">{brand.name}</div>
-                          <div className="text-muted-foreground">{brand.model} • {brand.efficiency}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2">⚡ Inverters</h4>
-                    <div className="space-y-1">
-                      {AU_SOLAR_BRANDS.inverters.slice(0, 3).map((brand, i) => (
-                        <div key={i} className="text-xs">
-                          <div className="font-medium">{brand.name}</div>
-                          <div className="text-muted-foreground">{brand.model} • {brand.efficiency}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2">🔋 Batteries</h4>
-                    <div className="space-y-1">
-                      {AU_SOLAR_BRANDS.batteries.slice(0, 3).map((brand, i) => (
-                        <div key={i} className="text-xs">
-                          <div className="font-medium">{brand.name}</div>
-                          <div className="text-muted-foreground">{brand.model} • {brand.capacity}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4 justify-center">
-              <Button variant="outline" className="flex-1">
-                <Download className="mr-2 h-4 w-4" />
-                Export PDF Report
+          <div className="flex gap-4 justify-center">
+            <Button variant="outline" className="flex-1">
+              <Download className="mr-2 h-4 w-4" />
+              Export PDF Report
+            </Button>
+            <Button variant="outline" className="flex-1">
+              <Share2 className="mr-2 h-4 w-4" />
+              Share Results
+            </Button>
+            {onApplyResults && (
+              <Button onClick={() => onApplyResults(scenario)} className="flex-1">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Apply Results
               </Button>
-              <Button variant="outline" className="flex-1">
-                <Share2 className="mr-2 h-4 w-4" />
-                Share Results
-              </Button>
-              {onApplyResults && (
-                <Button onClick={() => onApplyResults(scenario)} className="flex-1">
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Apply Results
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </>
       )}
@@ -966,13 +785,11 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">How Much Can I Save?</h1>
         <p className="text-muted-foreground">AI-Powered Savings Analysis</p>
       </div>
 
-      {/* Progress */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-4">
@@ -992,7 +809,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </CardContent>
       </Card>
 
-      {/* Step Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
@@ -1008,7 +824,6 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
       <div className="flex justify-between pt-6 border-t">
         <Button 
           variant="outline" 

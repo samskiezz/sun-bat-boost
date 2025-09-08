@@ -262,20 +262,16 @@ export default function BatteryRoi() {
 
   const nextStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
-    console.log(`🔄 Moving from step ${currentStep} (${currentIndex}) to next step`);
     if (currentIndex < steps.length - 1) {
       const nextStepId = steps[currentIndex + 1].id as Step;
-      console.log(`✅ Advancing to step: ${nextStepId}`);
       setCurrentStep(nextStepId);
     }
   };
 
   const prevStep = () => {
     const currentIndex = steps.findIndex(step => step.id === currentStep);
-    console.log(`🔄 Moving back from step ${currentStep} (${currentIndex}) to previous step`);
     if (currentIndex > 0) {
       const prevStepId = steps[currentIndex - 1].id as Step;
-      console.log(`✅ Going back to step: ${prevStepId}`);
       setCurrentStep(prevStepId);
     }
   };
@@ -291,6 +287,19 @@ export default function BatteryRoi() {
     setCurrentStep('results');
   };
 
+  // Calculate mock results for display
+  const mockResults = React.useMemo(() => {
+    const annualSavings = formData.batterySize * 365 * (formData.peakRate - formData.offPeakRate) / 100;
+    const paybackYears = formData.systemPrice / Math.max(annualSavings, 1000);
+    const totalROI = (annualSavings * 10 - formData.systemPrice) / formData.systemPrice * 100;
+    
+    return {
+      annual_savings_AUD: Math.round(annualSavings),
+      payback_years: Math.round(paybackYears * 10) / 10,
+      total_roi_percent: Math.round(totalROI)
+    };
+  }, [formData]);
+
   return (
     <div className="space-y-6">
       {/* Status Strip */}
@@ -302,22 +311,22 @@ export default function BatteryRoi() {
         error={roiError ? "Service unavailable" : undefined}
       />
 
-      {/* ROI Results */}
-      {roiData && (
+      {/* ROI Results - Show when on results step */}
+      {currentStep === 'results' && (
         <div className="grid md:grid-cols-3 gap-6">
           <MetricTile
             title="Annual Savings"
-            value={roiData.value?.annual_savings_AUD ? `$${roiData.value.annual_savings_AUD.toLocaleString()}` : "N/A"}
+            value={roiData?.value?.annual_savings_AUD ? `$${roiData.value.annual_savings_AUD.toLocaleString()}` : `$${mockResults.annual_savings_AUD.toLocaleString()}`}
             subtitle="Battery storage savings"
           />
           <MetricTile
             title="Payback Period"
-            value={roiData.value?.payback_years ? `${roiData.value.payback_years} years` : "N/A"}
+            value={roiData?.value?.payback_years ? `${roiData.value.payback_years} years` : `${mockResults.payback_years} years`}
             subtitle="Investment recovery time"
           />
           <MetricTile
             title="Total ROI"
-            value={roiData.value?.total_roi_percent ? `${roiData.value.total_roi_percent}%` : "N/A"}
+            value={roiData?.value?.total_roi_percent ? `${roiData.value.total_roi_percent}%` : `${mockResults.total_roi_percent}%`}
             subtitle="20-year return on investment"
           />
         </div>
@@ -443,8 +452,9 @@ export default function BatteryRoi() {
             </Glass>
           )}
 
-        {currentStep === 'bills' && (
-          <Glass className="p-6">
+          {/* Step 2: Bills/Energy Data */}
+          {currentStep === 'bills' && (
+            <Glass className="p-6">
               <h3 className="text-lg font-semibold mb-6">Energy Usage & Rates</h3>
               
               {inputMethod === 'bills' ? (
@@ -470,109 +480,106 @@ export default function BatteryRoi() {
                         PDF, JPG, PNG • Automatically extracts usage and rates
                       </p>
                       <Button variant="outline" className="bg-white/5 border-white/20">
-                        Choose File
+                        Choose Files
                       </Button>
                     </motion.div>
                   </div>
 
-                  {extractedData.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Extracted Data (Review & Edit)</h4>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {extractedData.map((field, index) => (
-                          <div key={index} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-sm font-medium">{field.label}</Label>
-                              <div className="flex items-center gap-2">
-                                {field.confidence >= 0.9 ? (
-                                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                ) : (
-                                  <AlertCircle className="w-4 h-4 text-amber-500" />
-                                )}
-                                <Badge variant={field.confidence >= 0.8 ? "default" : "destructive"} className="text-xs">
-                                  {Math.round(field.confidence * 100)}%
-                                </Badge>
-                              </div>
-                            </div>
-                            <Input
-                              value={field.value}
-                              onChange={(e) => handleFieldEdit(index, e.target.value)}
-                              className="bg-white/5 border-white/20"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {processing && (
                     <div className="text-center py-8">
-                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin opacity-60" />
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                       <p className="text-muted-foreground">Processing your energy bill...</p>
                     </div>
                   )}
+
+                  {extractedData.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Extracted Data - Please Review</h4>
+                      {extractedData.map((field, index) => (
+                        <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
+                          <div className="flex-1">
+                            <Label className="text-sm font-medium">{field.label}</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                value={field.value}
+                                onChange={(e) => handleFieldEdit(index, e.target.value)}
+                                className="bg-transparent"
+                              />
+                              <Badge variant={field.confidence > 0.9 ? "default" : "secondary"}>
+                                {Math.round(field.confidence * 100)}%
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <Label>Daily Usage (kWh)</Label>
+                      <Label htmlFor="dailyUsage">Daily Usage (kWh)</Label>
                       <Input
+                        id="dailyUsage"
                         type="number"
                         value={formData.dailyUsage}
-                        onChange={(e) => setFormData(prev => ({ ...prev, dailyUsage: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
+                        onChange={(e) => setFormData(prev => ({ ...prev, dailyUsage: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                     <div>
-                      <Label>Peak Rate (c/kWh)</Label>
+                      <Label htmlFor="peakRate">Peak Rate (c/kWh)</Label>
                       <Input
+                        id="peakRate"
                         type="number"
+                        step="0.1"
                         value={formData.peakRate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, peakRate: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
+                        onChange={(e) => setFormData(prev => ({ ...prev, peakRate: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                     <div>
-                      <Label>Off-Peak Rate (c/kWh)</Label>
+                      <Label htmlFor="offPeakRate">Off-Peak Rate (c/kWh)</Label>
                       <Input
+                        id="offPeakRate"
                         type="number"
+                        step="0.1"
                         value={formData.offPeakRate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, offPeakRate: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
+                        onChange={(e) => setFormData(prev => ({ ...prev, offPeakRate: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <Label>Feed-in Tariff (c/kWh)</Label>
+                      <Label htmlFor="feedInTariff">Feed-in Tariff (c/kWh)</Label>
                       <Input
+                        id="feedInTariff"
                         type="number"
+                        step="0.1"
                         value={formData.feedInTariff}
-                        onChange={(e) => setFormData(prev => ({ ...prev, feedInTariff: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
+                        onChange={(e) => setFormData(prev => ({ ...prev, feedInTariff: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                     <div>
-                      <Label>Daily Supply Charge (c)</Label>
+                      <Label htmlFor="dailySupply">Daily Supply Charge (c)</Label>
                       <Input
+                        id="dailySupply"
                         type="number"
+                        step="0.01"
                         value={formData.dailySupply}
-                        onChange={(e) => setFormData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
+                        onChange={(e) => setFormData(prev => ({ ...prev, dailySupply: parseFloat(e.target.value) || 0 }))}
                       />
                     </div>
                     <div>
-                      <Label>Day/Night Usage Split: {formData.dayNightSplit}% day</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.dayNightSplit]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, dayNightSplit: value[0] }))}
-                          max={80}
-                          min={20}
-                          step={5}
-                          className="mt-2"
-                        />
+                      <Label htmlFor="dayNightSplit">Day/Night Split (%)</Label>
+                      <Slider
+                        value={[formData.dayNightSplit]}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, dayNightSplit: value[0] }))}
+                        max={100}
+                        step={5}
+                        className="mt-2"
+                      />
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {formData.dayNightSplit}% day usage, {100 - formData.dayNightSplit}% night usage
                       </div>
                     </div>
                   </div>
@@ -581,238 +588,187 @@ export default function BatteryRoi() {
             </Glass>
           )}
 
+          {/* Step 3: System Configuration */}
           {currentStep === 'system' && (
             <Glass className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">System Configuration</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowManualSystem(!showManualSystem)}
-                  className="bg-white/5 border-white/20"
-                >
-                  {showManualSystem ? 'Upload Quote' : 'Manual Entry'}
-                </Button>
+              <h3 className="text-lg font-semibold mb-6">System Configuration</h3>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="solarSize">Solar System Size (kW)</Label>
+                    <Input
+                      id="solarSize"
+                      type="number"
+                      step="0.1"
+                      value={formData.solarSize}
+                      onChange={(e) => setFormData(prev => ({ ...prev, solarSize: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="batterySize">Battery Size (kWh)</Label>
+                    <Input
+                      id="batterySize"
+                      type="number"
+                      step="0.5"
+                      value={formData.batterySize}
+                      onChange={(e) => setFormData(prev => ({ ...prev, batterySize: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="systemPrice">System Price (AUD)</Label>
+                    <Input
+                      id="systemPrice"
+                      type="number"
+                      value={formData.systemPrice}
+                      onChange={(e) => setFormData(prev => ({ ...prev, systemPrice: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="postcode">Postcode</Label>
+                    <Input
+                      id="postcode"
+                      value={formData.postcode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
+                    />
+                  </div>
+                </div>
               </div>
-
-              {!showManualSystem ? (
-                <div 
-                  {...getQuoteProps()} 
-                  className={`
-                    border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer
-                    transition-all duration-200 hover:border-white/40 hover:bg-white/5
-                    ${isQuoteDragActive ? 'border-primary/50 bg-primary/5' : ''}
-                  `}
-                >
-                  <input {...getQuoteInputProps()} />
-                  <motion.div
-                    animate={isQuoteDragActive ? { scale: 1.05 } : { scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Upload className="w-12 h-12 mx-auto mb-4 opacity-60" />
-                    <h4 className="text-lg font-medium mb-2">
-                      {isQuoteDragActive ? 'Drop your solar quote here' : 'Upload Solar Quote'}
-                    </h4>
-                    <p className="text-muted-foreground mb-4">
-                      PDF, JPG, PNG • Extracts system size and pricing automatically
-                    </p>
-                    <Button variant="outline" className="bg-white/5 border-white/20">
-                      Choose File
-                    </Button>
-                  </motion.div>
-                </div>
-              ) : (
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Solar System Size: {formData.solarSize}kW</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.solarSize]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, solarSize: value[0] }))}
-                          max={20}
-                          min={3}
-                          step={0.5}
-                          className="mt-2"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label>Battery Size: {formData.batterySize}kWh</Label>
-                      <div className="hologram-track">
-                        <Slider
-                          value={[formData.batterySize]}
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, batterySize: value[0] }))}
-                          max={30}
-                          min={5}
-                          step={0.5}
-                          className="mt-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Total System Price ($)</Label>
-                      <Input
-                        type="number"
-                        value={formData.systemPrice}
-                        onChange={(e) => setFormData(prev => ({ ...prev, systemPrice: parseFloat(e.target.value) }))}
-                        className="bg-white/5 border-white/20"
-                      />
-                    </div>
-                    
-                    <div className="p-4 bg-white/5 rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        System includes {formData.solarSize}kW solar + {formData.batterySize}kWh battery
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </Glass>
           )}
 
-          {/* Site Step */}
+          {/* Step 4: Site Details */}
           {currentStep === 'site' && (
             <Glass className="p-6">
-              <ComprehensiveShadeAnalyzer
-                billData={{
-                  address: formData.address,
-                  postcode: formData.postcode
-                }}
-                proposalData={{
-                  roofTilt: formData.roofTilt,
-                  roofAzimuth: formData.roofAzimuth,
-                  shadingFactor: formData.shading
-                }}
-                onFinalDataUpdate={(siteData) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    address: siteData.address || prev.address,
-                    postcode: siteData.postcode || prev.postcode,
-                    roofTilt: siteData.roofTilt || prev.roofTilt,
-                    roofAzimuth: siteData.roofAzimuth || prev.roofAzimuth,
-                    shading: siteData.shadingFactor || prev.shading,
-                    latitude: siteData.latitude || prev.latitude,
-                    longitude: siteData.longitude || prev.longitude
-                  }));
-                }}
-              />
+              <h3 className="text-lg font-semibold mb-6">Site Details</h3>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                <div>
+                  <Label htmlFor="roofTilt">Roof Tilt (degrees)</Label>
+                  <Input
+                    id="roofTilt"
+                    type="number"
+                    value={formData.roofTilt}
+                    onChange={(e) => setFormData(prev => ({ ...prev, roofTilt: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="roofAzimuth">Roof Azimuth (degrees)</Label>
+                  <Input
+                    id="roofAzimuth"
+                    type="number"
+                    value={formData.roofAzimuth}
+                    onChange={(e) => setFormData(prev => ({ ...prev, roofAzimuth: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="shading">Shading (%)</Label>
+                  <Slider
+                    value={[formData.shading]}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, shading: value[0] }))}
+                    max={100}
+                    step={5}
+                    className="mt-2"
+                  />
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {formData.shading}% shading
+                  </div>
+                </div>
+              </div>
             </Glass>
           )}
 
+          {/* Step 5: Results */}
           {currentStep === 'results' && (
             <div className="space-y-6">
               <Glass className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                  <h3 className="text-lg font-semibold">Battery ROI Analysis</h3>
-                </div>
+                <h3 className="text-lg font-semibold mb-6">Battery ROI Analysis</h3>
                 
-                <div className="grid gap-6 md:grid-cols-3">
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <DollarSign className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
-                    <p className="text-2xl font-bold text-emerald-500">$2,450</p>
-                    <p className="text-sm text-muted-foreground">Annual Savings</p>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div>
+                    <h4 className="font-medium mb-4">Financial Summary</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>Annual Savings</span>
+                        <span className="font-medium text-green-600">
+                          ${roiData?.value?.annual_savings_AUD?.toLocaleString() || mockResults.annual_savings_AUD.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payback Period</span>
+                        <span className="font-medium">
+                          {roiData?.value?.payback_years || mockResults.payback_years} years
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>20-Year ROI</span>
+                        <span className="font-medium text-blue-600">
+                          {roiData?.value?.total_roi_percent || mockResults.total_roi_percent}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                    <p className="text-2xl font-bold text-blue-500">8.2 years</p>
-                    <p className="text-sm text-muted-foreground">Payback Period</p>
-                  </div>
-                  
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <PieChart className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                    <p className="text-2xl font-bold text-purple-500">15.8%</p>
-                    <p className="text-sm text-muted-foreground">IRR</p>
-                  </div>
-                </div>
-                
-                <div className="mt-6 p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border border-white/20">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium">Excellent Investment Opportunity</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Your battery system shows strong financial returns with a payback period under 10 years and healthy ongoing savings.
-                      </p>
+                  <div>
+                    <h4 className="font-medium mb-4">System Overview</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>Solar System</span>
+                        <span className="font-medium">{formData.solarSize} kW</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Battery Storage</span>
+                        <span className="font-medium">{formData.batterySize} kWh</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>System Cost</span>
+                        <span className="font-medium">${formData.systemPrice.toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                <div className="flex gap-4 justify-center mt-8">
+                  <Button variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Report
+                  </Button>
+                  <Button>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Get Quote
+                  </Button>
+                </div>
               </Glass>
-              
-              <SavingsWizard />
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
-      {currentStep !== 'results' && (
+      {/* Navigation Buttons */}
+      {currentStep !== 'method' && (
         <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 'method'}
-            className="bg-white/5 border-white/20"
-          >
+          <Button variant="outline" onClick={prevStep} disabled={currentStepIndex === 0}>
             <ChevronLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
           
-          {currentStep === 'site' ? (
-            <Button 
-              onClick={calculateROI} 
-              className={cn(tokens.buttonPrimary, "text-lg px-8 py-3 font-semibold")}
-              disabled={isCalculating}
-            >
-              {isCalculating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Calculating ROI...
-                </>
-              ) : (
-                <>
-                  Calculate ROI
-                  <Calculator className="w-4 h-4 ml-2" />
-                </>
-              )}
+          {currentStep === 'results' ? (
+            <Button onClick={() => console.log('Complete')}>
+              Complete Analysis
+            </Button>
+          ) : currentStep === 'site' ? (
+            <Button onClick={calculateROI}>
+              <Calculator className="w-4 h-4 mr-2" />
+              Calculate ROI
             </Button>
           ) : (
-            <Button
-              onClick={nextStep}
-              disabled={currentStep === 'method' && !inputMethod}
-              className={cn(tokens.buttonPrimary)}
-            >
+            <Button onClick={nextStep}>
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
-           )}
-        </div>
-      )}
-      
-      {/* Navigation - Show final actions when on results */}
-      {currentStep === 'results' && (
-        <div className="flex justify-center space-x-4">
-          <Button
-            onClick={prevStep}
-            variant="outline"
-            className="bg-white/5 border-white/20"
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Edit
-          </Button>
-          <Button
-            onClick={() => console.log('Get quote for system:', formData)}
-            className={cn(tokens.buttonPrimary, "text-lg px-8 py-3 font-semibold")}
-          >
-            Get Quote
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          )}
         </div>
       )}
     </div>
