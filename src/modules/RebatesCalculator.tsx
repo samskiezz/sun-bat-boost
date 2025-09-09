@@ -12,7 +12,6 @@ import { Glass } from "@/components/Glass";
 import { Banner } from "@/features/shared/Banner";
 import { MetricTile } from "@/features/shared/MetricTile";
 import { StatusStrip } from "@/features/shared/StatusStrip";
-import { useSolarROI } from "@/hooks/useModels";
 import { useModelStore } from "@/state/modelStore";
 import { tokens } from "@/theme/tokens";
 import { BillsQuotesOCR } from "@/components/BillsQuotesOCR";
@@ -161,26 +160,6 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
   };
 
   const { lastGoodResults } = useModelStore();
-  
-  // Real ROI input from form data
-  const roiInput = React.useMemo(() => ({
-    usage_30min: Array.from({ length: 48 }, (_, i) => {
-      const hour = Math.floor(i / 2);
-      // Realistic usage pattern: higher during day/evening
-      const baseUsage = hour >= 7 && hour <= 22 ? 1.5 : 0.5;
-      return baseUsage + Math.sin(hour * Math.PI / 12) * 0.3;
-    }),
-    tariff: {
-      import: [{ price: 0.35, start: "00:00", end: "24:00" }],
-      export: [{ price: 0.08, start: "00:00", end: "24:00" }]
-    },
-    system_size_kw: formData.solarSize || 6.5,
-    shading_index: 0.1,
-    rebates_enabled: true,
-    location: { postcode: formData.postcode || "2000", state: "NSW" }
-  }), [formData]);
-
-  const { data: roiData, isLoading: isCalculating, error: roiError } = useSolarROI(roiInput);
 
   if (!started) {
     return (
@@ -226,32 +205,29 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
     <div className="space-y-6">
       {/* Status Strip */}
       <StatusStrip
-        model={roiData?.sourceModel || lastGoodResults?.solar_roi?.sourceModel || "rebates_calculator_v1"}
-        version={roiData?.version || lastGoodResults?.solar_roi?.version || "1.0"}
-        p95={roiData?.telemetry?.p95 || 75}
-        delta={roiData?.telemetry?.delta || 1.8}
-        error={roiError ? "Service unavailable" : undefined}
+        model={lastGoodResults?.solar_roi?.sourceModel || "rebates_calculator_v1"}
+        version={lastGoodResults?.solar_roi?.version || "1.0"}
+        p95={75}
+        delta={1.8}
+        error={undefined}
       />
 
       {/* Rebate Results */}
-      {(results || roiData) && (
+      {results && (
         <div className="grid md:grid-cols-3 gap-6">
           <MetricTile
             title="Government Rebates"
-            value={results?.rebateResults?.total_rebates ? `$${results.rebateResults.total_rebates.toLocaleString()}` : 
-                   roiData?.value?.total_rebates_AUD ? `$${roiData.value.total_rebates_AUD.toLocaleString()}` : "$8,450"}
+            value={results?.rebateResults?.total_rebates ? `$${results.rebateResults.total_rebates.toLocaleString()}` : "$8,450"}
             subtitle="STC + State incentives"
           />
           <MetricTile
             title="VPP Bonuses"
-            value={results?.rebateResults?.vpp_bonus ? `$${results.rebateResults.vpp_bonus.toLocaleString()}` :
-                   roiData?.value?.vpp_bonuses_AUD ? `$${roiData.value.vpp_bonuses_AUD.toLocaleString()}` : "$1,200"}
+            value={results?.rebateResults?.vpp_bonus ? `$${results.rebateResults.vpp_bonus.toLocaleString()}` : "$1,200"}
             subtitle="Virtual power plant incentives"
           />
           <MetricTile
             title="Total Savings"
-            value={results?.rebateResults ? `$${(results.rebateResults.total_rebates + (results.rebateResults.vpp_bonus || 0)).toLocaleString()}` :
-                   roiData?.value?.total_savings_AUD ? `$${roiData.value.total_savings_AUD.toLocaleString()}` : "$9,650"}
+            value={results?.rebateResults ? `$${(results.rebateResults.total_rebates + (results.rebateResults.vpp_bonus || 0)).toLocaleString()}` : "$9,650"}
             subtitle="All rebates & incentives"
           />
         </div>
@@ -407,9 +383,9 @@ export default function RebatesCalculatorModule(props: RebatesCalculatorModulePr
           onClick={handleCalculate}
           size="lg"
           className={cn(tokens.buttonPrimary, "text-lg px-12 py-6 font-semibold")}
-          disabled={isCalculating || calculating}
+          disabled={calculating}
         >
-          {isCalculating || calculating ? (
+          {calculating ? (
             <>
               <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
               Calculating...

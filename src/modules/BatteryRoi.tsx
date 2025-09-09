@@ -38,7 +38,6 @@ import ComprehensiveShadeAnalyzer from '@/components/ComprehensiveShadeAnalyzer'
 import { Banner } from "@/features/shared/Banner";
 import { MetricTile } from "@/features/shared/MetricTile";
 import { StatusStrip } from "@/features/shared/StatusStrip";
-import { useBatteryROI } from "@/hooks/useModels";
 import { useModelStore } from "@/state/modelStore";
 import { tokens } from "@/theme/tokens";
 
@@ -188,26 +187,6 @@ export default function BatteryRoi() {
   });
 
   const { lastGoodResults } = useModelStore();
-  
-  // Mock battery ROI input for ML service
-  const batteryInput = React.useMemo(() => ({
-    usage_30min: Array.from({ length: 48 }, () => Math.random() * 2),
-    tariff: {
-      import: [{ price: formData.peakRate / 100, start: "00:00", end: "24:00" }],
-      export: [{ price: formData.feedInTariff / 100, start: "00:00", end: "24:00" }]
-    },
-    battery_params: {
-      capacity: formData.batterySize,
-      power: formData.batterySize * 0.5, // Assume C/2 rate
-      efficiency: 0.95
-    },
-    battery_size_kwh: formData.batterySize,
-    system_size_kw: formData.solarSize,
-    shading_index: formData.shading / 100,
-    location: { postcode: formData.postcode }
-  }), [formData]);
-
-  const { data: roiData, isLoading: isCalculating, error: roiError } = useBatteryROI(batteryInput);
 
   if (!started) {
     return (
@@ -304,11 +283,11 @@ export default function BatteryRoi() {
     <div className="space-y-6">
       {/* Status Strip */}
       <StatusStrip
-        model={roiData?.sourceModel || lastGoodResults?.battery_roi?.sourceModel || "battery_roi_v1"}
-        version={roiData?.version || lastGoodResults?.battery_roi?.version || "1.0"}
-        p95={roiData?.telemetry?.p95 || 95}
-        delta={roiData?.telemetry?.delta || 1.8}
-        error={roiError ? "Service unavailable" : undefined}
+        model={lastGoodResults?.battery_roi?.sourceModel || "battery_roi_v1"}
+        version={lastGoodResults?.battery_roi?.version || "1.0"}
+        p95={95}
+        delta={1.8}
+        error={undefined}
       />
 
       {/* ROI Results - Show when on results step */}
@@ -316,17 +295,17 @@ export default function BatteryRoi() {
         <div className="grid md:grid-cols-3 gap-6">
           <MetricTile
             title="Annual Savings"
-            value={roiData?.value?.annual_savings_AUD ? `$${roiData.value.annual_savings_AUD.toLocaleString()}` : `$${mockResults.annual_savings_AUD.toLocaleString()}`}
+            value={`$${mockResults.annual_savings_AUD.toLocaleString()}`}
             subtitle="Battery storage savings"
           />
           <MetricTile
             title="Payback Period"
-            value={roiData?.value?.payback_years ? `${roiData.value.payback_years} years` : `${mockResults.payback_years} years`}
+            value={`${mockResults.payback_years} years`}
             subtitle="Investment recovery time"
           />
           <MetricTile
             title="Total ROI"
-            value={roiData?.value?.total_roi_percent ? `${roiData.value.total_roi_percent}%` : `${mockResults.total_roi_percent}%`}
+            value={`${mockResults.total_roi_percent}%`}
             subtitle="20-year return on investment"
           />
         </div>
@@ -693,19 +672,19 @@ export default function BatteryRoi() {
                       <div className="flex justify-between">
                         <span>Annual Savings</span>
                         <span className="font-medium text-green-600">
-                          ${roiData?.value?.annual_savings_AUD?.toLocaleString() || mockResults.annual_savings_AUD.toLocaleString()}
+                          ${mockResults.annual_savings_AUD.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Payback Period</span>
                         <span className="font-medium">
-                          {roiData?.value?.payback_years || mockResults.payback_years} years
+                          {mockResults.payback_years} years
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>20-Year ROI</span>
                         <span className="font-medium text-blue-600">
-                          {roiData?.value?.total_roi_percent || mockResults.total_roi_percent}%
+                          {mockResults.total_roi_percent}%
                         </span>
                       </div>
                     </div>
