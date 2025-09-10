@@ -1658,6 +1658,45 @@ export type Database = {
         }
         Relationships: []
       }
+      training_access_logs: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          id: string
+          ip_address: unknown | null
+          security_context: Json | null
+          session_id: string | null
+          success: boolean | null
+          table_accessed: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          id?: string
+          ip_address?: unknown | null
+          security_context?: Json | null
+          session_id?: string | null
+          success?: boolean | null
+          table_accessed: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          id?: string
+          ip_address?: unknown | null
+          security_context?: Json | null
+          session_id?: string | null
+          success?: boolean | null
+          table_accessed?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       training_datasets: {
         Row: {
           name: string
