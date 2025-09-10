@@ -39,13 +39,17 @@ export default function EnhancedTrainingSystem() {
   useEffect(() => {
     const loadMetrics = async () => {
       try {
-        const { data, error } = await supabase
-          .from('training_metrics')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
+        const response = await supabase.functions.invoke('training-metrics', {
+          body: { action: 'get_metrics', limit: 100 }
+        });
+        
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+        
+        const data = response.data?.data;
 
-        if (data && !error) {
+        if (data) {
           // Calculate real metrics from training data
           const accuracyMetrics = data.filter(m => m.metric_type === 'accuracy');
           const efficiencyMetrics = data.filter(m => m.metric_type === 'efficiency');
@@ -104,13 +108,17 @@ export default function EnhancedTrainingSystem() {
           (async () => {
             const loadMetrics = async () => {
               try {
-                const { data, error } = await supabase
-                  .from('training_metrics')
-                  .select('*')
-                  .order('created_at', { ascending: false })
-                  .limit(100);
+                const response = await supabase.functions.invoke('training-metrics', {
+                  body: { action: 'get_metrics', limit: 100 }
+                });
+                
+                if (response.error) {
+                  throw new Error(response.error.message);
+                }
+                
+                const data = response.data?.data;
 
-                if (data && !error) {
+                if (data) {
                   // Calculate real metrics from training data
                   const accuracyMetrics = data.filter(m => m.metric_type === 'accuracy');
                   const efficiencyMetrics = data.filter(m => m.metric_type === 'efficiency');

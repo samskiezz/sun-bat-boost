@@ -42,3 +42,6 @@ verify_jwt = false
 
 [functions.xgboost]
 verify_jwt = false
+
+[functions.training-metrics]
+verify_jwt = false

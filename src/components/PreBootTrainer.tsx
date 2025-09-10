@@ -46,12 +46,12 @@ export default function PreBootTrainer() {
         .from('train_episodes')
         .select('*', { count: 'exact', head: true });
 
-      // Get latest metrics
-      const { data: metrics } = await supabase
-        .from('training_metrics')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Get latest metrics via secure endpoint
+      const response = await supabase.functions.invoke('training-metrics', {
+        body: { action: 'get_latest', limit: 10 }
+      });
+      
+      const metrics = response.data?.data;
 
       const latestMetrics = metrics?.reduce((acc, metric) => {
         if (!acc[metric.metric_type]) {

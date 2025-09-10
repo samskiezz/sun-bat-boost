@@ -53,14 +53,18 @@ export default function TrainingImprovementsDashboard() {
 
   async function loadImprovementData() {
     try {
-      // Load training metrics
-      const { data: metrics, error: metricsError } = await supabase
-        .from('training_metrics')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      // Load training metrics via secure endpoint
+      const metricsResponse = await supabase.functions.invoke('training-metrics', {
+        body: { action: 'get_metrics', limit: 100 }
+      });
+      
+      if (metricsResponse.error) {
+        throw new Error(metricsResponse.error.message);
+      }
+      
+      const metrics = metricsResponse.data?.data;
 
-      if (metricsError) throw metricsError;
+      
 
       // Load readiness gates
       const { data: gates, error: gatesError } = await supabase

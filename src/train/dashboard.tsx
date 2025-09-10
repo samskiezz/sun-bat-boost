@@ -43,12 +43,16 @@ export default function TrainingDashboard() {
       const timeframeHours = selectedTimeframe === '24h' ? 24 : selectedTimeframe === '7d' ? 168 : 720;
       const since = new Date(Date.now() - timeframeHours * 60 * 60 * 1000).toISOString();
 
-      // Load recent metrics
-      const { data: metrics } = await supabase
-        .from('training_metrics')
-        .select('*')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false });
+      // Load recent metrics via secure endpoint
+      const response = await supabase.functions.invoke('training-metrics', {
+        body: { 
+          action: 'get_metrics', 
+          limit: 1000,
+          since: since 
+        }
+      });
+      
+      const metrics = response.data?.data;
 
       // Load episodes
       const { data: episodes } = await supabase
