@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_model_access_logs: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          id: string
+          ip_address: unknown | null
+          model_type: string | null
+          model_version: string | null
+          security_context: Json | null
+          success: boolean | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          id?: string
+          ip_address?: unknown | null
+          model_type?: string | null
+          model_version?: string | null
+          security_context?: Json | null
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          id?: string
+          ip_address?: unknown | null
+          model_type?: string | null
+          model_version?: string | null
+          security_context?: Json | null
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       ai_model_weights: {
         Row: {
           created_at: string
