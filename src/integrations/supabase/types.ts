@@ -226,6 +226,44 @@ export type Database = {
           },
         ]
       }
+      compliance_access_logs: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          compliance_check_id: string | null
+          id: string
+          ip_address: unknown | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          compliance_check_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          compliance_check_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_access_logs_compliance_check_id_fkey"
+            columns: ["compliance_check_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_checks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_checks: {
         Row: {
           check_results: Json
