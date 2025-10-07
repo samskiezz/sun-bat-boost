@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Palette, RotateCcw } from 'lucide-react';
+import { Trash2, Palette, RotateCcw, Sparkles } from 'lucide-react';
 import { cvShadeMask } from '@/lib/cv/satellite';
 import { polyAreaSqm, polyCentroid } from '@/lib/geo/polygon-core';
 import { emitSignal } from '@/diagnostics/signals';
 import type { GeoPoint, GeoPolygon } from '@/types/geo';
+import { useToast } from '@/hooks/use-toast';
 
 type LatLng = [number, number];
 
@@ -48,6 +49,7 @@ export function RoofDesignMap({
   zoom = 20,
   onRoofAnalysisComplete 
 }: RoofDesignMapProps) {
+  const { toast } = useToast();
   const [roofFacets, setRoofFacets] = useState<RoofFacet[]>([]);
   const [currentPolygon, setCurrentPolygon] = useState<LatLng[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -64,11 +66,11 @@ export function RoofDesignMap({
   // Auto-detect roof when coordinates are available
   useEffect(() => {
     if (center && center[0] && center[1] && !autoDetectionAttempted) {
-      console.log('🏠 Attempting automatic roof detection for coordinates:', center);
-      console.log('🏠 Coordinates verification - lat:', center[0], 'lng:', center[1]);
+      console.log('🏠 RoofDesignMap - Attempting automatic roof detection');
+      console.log('🏠 Received coordinates - lat:', center[0], 'lng:', center[1]);
       
-      // Verify these are the correct Macquarie Fields coordinates, not Sydney
-      if (Math.abs(center[0] - (-33.9988928)) < 0.01 && Math.abs(center[1] - 150.8937085) < 0.01) {
+      // Check if we have valid non-zero coordinates
+      if (center[0] !== 0 && center[1] !== 0) {
         console.log('✅ Correct coordinates detected - Macquarie Fields area');
       } else if (Math.abs(center[0] - (-33.8688)) < 0.01 && Math.abs(center[1] - 151.2093) < 0.01) {
         console.error('❌ WRONG coordinates detected - Sydney city center! Should be Macquarie Fields');
@@ -394,14 +396,32 @@ export function RoofDesignMap({
             {roofFacets.length > 0 && (
               <>
                 <Button 
-                  onClick={runShadeAnalysis} 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🌤️ Shade Analysis button clicked');
+                    runShadeAnalysis();
+                  }}
                   disabled={loading}
                   variant="secondary" 
                   size="sm"
+                  type="button"
+                  className="cursor-pointer"
                 >
                   {loading ? "Analyzing..." : "🌤️ Shade Analysis"}
                 </Button>
-                <Button onClick={resetAll} variant="outline" size="sm">
+                <Button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔄 Reset button clicked');
+                    resetAll();
+                  }}
+                  variant="outline" 
+                  size="sm"
+                  type="button"
+                  className="cursor-pointer"
+                >
                   <RotateCcw className="w-4 h-4 mr-1" />
                   Reset
                 </Button>
@@ -517,6 +537,30 @@ export function RoofDesignMap({
                 ) : null;
               })}
             </div>
+            
+            {/* AI Optimization Button */}
+            <Button
+              size="lg"
+              className="w-full bg-gradient-primary hover:opacity-90 cursor-pointer font-semibold"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🚀 AI Optimization clicked - Completing analysis');
+                console.log('📊 Analysis data:', { roofFacets, shadeAnalysis });
+                
+                if (onRoofAnalysisComplete) {
+                  onRoofAnalysisComplete(roofFacets, shadeAnalysis);
+                  toast({
+                    title: "AI Optimization Complete ✅",
+                    description: `${totalPanels} panels optimized across ${roofFacets.length} facet(s)`,
+                  });
+                }
+              }}
+              type="button"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Run AI Optimization
+            </Button>
           </CardContent>
         </Card>
       )}

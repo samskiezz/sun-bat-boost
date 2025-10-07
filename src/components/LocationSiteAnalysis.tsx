@@ -764,6 +764,36 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
           )}
         </motion.div>
       )}
+      
+      {/* Next Button */}
+      {locationData && siteAnalysis.analysisComplete && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-between items-center"
+        >
+          <div className="text-sm text-muted-foreground">
+            <span className="flex items-center gap-2 text-emerald-500">
+              <CheckCircle className="w-4 h-4" />
+              Ready to proceed
+            </span>
+          </div>
+          <Button
+            size="lg"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('▶️ Next button clicked - proceeding to system sizing');
+              onNext?.();
+            }}
+            className="bg-gradient-primary hover:opacity-90 cursor-pointer"
+            type="button"
+          >
+            Continue to AI System Sizing
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };
