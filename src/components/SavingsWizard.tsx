@@ -633,6 +633,8 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
         </Card>
       )}
 
+      {!shadeAnalysis && (
+        
       <Card>
         <CardContent className="pt-6">
           <div className="text-center space-y-4">
@@ -657,6 +659,8 @@ export function SavingsWizard({ onApplyResults }: SavingsWizardProps) {
           </div>
         </CardContent>
       </Card>
+      )}
+
     </div>
   );
 

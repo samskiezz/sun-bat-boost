@@ -197,17 +197,29 @@ export const LocationSiteAnalysis: React.FC<LocationSiteAnalysisProps> = ({
         console.log('🎯 Geocoding response:', geocodeData);
         
         if (geocodeData.results && geocodeData.results.length > 0) {
-          const location = geocodeData.results[0].geometry.location;
+          // Prefer ROOFTOP accuracy, then street_address, then first result
+          const rooftop = geocodeData.results.find((r: any) => r.geometry?.location_type === 'ROOFTOP');
+          const street = geocodeData.results.find((r: any) => (r.types || []).includes('street_address'));
+          const best = rooftop || street || geocodeData.results[0];
+
+          const location = best.geometry.location;
           lat = location.lat;
           lng = location.lng;
-          const formattedAddress = geocodeData.results[0].formatted_address;
-          console.log('🎯 SUCCESS - Geocoded coordinates:', { lat, lng, address: fullAddress, googleResult: formattedAddress });
-          
-          // Check if the geocoded address matches our house number
-          if (formattedAddress.includes('29') && formattedAddress.toLowerCase().includes('cranberry')) {
-            console.log('✅ Confirmed: Geocoded address matches house number 29');
-          } else {
-            console.warn('⚠️ WARNING: Geocoded address may not match house number 29:', formattedAddress);
+          const formattedAddress = best.formatted_address;
+          const locType = best.geometry?.location_type;
+          console.log('🎯 SUCCESS - Geocoded coordinates (preferred result):', { lat, lng, address: fullAddress, formattedAddress, locType });
+
+          // Extra: if viewport exists, gently nudge inside parcel centre to avoid road snaps
+          if (best.geometry?.viewport) {
+            const vp = best.geometry.viewport;
+            const centerLat = (vp.northeast.lat + vp.southwest.lat) / 2;
+            const centerLng = (vp.northeast.lng + vp.southwest.lng) / 2;
+            // Only adjust if location_type is not ROOFTOP
+            if (locType !== 'ROOFTOP') {
+              lat = centerLat;
+              lng = centerLng;
+              console.log('📍 Adjusted to viewport centroid to avoid road placement:', { lat, lng });
+            }
           }
         } else {
           throw new Error('No geocoding results found');
